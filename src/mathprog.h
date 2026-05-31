@@ -21,8 +21,8 @@
 *  along with GLPK. If not, see <http://www.gnu.org/licenses/>.
 ***********************************************************************/
 
-#ifndef GLPK_H
-#define GLPK_H
+#ifndef MATHPROG_H
+#define MATHPROG_H
 
 #include <stdarg.h>
 #include <stddef.h>
@@ -31,6 +31,7 @@
 extern "C" {
 #endif
 
+#if 0
 /* library version numbers: */
 #define GLP_MAJOR_VERSION  4
 #define GLP_MINOR_VERSION  65
@@ -310,9 +311,13 @@ typedef struct glp_prep glp_prep;
 /* LP/MIP preprocessor workspace */
 #endif
 
-typedef struct glp_tran glp_tran;
+#endif
+
+typedef struct mpl_tran mpl_tran;
 /* MathProg translator workspace */
 
+
+#if 0
 glp_prob *glp_create_prob(void);
 /* create problem object */
 
@@ -866,56 +871,59 @@ int glp_read_prob(glp_prob *P, int flags, const char *fname);
 
 int glp_write_prob(glp_prob *P, int flags, const char *fname);
 /* write problem data in GLPK format */
+#endif
 
-glp_tran *glp_mpl_alloc_wksp(void);
+mpl_tran *mpl_alloc_wksp(void);
 /* allocate the MathProg translator workspace */
 
-void glp_mpl_init_rand(glp_tran *tran, int seed);
+void mpl_init_rand(mpl_tran *tran, int seed);
 /* initialize pseudo-random number generator */
 
-int glp_mpl_read_model(glp_tran *tran, const char *fname, int skip);
+int mpl_read_model(mpl_tran *tran, const char *fname, int skip);
 /* read and translate model section */
 
-int glp_mpl_read_data(glp_tran *tran, const char *fname);
+int mpl_read_data(mpl_tran *tran, const char *fname);
 /* read and translate data section */
 
-int glp_mpl_generate(glp_tran *tran, const char *fname);
+int mpl_generate(mpl_tran *tran, const char *fname);
 /* generate the model */
 
-typedef int (*glp_solve_callback)(glp_tran *mpl, int sol_type, void *udata);
-void glp_mpl_set_solve_callback(glp_tran *tran, glp_solve_callback solve_cb, void *udata);
+typedef int (*glp_solve_callback)(mpl_tran *mpl, int sol_type, void *udata);
+void mpl_set_solve_callback(mpl_tran *tran, glp_solve_callback solve_cb, void *udata);
 /* set the solve callback that will be called when a solve
    statement is executed, the user_data pointer is passed
    back */
 
-int glp_mpl_set_genall(glp_tran *tran, int bflag);
+int mpl_set_genall(mpl_tran *tran, int bflag);
 /* set the gen_all option, pre generate all entities in the model
    return the previous value */
 
-int glp_mpl_set_show_delta(glp_tran *tran, int bflag);
+int mpl_set_show_delta(mpl_tran *tran, int bflag);
 /* set the show_delta option, show time/memory delta usage
    return the previous value */
 
-int glp_mpl_set_add_missing_param_values(glp_tran *tran, int bflag);
+int mpl_set_add_missing_param_values(mpl_tran *tran, int bflag);
 /* set the add_missing_param_values option, parameters
    with missing values and a default option by default
    calculates it every unless this option is set to non zero */
 
-int glp_mpl_set_msg_lev(glp_tran *tran, int msg_lev);
+int mpl_set_msg_lev(mpl_tran *tran, int msg_lev);
 /* set the message level (verbosity)
    return the previous value */
 
-void glp_mpl_build_prob(glp_tran *tran, glp_prob *prob);
+void mpl_build_prob(mpl_tran *tran, glp_prob *prob);
 /* build LP/MIP problem instance from the model */
 
-int glp_mpl_postsolve(glp_tran *tran, glp_prob *prob, int sol);
+int mpl_postsolve(mpl_tran *tran, glp_prob *prob, int sol);
 /* postsolve the model */
 
-int glp_mpl_waiting_solve(glp_tran *tran);
+int mpl_waiting_solve(mpl_tran *tran);
 /* check if the model execution is waiting for solve */
 
-void glp_mpl_free_wksp(glp_tran *tran);
+void mpl_free_wksp(mpl_tran *tran);
 /* free the MathProg translator workspace */
+
+#if 0
 
 int glp_read_cnfsat(glp_prob *P, const char *fname);
 /* read CNF-SAT problem data in DIMACS format */
@@ -1251,6 +1259,7 @@ int glp_top_sort(glp_graph *G, int v_num);
 
 int glp_wclique_exact(glp_graph *G, int v_wgt, glp_double *sol, int v_set);
 /* find maximum weight clique with exact algorithm */
+#endif
 
 #ifdef __cplusplus
 }

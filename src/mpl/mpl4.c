@@ -769,7 +769,7 @@ glp_solve_callback solve_callback_get(MPL *mpl, void **user_data)
 --     program should call the routine mpl_terminate to terminate model
 --     processing. */
 
-int mpl_read_model(MPL *mpl, char *file, int skip_data)
+int mpl_read_model_int(MPL *mpl, char *file, int skip_data)
 {     if (mpl->phase != GLP_TRAN_PHASE_INITIAL)
          xfault("mpl_read_model: invalid call sequence\n");
       if (file == NULL)
@@ -844,7 +844,7 @@ done: /* return to the calling program */
 --     program should call the routine mpl_terminate to terminate model
 --     processing. */
 
-int mpl_read_data(MPL *mpl, char *file)
+int mpl_read_data_int(MPL *mpl, char *file)
 #if 0 /* 02/X-2008 */
 {     if (mpl->phase != GLP_TRAN_PHASE_MODEL)
 #else
@@ -914,7 +914,7 @@ done: /* return to the calling program */
 --     program should call the routine mpl_terminate to terminate model
 --     processing. */
 
-int mpl_generate(MPL *mpl, char *file)
+int mpl_generate_int(MPL *mpl, char *file)
 {     if (!(mpl->phase == GLP_TRAN_PHASE_MODEL || mpl->phase == GLP_TRAN_PHASE_DATA))
          xfault("mpl_generate: invalid call sequence\n");
       /* set up error handler */
@@ -1176,7 +1176,7 @@ int mpl_get_row_bnds(MPL *mpl, int i, double *_lb, double *_ub)
       return type;
 }
 
-int mpl_get_row_bnds_gd(MPL *mpl, int i, glp_double *_lb, glp_double *_ub)
+int mpl_get_row_bnds_gd(MPL *mpl, int i, double *_lb, double *_ub)
 {
     double d_lb, d_ub;
     int rc = mpl_get_row_bnds(mpl, i, &d_lb, &d_ub);
@@ -1232,7 +1232,7 @@ int mpl_get_mat_row(MPL *mpl, int i, int ndx[], double val[])
       return len;
 }
 
-int mpl_get_mat_row_gd(MPL *mpl, int i, int ndx[], glp_double val[])
+int mpl_get_mat_row_gd(MPL *mpl, int i, int ndx[], double val[])
 {     FORMULA *term;
       int len = 0;
       if (mpl->phase != GLP_TRAN_PHASE_GENERATE)
@@ -1439,7 +1439,7 @@ int mpl_get_col_bnds(MPL *mpl, int j, double *_lb, double *_ub)
       return type;
 }
 
-int mpl_get_col_bnds_gd(MPL *mpl, int j, glp_double *_lb, glp_double *_ub)
+int mpl_get_col_bnds_gd(MPL *mpl, int j, double *_lb, double *_ub)
 {
     double d_lb, d_ub;
     int rc = mpl_get_col_bnds(mpl, j, &d_lb, &d_ub);
@@ -1545,7 +1545,7 @@ void mpl_put_col_value(MPL *mpl, int j, double val)
 --     program should call the routine mpl_terminate to terminate model
 --     processing. */
 
-int mpl_postsolve(MPL *mpl)
+int mpl_postsolve_int(MPL *mpl)
 {     if (!(mpl->phase == GLP_TRAN_PHASE_GENERATE && !mpl->flag_p))
          xfault("mpl_postsolve: invalid call sequence\n");
       /* set up error handler */

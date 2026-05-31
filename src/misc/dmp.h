@@ -26,7 +26,7 @@
 
 #include "stdc.h"
 
-#include "glpk_real.h"
+//#include "glpk_real.h"
 
 typedef struct DMP DMP;
 

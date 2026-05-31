@@ -35,11 +35,13 @@
 
 #include <glpk.h>
 
+#include "mathprog.h"
+
 #ifdef WITH_LPSOLVE
 #include "lp_lib.h"
 //#include "commonlib.h"
-extern lprec *glp_lpsolve_mpl_build_prob(glp_tran *tran);
-extern int glp_lpsolve_mpl_postsolve(glp_tran *tran, lprec *lp, int sol);
+extern lprec *glp_lpsolve_mpl_build_prob(mpl_tran *tran);
+extern int glp_lpsolve_mpl_postsolve(mpl_tran *tran, lprec *lp, int sol);
 #endif
 
 #define xassert glp_assert
@@ -59,7 +61,7 @@ struct csa
       /* interior-point method control parameters */
       glp_iocp iocp;
       /* integer optimizer control parameters */
-      glp_tran *tran;
+      mpl_tran *tran;
       /* model translator workspace */
       glp_graph *graph;
       /* network problem object */
@@ -195,18 +197,18 @@ static int str2int(const char *s, int *x)
       return 0;
 }
 
-static int str2num(const char *s, glp_double *x)
+static int str2num(const char *s, double *x)
 {     /* convert string to floating point */
-      glp_double t;
+      double t;
       char *endptr;
       t = strtod(s, &endptr);
       if (*endptr != '\0')
          return 2;
-      if (!(-GLP_DBL_MAX <= t && t <= +GLP_DBL_MAX))
+      if (!(-DBL_MAX <= t && t <= +DBL_MAX))
          return 1;
       *x = t;
 #if 0
-      xprintf("str2num: x = %" GLP_DBL_FMT_G "\n", *x);
+      xprintf("str2num: x = %g\n", *x);
 #endif
       return 0;
 }
@@ -463,13 +465,10 @@ static void print_help(const char *my_name)
 
 static void print_version(int briefly)
 {     /* print version information */
-      xprintf("GLPSOL: GLPK LP/MIP Solver, v%s, glp_double size %d\n", glp_version(), (int)sizeof(glp_double));
+      xprintf("GLPSOL--GLPK LP/MIP Solver %s\n", glp_version());
       if (briefly) goto done;
-      xprintf("Copyright (C) 2000-2017 Andrew Makhorin, Department for "
-         "Applied\n");
-      xprintf("Informatics, Moscow Aviation Institute, Moscow, Russia. "
-         "All rights\n");
-      xprintf("reserved. E-mail: <mao@gnu.org>.\n");
+      xprintf("Copyright (C) 2000-2020 Free Software Foundation, Inc.\n"
+         );
       xprintf("\n");
       xprintf("This program has ABSOLUTELY NO WARRANTY.\n");
       xprintf("\n");
@@ -671,11 +670,13 @@ static int parse_cmdline(struct csa *csa, int argc, char *argv[])
          else if (p("--hide"))
             csa->hide = 1;
 #endif
+#if 0
          else if (p("--nonames"))
          {
             csa->nonames = 1;
             glp_set_use_col_row_names(csa->prob, 0);
          }
+#endif
          else if (p("--wmps"))
          {  k++;
             if (k == argc || argv[k][0] == '\0' || argv[k][0] == '-')
@@ -931,7 +932,7 @@ static int parse_cmdline(struct csa *csa, int argc, char *argv[])
             csa->iocp.gmi_cuts = csa->iocp.mir_cuts =
             csa->iocp.cov_cuts = csa->iocp.clq_cuts = GLP_ON;
          else if (p("--mipgap"))
-         {  glp_double mip_gap;
+         {  double mip_gap;
             k++;
             if (k == argc || argv[k][0] == '\0' || argv[k][0] == '-')
             {  xprintf("No relative gap tolerance specified\n");
@@ -1007,10 +1008,10 @@ static int parse_cmdline(struct csa *csa, int argc, char *argv[])
       return 0;
 }
 
-typedef struct { glp_double rhs, pi; } v_data;
-typedef struct { glp_double low, cap, cost, x; } a_data;
+typedef struct { double rhs, pi; } v_data;
+typedef struct { double low, cap, cost, x; } a_data;
 
-static int solve_callback(glp_tran *tran, int sol_type, void *udata)
+static int solve_callback(mpl_tran *tran, int sol_type, void *udata)
 {
     int ret = 0, psol_type = GLP_SOL;
     struct csa *csa = (struct csa *)udata;
@@ -1117,7 +1118,7 @@ static int solve_callback(glp_tran *tran, int sol_type, void *udata)
     {
         csa->solve_callback_used_has_solution = 1;
         /* build the problem instance from the model */
-        glp_mpl_build_prob(csa->tran, csa->prob);
+        mpl_build_prob(csa->tran, csa->prob);
         glp_sort_matrix(csa->prob);
 
         //glp_scale_prob(csa->prob, GLP_SF_AUTO);
@@ -1163,7 +1164,7 @@ static int solve_callback(glp_tran *tran, int sol_type, void *udata)
             printf("Solver reported a problem\n");
             return ret;
         }
-        ret = glp_mpl_postsolve(csa->tran, csa->prob, psol_type);
+        ret = mpl_postsolve(csa->tran, csa->prob, psol_type);
     }
 
     if (ret != 0) printf("Error on postsolving model\n");
@@ -1181,7 +1182,7 @@ int __cdecl main(int argc, char *argv[])
 #if 0 /* 10/VI-2013 */
       glp_long start;
 #else
-      glp_double start;
+      double start;
 #endif
       /* perform initialization */
       csa->prob = glp_create_prob();
@@ -1346,13 +1347,13 @@ err1:    {  xprintf("MPS file processing error\n");
       else if (csa->format == FMT_MATHPROG)
       {  int k;
          /* allocate the translator workspace */
-         csa->tran = glp_mpl_alloc_wksp();
+         csa->tran = mpl_alloc_wksp();
          if(csa->quiet)
-            glp_mpl_set_msg_lev(csa->tran, GLP_MSG_ERR);
-         glp_mpl_set_genall(csa->tran, csa->gen_all);
-         glp_mpl_set_show_delta(csa->tran, csa->show_delta);
+            mpl_set_msg_lev(csa->tran, GLP_MSG_ERR);
+         mpl_set_genall(csa->tran, csa->gen_all);
+         mpl_set_show_delta(csa->tran, csa->show_delta);
          if(!csa->check && !csa->solve_callback_skip)
-             glp_mpl_set_solve_callback(csa->tran, solve_callback, csa);
+             mpl_set_solve_callback(csa->tran, solve_callback, csa);
          /* set seed value */
          if (csa->seed == 0x80000000)
 #if 0 /* 10/VI-2013 */
@@ -1362,24 +1363,24 @@ err1:    {  xprintf("MPS file processing error\n");
 #endif
             xprintf("Seed value %d will be used\n", csa->seed);
          }
-         glp_mpl_init_rand(csa->tran, csa->seed);
+         mpl_init_rand(csa->tran, csa->seed);
          /* read model section and optional data section */
-         if (glp_mpl_read_model(csa->tran, csa->in_file, csa->ndf > 0))
+         if (mpl_read_model(csa->tran, csa->in_file, csa->ndf > 0))
 err2:    {  xprintf("MathProg model processing error\n");
             ret = EXIT_FAILURE;
             goto done;
          }
          /* read optional data section(s), if necessary */
          for (k = 1; k <= csa->ndf; k++)
-         {  if (glp_mpl_read_data(csa->tran, csa->in_data[k]))
+         {  if (mpl_read_data(csa->tran, csa->in_data[k]))
                goto err2;
          }
          /* generate the model */
-         if (glp_mpl_generate(csa->tran, csa->out_dpy)) goto err2;
+         if (mpl_generate(csa->tran, csa->out_dpy)) goto err2;
          if (csa->genonly || (csa->solve_callback_used &&
                  csa->solve_callback_used_has_solution == 0)) goto done;
          /* build the problem instance from the model */
-         glp_mpl_build_prob(csa->tran, csa->prob);
+         mpl_build_prob(csa->tran, csa->prob);
       }
       else if (csa->format == FMT_MIN_COST)
       {  csa->graph = glp_create_graph(sizeof(v_data), sizeof(a_data));
@@ -1674,7 +1675,7 @@ err2:    {  xprintf("MathProg model processing error\n");
          xassert(csa != csa);
       /*--------------------------------------------------------------*/
       /* display statistics */
-      xprintf("Time used:   %.1" GLP_DBL_FMT_F " secs\n", glp_difftime(glp_time(),
+      xprintf("Time used:   %.1f secs\n", glp_difftime(glp_time(),
          start));
 #if 0 /* 16/II-2012 */
       {  glp_long tpeak;
@@ -1686,8 +1687,8 @@ err2:    {  xprintf("MathProg model processing error\n");
 #else
       {  size_t tpeak;
          glp_mem_usage(NULL, NULL, NULL, &tpeak);
-         xprintf("Memory used: %.1" GLP_DBL_FMT_F " Mb (%.0" GLP_DBL_FMT_F " bytes)\n",
-            (glp_double)tpeak / 1048576.0, (glp_double)tpeak);
+         xprintf("Memory used: %.1f Mb (%.0f bytes)\n",
+            (double)tpeak / 1048576.0, (double)tpeak);
       }
 #endif
       /*--------------------------------------------------------------*/
@@ -1698,21 +1699,21 @@ skip: /* postsolve the model, if necessary */
                   glp_get_status(csa->prob) == GLP_FEAS))
                ret = -1;
             else
-               ret = glp_mpl_postsolve(csa->tran, csa->prob, GLP_SOL);
+               ret = mpl_postsolve(csa->tran, csa->prob, GLP_SOL);
          }
          else if (csa->solution == SOL_INTERIOR)
          {  if (!(glp_ipt_status(csa->prob) == GLP_OPT ||
                   glp_ipt_status(csa->prob) == GLP_FEAS))
                ret = -1;
             else
-               ret = glp_mpl_postsolve(csa->tran, csa->prob, GLP_IPT);
+               ret = mpl_postsolve(csa->tran, csa->prob, GLP_IPT);
          }
          else if (csa->solution == SOL_INTEGER)
          {  if (!(glp_mip_status(csa->prob) == GLP_OPT ||
                   glp_mip_status(csa->prob) == GLP_FEAS))
                ret = -1;
             else
-               ret = glp_mpl_postsolve(csa->tran, csa->prob, GLP_MIP);
+               ret = mpl_postsolve(csa->tran, csa->prob, GLP_MIP);
          }
          else
             xassert(csa != csa);
@@ -1798,7 +1799,7 @@ done: /* delete the LP/MIP problem object */
 #endif
       /* free the translator workspace, if necessary */
       if (csa->tran != NULL)
-         glp_mpl_free_wksp(csa->tran);
+         mpl_free_wksp(csa->tran);
       /* delete the network problem object, if necessary */
       if (csa->graph != NULL)
          glp_delete_graph(csa->graph);

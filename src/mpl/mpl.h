@@ -33,10 +33,13 @@
 #include "nanbox.h"
 #define GMPL_INLINE inline
 
+#define GLP_MPL_MIN_9 1e-9
+
 #if 0 /* 22/I-2013 */
 typedef struct MPL MPL;
 #else
-typedef struct glp_tran MPL;
+typedef struct mpl_tran MPL;
+typedef struct mpl_tran mpl_tran;
 #endif
 typedef struct glp_input_file_st glp_input_file_st;
 typedef char STRING;
@@ -265,7 +268,7 @@ struct glp_input_file_st
 #if 0 /* 22/I-2013 */
 struct MPL
 #else
-struct glp_tran
+struct mpl_tran
 #endif
 {     /* translator database */
       /*--------------------------------------------------------------*/
@@ -421,310 +424,310 @@ struct glp_tran
 #define alloc(type) ((type *)dmp_get_atomv(mpl->pool, sizeof(type)))
 /* allocate atom of given type */
 
-#define enter_context _glp_mpl_enter_context
+#define enter_context _mpl_enter_context
 void enter_context(MPL *mpl);
 /* enter current token into context queue */
 
-#define print_context _glp_mpl_print_context
+#define print_context _mpl_print_context
 void print_context(MPL *mpl);
 /* print current content of context queue */
 
-#define get_char _glp_mpl_get_char
+#define get_char _mpl_get_char
 void get_char(MPL *mpl);
 /* scan next character from input text file */
 
-#define append_char _glp_mpl_append_char
+#define append_char _mpl_append_char
 void append_char(MPL *mpl);
 /* append character to current token */
 
-#define get_token _glp_mpl_get_token
+#define get_token _mpl_get_token
 void get_token(MPL *mpl);
 /* scan next token from input text file */
 
-#define expect_token _glp_mpl_expect_token
+#define expect_token _mpl_expect_token
 void expect_token(MPL *mpl, int token);
 /* check current and scan next token from input text file */
 
-#define unget_token _glp_mpl_unget_token
+#define unget_token _mpl_unget_token
 void unget_token(MPL *mpl);
 /* return current token back to input stream */
 
-#define is_keyword _glp_mpl_is_keyword
+#define is_keyword _mpl_is_keyword
 int is_keyword(MPL *mpl, char *keyword);
 /* check if current token is given non-reserved keyword */
 
-#define is_reserved _glp_mpl_is_reserved
+#define is_reserved _mpl_is_reserved
 int is_reserved(MPL *mpl);
 /* check if current token is reserved keyword */
 
-#define make_code _glp_mpl_make_code
+#define make_code _mpl_make_code
 CODE *make_code(MPL *mpl, int op, OPERANDS *arg, int type, int dim);
 /* generate pseudo-code (basic routine) */
 
-#define make_unary _glp_mpl_make_unary
+#define make_unary _mpl_make_unary
 CODE *make_unary(MPL *mpl, int op, CODE *x, int type, int dim);
 /* generate pseudo-code for unary operation */
 
-#define make_binary _glp_mpl_make_binary
+#define make_binary _mpl_make_binary
 CODE *make_binary(MPL *mpl, int op, CODE *x, CODE *y, int type,
       int dim);
 /* generate pseudo-code for binary operation */
 
-#define make_ternary _glp_mpl_make_ternary
+#define make_ternary _mpl_make_ternary
 CODE *make_ternary(MPL *mpl, int op, CODE *x, CODE *y, CODE *z,
       int type, int dim);
 /* generate pseudo-code for ternary operation */
 
-#define numeric_literal _glp_mpl_numeric_literal
+#define numeric_literal _mpl_numeric_literal
 CODE *numeric_literal(MPL *mpl);
 /* parse reference to numeric literal */
 
-#define string_literal _glp_mpl_string_literal
+#define string_literal _mpl_string_literal
 CODE *string_literal(MPL *mpl);
 /* parse reference to string literal */
 
-#define create_arg_list _glp_mpl_create_arg_list
+#define create_arg_list _mpl_create_arg_list
 ARG_LIST *create_arg_list(MPL *mpl);
 /* create empty operands list */
 
-#define expand_arg_list _glp_mpl_expand_arg_list
+#define expand_arg_list _mpl_expand_arg_list
 ARG_LIST *expand_arg_list(MPL *mpl, ARG_LIST *list, CODE *x);
 /* append operand to operands list */
 
-#define arg_list_len _glp_mpl_arg_list_len
+#define arg_list_len _mpl_arg_list_len
 int arg_list_len(MPL *mpl, ARG_LIST *list);
 /* determine length of operands list */
 
-#define subscript_list _glp_mpl_subscript_list
+#define subscript_list _mpl_subscript_list
 ARG_LIST *subscript_list(MPL *mpl);
 /* parse subscript list */
 
-#define object_reference _glp_mpl_object_reference
+#define object_reference _mpl_object_reference
 CODE *object_reference(MPL *mpl);
 /* parse reference to named object */
 
-#define numeric_argument _glp_mpl_numeric_argument
+#define numeric_argument _mpl_numeric_argument
 CODE *numeric_argument(MPL *mpl, char *func);
 /* parse argument passed to built-in function */
 
-#define symbolic_argument _glp_mpl_symbolic_argument
+#define symbolic_argument _mpl_symbolic_argument
 CODE *symbolic_argument(MPL *mpl, char *func);
 
-#define elemset_argument _glp_mpl_elemset_argument
+#define elemset_argument _mpl_elemset_argument
 CODE *elemset_argument(MPL *mpl, char *func);
 
-#define function_reference _glp_mpl_function_reference
+#define function_reference _mpl_function_reference
 CODE *function_reference(MPL *mpl);
 /* parse reference to built-in function */
 
-#define create_domain _glp_mpl_create_domain
+#define create_domain _mpl_create_domain
 DOMAIN *create_domain(MPL *mpl);
 /* create empty domain */
 
-#define create_block _glp_mpl_create_block
+#define create_block _mpl_create_block
 DOMAIN_BLOCK *create_block(MPL *mpl);
 /* create empty domain block */
 
-#define append_block _glp_mpl_append_block
+#define append_block _mpl_append_block
 void append_block(MPL *mpl, DOMAIN *domain, DOMAIN_BLOCK *block);
 /* append domain block to specified domain */
 
-#define append_slot _glp_mpl_append_slot
+#define append_slot _mpl_append_slot
 DOMAIN_SLOT *append_slot(MPL *mpl, DOMAIN_BLOCK *block, char *name,
       CODE *code);
 /* create and append new slot to domain block */
 
-#define expression_list _glp_mpl_expression_list
+#define expression_list _mpl_expression_list
 CODE *expression_list(MPL *mpl);
 /* parse expression list */
 
-#define literal_set _glp_mpl_literal_set
+#define literal_set _mpl_literal_set
 CODE *literal_set(MPL *mpl, CODE *code);
 /* parse literal set */
 
-#define indexing_expression _glp_mpl_indexing_expression
+#define indexing_expression _mpl_indexing_expression
 DOMAIN *indexing_expression(MPL *mpl);
 /* parse indexing expression */
 
-#define close_scope _glp_mpl_close_scope
+#define close_scope _mpl_close_scope
 void close_scope(MPL *mpl, DOMAIN *domain);
 /* close scope of indexing expression */
 
-#define iterated_expression _glp_mpl_iterated_expression
+#define iterated_expression _mpl_iterated_expression
 CODE *iterated_expression(MPL *mpl);
 /* parse iterated expression */
 
-#define piecewise_expression _glp_mpl_piecewise_expression
+#define piecewise_expression _mpl_piecewise_expression
 CODE *piecewise_expression(MPL *mpl);
 /* parse piecewise expression */
 
-#define domain_arity _glp_mpl_domain_arity
+#define domain_arity _mpl_domain_arity
 int domain_arity(MPL *mpl, DOMAIN *domain);
 /* determine arity of domain */
 
-#define set_expression _glp_mpl_set_expression
+#define set_expression _mpl_set_expression
 CODE *set_expression(MPL *mpl);
 /* parse set expression */
 
-#define branched_expression _glp_mpl_branched_expression
+#define branched_expression _mpl_branched_expression
 CODE *branched_expression(MPL *mpl);
 /* parse conditional expression */
 
-#define primary_expression _glp_mpl_primary_expression
+#define primary_expression _mpl_primary_expression
 CODE *primary_expression(MPL *mpl);
 /* parse primary expression */
 
-#define error_preceding _glp_mpl_error_preceding
+#define error_preceding _mpl_error_preceding
 void error_preceding(MPL *mpl, char *opstr);
 /* raise error if preceding operand has wrong type */
 
-#define error_following _glp_mpl_error_following
+#define error_following _mpl_error_following
 void error_following(MPL *mpl, char *opstr);
 /* raise error if following operand has wrong type */
 
-#define error_dimension _glp_mpl_error_dimension
+#define error_dimension _mpl_error_dimension
 void error_dimension(MPL *mpl, char *opstr, int dim1, int dim2);
 /* raise error if operands have different dimension */
 
-#define expression_0 _glp_mpl_expression_0
+#define expression_0 _mpl_expression_0
 CODE *expression_0(MPL *mpl);
 /* parse expression of level 0 */
 
-#define expression_1 _glp_mpl_expression_1
+#define expression_1 _mpl_expression_1
 CODE *expression_1(MPL *mpl);
 /* parse expression of level 1 */
 
-#define expression_2 _glp_mpl_expression_2
+#define expression_2 _mpl_expression_2
 CODE *expression_2(MPL *mpl);
 /* parse expression of level 2 */
 
-#define expression_3 _glp_mpl_expression_3
+#define expression_3 _mpl_expression_3
 CODE *expression_3(MPL *mpl);
 /* parse expression of level 3 */
 
-#define expression_4 _glp_mpl_expression_4
+#define expression_4 _mpl_expression_4
 CODE *expression_4(MPL *mpl);
 /* parse expression of level 4 */
 
-#define expression_5 _glp_mpl_expression_5
+#define expression_5 _mpl_expression_5
 CODE *expression_5(MPL *mpl);
 /* parse expression of level 5 */
 
-#define expression_6 _glp_mpl_expression_6
+#define expression_6 _mpl_expression_6
 CODE *expression_6(MPL *mpl);
 /* parse expression of level 6 */
 
-#define expression_7 _glp_mpl_expression_7
+#define expression_7 _mpl_expression_7
 CODE *expression_7(MPL *mpl);
 /* parse expression of level 7 */
 
-#define expression_8 _glp_mpl_expression_8
+#define expression_8 _mpl_expression_8
 CODE *expression_8(MPL *mpl);
 /* parse expression of level 8 */
 
-#define expression_9 _glp_mpl_expression_9
+#define expression_9 _mpl_expression_9
 CODE *expression_9(MPL *mpl);
 /* parse expression of level 9 */
 
-#define expression_10 _glp_mpl_expression_10
+#define expression_10 _mpl_expression_10
 CODE *expression_10(MPL *mpl);
 /* parse expression of level 10 */
 
-#define expression_11 _glp_mpl_expression_11
+#define expression_11 _mpl_expression_11
 CODE *expression_11(MPL *mpl);
 /* parse expression of level 11 */
 
-#define expression_12 _glp_mpl_expression_12
+#define expression_12 _mpl_expression_12
 CODE *expression_12(MPL *mpl);
 /* parse expression of level 12 */
 
-#define expression_13 _glp_mpl_expression_13
+#define expression_13 _mpl_expression_13
 CODE *expression_13(MPL *mpl);
 /* parse expression of level 13 */
 
-#define problem_statement _glp_mpl_problem_statement
+#define problem_statement _mpl_problem_statement
 PROBLEM *problem_statement(MPL *mpl);
 /* parse problem statement */
 
-#define option_statement _glp_mpl_option_statement
+#define option_statement _mpl_option_statement
 OPT_STMT *option_statement(MPL *mpl);
 /* parse option statement */
 
-#define set_statement _glp_mpl_set_statement
+#define set_statement _mpl_set_statement
 SET *set_statement(MPL *mpl);
 /* parse set statement */
 
-#define parameter_statement _glp_mpl_parameter_statement
+#define parameter_statement _mpl_parameter_statement
 PARAMETER *parameter_statement(MPL *mpl);
 /* parse parameter statement */
 
-#define variable_statement _glp_mpl_variable_statement
+#define variable_statement _mpl_variable_statement
 VARIABLE *variable_statement(MPL *mpl);
 /* parse variable statement */
 
-#define constraint_statement _glp_mpl_constraint_statement
+#define constraint_statement _mpl_constraint_statement
 CONSTRAINT *constraint_statement(MPL *mpl);
 /* parse constraint statement */
 
-#define objective_statement _glp_mpl_objective_statement
+#define objective_statement _mpl_objective_statement
 CONSTRAINT *objective_statement(MPL *mpl);
 /* parse objective statement */
 
-#define table_statement _glp_mpl_table_statement
+#define table_statement _mpl_table_statement
 TABLE *table_statement(MPL *mpl);
 /* parse table statement */
 
-#define solve_statement _glp_mpl_solve_statement
+#define solve_statement _mpl_solve_statement
 SOLVE *solve_statement(MPL *mpl);
 /* parse solve statement */
 
-#define check_statement _glp_mpl_check_statement
+#define check_statement _mpl_check_statement
 CHECK *check_statement(MPL *mpl);
 /* parse check statement */
 
-#define let_statement _glp_mpl_let_statement
+#define let_statement _mpl_let_statement
 LET_STMT *let_statement(MPL *mpl);
 /* parse let statement */
 
-#define display_statement _glp_mpl_display_statement
+#define display_statement _mpl_display_statement
 DISPLAY *display_statement(MPL *mpl);
 /* parse display statement */
 
-#define printf_statement _glp_mpl_printf_statement
+#define printf_statement _mpl_printf_statement
 PRINTF *printf_statement(MPL *mpl);
 /* parse printf statement */
 
-#define for_statement _glp_mpl_for_statement
+#define for_statement _mpl_for_statement
 FOR *for_statement(MPL *mpl, int is_repeat);
 /* parse for statement */
 
-#define break_continue_statement _glp_mpl_break_continue_statement
+#define break_continue_statement _mpl_break_continue_statement
 void break_continue_statement(MPL *mpl);
 /* parse break/continue statement */
 
-#define if_statement _glp_mpl_if_statement
+#define if_statement _mpl_if_statement
 IF_STMT *if_statement(MPL *mpl);
 /* parse if then else statement */
 
-#define end_statement _glp_mpl_end_statement
+#define end_statement _mpl_end_statement
 void end_statement(MPL *mpl);
 /* parse end statement */
 
-#define simple_statement _glp_mpl_simple_statement
+#define simple_statement _mpl_simple_statement
 STATEMENT *simple_statement(MPL *mpl, int spec);
 /* parse simple statement */
 
-#define model_section _glp_mpl_model_section
+#define model_section _mpl_model_section
 void model_section(MPL *mpl);
 /* parse model section */
 
-#define solve_callback_set _glp_mpl_solve_callback_set
+#define solve_callback_set _mpl_solve_callback_set
 void solve_callback_set(MPL *mpl, glp_solve_callback solve_cb, void *user_data);
 /* set the solve callback that will be called when a solve
    statement is executed, the user_data pointer is passed
    back */
 
-#define solve_callback_get _glp_mpl_solve_callback_get
+#define solve_callback_get _mpl_solve_callback_get
 glp_solve_callback solve_callback_get(MPL *mpl, void **user_data);
 /* get the existing solve callback and user data */
 
@@ -745,11 +748,11 @@ struct SLICE /* see TUPLE */
 };
 #endif
 
-#define create_slice _glp_mpl_create_slice
+#define create_slice _mpl_create_slice
 SLICE *create_slice(MPL *mpl);
 /* create slice */
 
-#define expand_slice _glp_mpl_expand_slice
+#define expand_slice _mpl_expand_slice
 SLICE *expand_slice
 (     MPL *mpl,
       SLICE *slice,           /* destroyed */
@@ -757,52 +760,52 @@ SLICE *expand_slice
 );
 /* append new component to slice */
 
-#define slice_dimen _glp_mpl_slice_dimen
+#define slice_dimen _mpl_slice_dimen
 int slice_dimen
 (     MPL *mpl,
       const SLICE *slice            /* not changed */
 );
 /* determine dimension of slice */
 
-#define slice_arity _glp_mpl_slice_arity
+#define slice_arity _mpl_slice_arity
 int slice_arity
 (     MPL *mpl,
       const SLICE *slice            /* not changed */
 );
 /* determine arity of slice */
 
-#define fake_slice _glp_mpl_fake_slice
+#define fake_slice _mpl_fake_slice
 SLICE *fake_slice(MPL *mpl, int dim);
 /* create fake slice of all asterisks */
 
-#define delete_slice _glp_mpl_delete_slice
+#define delete_slice _mpl_delete_slice
 void delete_slice
 (     MPL *mpl,
       SLICE *slice            /* destroyed */
 );
 /* delete slice */
 
-#define is_number _glp_mpl_is_number
+#define is_number _mpl_is_number
 int is_number(MPL *mpl);
 /* check if current token is number */
 
-#define is_symbol _glp_mpl_is_symbol
+#define is_symbol _mpl_is_symbol
 int is_symbol(MPL *mpl);
 /* check if current token is symbol */
 
-#define is_literal _glp_mpl_is_literal
+#define is_literal _mpl_is_literal
 int is_literal(MPL *mpl, char *literal);
 /* check if current token is given symbolic literal */
 
-#define read_number _glp_mpl_read_number
+#define read_number _mpl_read_number
 double read_number(MPL *mpl);
 /* read number */
 
-#define read_symbol _glp_mpl_read_symbol
+#define read_symbol _mpl_read_symbol
 SYMBOL read_symbol(MPL *mpl);
 /* read symbol */
 
-#define read_slice _glp_mpl_read_slice
+#define read_slice _mpl_read_slice
 SLICE *read_slice
 (     MPL *mpl,
       const char *name,             /* not changed */
@@ -810,14 +813,14 @@ SLICE *read_slice
 );
 /* read slice */
 
-#define select_set _glp_mpl_select_set
+#define select_set _mpl_select_set
 SET *select_set
 (     MPL *mpl,
       const char *name              /* not changed */
 );
 /* select set to saturate it with elemental sets */
 
-#define simple_format _glp_mpl_simple_format
+#define simple_format _mpl_simple_format
 void simple_format
 (     MPL *mpl,
       const SET *set,               /* not changed */
@@ -826,7 +829,7 @@ void simple_format
 );
 /* read set data block in simple format */
 
-#define matrix_format _glp_mpl_matrix_format
+#define matrix_format _mpl_matrix_format
 void matrix_format
 (     MPL *mpl,
       const SET *set,               /* not changed */
@@ -836,18 +839,18 @@ void matrix_format
 );
 /* read set data block in matrix format */
 
-#define set_data _glp_mpl_set_data
+#define set_data _mpl_set_data
 void set_data(MPL *mpl);
 /* read set data */
 
-#define select_parameter _glp_mpl_select_parameter
+#define select_parameter _mpl_select_parameter
 PARAMETER *select_parameter
 (     MPL *mpl,
       const char *name              /* not changed */
 );
 /* select parameter to saturate it with data */
 
-#define set_default _glp_mpl_set_default
+#define set_default _mpl_set_default
 void set_default
 (     MPL *mpl,
       PARAMETER *par,         /* modified */
@@ -855,7 +858,7 @@ void set_default
 );
 /* set default parameter value */
 
-#define read_value _glp_mpl_read_value
+#define read_value _mpl_read_value
 MEMBER *read_value
 (     MPL *mpl,
       const PARAMETER *par,         /* not changed */
@@ -863,7 +866,7 @@ MEMBER *read_value
 );
 /* read value and assign it to parameter member */
 
-#define plain_format _glp_mpl_plain_format
+#define plain_format _mpl_plain_format
 void plain_format
 (     MPL *mpl,
       const PARAMETER *par,         /* not changed */
@@ -871,7 +874,7 @@ void plain_format
 );
 /* read parameter data block in plain format */
 
-#define tabular_format _glp_mpl_tabular_format
+#define tabular_format _mpl_tabular_format
 void tabular_format
 (     MPL *mpl,
       const PARAMETER *par,         /* not changed */
@@ -880,18 +883,18 @@ void tabular_format
 );
 /* read parameter data block in tabular format */
 
-#define tabbing_format _glp_mpl_tabbing_format
+#define tabbing_format _mpl_tabbing_format
 void tabbing_format
 (     MPL *mpl,
       const SYMBOL altval          /* not changed */
 );
 /* read parameter data block in tabbing format */
 
-#define parameter_data _glp_mpl_parameter_data
+#define parameter_data _mpl_parameter_data
 void parameter_data(MPL *mpl);
 /* read parameter data */
 
-#define data_section _glp_mpl_data_section
+#define data_section _mpl_data_section
 void data_section(MPL *mpl, int in_mod_file);
 /* read data section */
 
@@ -899,79 +902,79 @@ void data_section(MPL *mpl, int in_mod_file);
 /* * *                   FLOATING-POINT NUMBERS                   * * */
 /**********************************************************************/
 
-#define fp_add _glp_mpl_fp_add
+#define fp_add _mpl_fp_add
 double fp_add(MPL *mpl, double x, double y);
 /* floating-point addition */
 
-#define fp_sub _glp_mpl_fp_sub
+#define fp_sub _mpl_fp_sub
 double fp_sub(MPL *mpl, double x, double y);
 /* floating-point subtraction */
 
-#define fp_less _glp_mpl_fp_less
+#define fp_less _mpl_fp_less
 double fp_less(MPL *mpl, double x, double y);
 /* floating-point non-negative subtraction */
 
-#define fp_mul _glp_mpl_fp_mul
+#define fp_mul _mpl_fp_mul
 double fp_mul(MPL *mpl, double x, double y);
 /* floating-point multiplication */
 
-#define fp_div _glp_mpl_fp_div
+#define fp_div _mpl_fp_div
 double fp_div(MPL *mpl, double x, double y);
 /* floating-point division */
 
-#define fp_idiv _glp_mpl_fp_idiv
+#define fp_idiv _mpl_fp_idiv
 double fp_idiv(MPL *mpl, double x, double y);
 /* floating-point quotient of exact division */
 
-#define fp_mod _glp_mpl_fp_mod
+#define fp_mod _mpl_fp_mod
 double fp_mod(MPL *mpl, double x, double y);
 /* floating-point remainder of exact division */
 
-#define fp_power _glp_mpl_fp_power
+#define fp_power _mpl_fp_power
 double fp_power(MPL *mpl, double x, double y);
 /* floating-point exponentiation (raise to power) */
 
-#define fp_exp _glp_mpl_fp_exp
+#define fp_exp _mpl_fp_exp
 double fp_exp(MPL *mpl, double x);
 /* floating-point base-e exponential */
 
-#define fp_log _glp_mpl_fp_log
+#define fp_log _mpl_fp_log
 double fp_log(MPL *mpl, double x);
 /* floating-point natural logarithm */
 
-#define fp_log10 _glp_mpl_fp_log10
+#define fp_log10 _mpl_fp_log10
 double fp_log10(MPL *mpl, double x);
 /* floating-point common (decimal) logarithm */
 
-#define fp_sqrt _glp_mpl_fp_sqrt
+#define fp_sqrt _mpl_fp_sqrt
 double fp_sqrt(MPL *mpl, double x);
 /* floating-point square root */
 
-#define fp_sin _glp_mpl_fp_sin
+#define fp_sin _mpl_fp_sin
 double fp_sin(MPL *mpl, double x);
 /* floating-point trigonometric sine */
 
-#define fp_cos _glp_mpl_fp_cos
+#define fp_cos _mpl_fp_cos
 double fp_cos(MPL *mpl, double x);
 /* floating-point trigonometric cosine */
 
-#define fp_tan _glp_mpl_fp_tan
+#define fp_tan _mpl_fp_tan
 double fp_tan(MPL *mpl, double x);
 /* floating-point trigonometric tangent */
 
-#define fp_atan _glp_mpl_fp_atan
+#define fp_atan _mpl_fp_atan
 double fp_atan(MPL *mpl, double x);
 /* floating-point trigonometric arctangent */
 
-#define fp_atan2 _glp_mpl_fp_atan2
+#define fp_atan2 _mpl_fp_atan2
 double fp_atan2(MPL *mpl, double y, double x);
 /* floating-point trigonometric arctangent */
 
-#define fp_round _glp_mpl_fp_round
+#define fp_round _mpl_fp_round
 double fp_round(MPL *mpl, double x, double n);
 /* round floating-point value to n fractional digits */
 
-#define fp_trunc _glp_mpl_fp_trunc
+#define fp_trunc _mpl_fp_trunc
 double fp_trunc(MPL *mpl, double x, double n);
 /* truncate floating-point value to n fractional digits */
 
@@ -979,23 +982,23 @@ double fp_trunc(MPL *mpl, double x, double n);
 /* * *              PSEUDO-RANDOM NUMBER GENERATORS               * * */
 /**********************************************************************/
 
-#define fp_irand224 _glp_mpl_fp_irand224
+#define fp_irand224 _mpl_fp_irand224
 double fp_irand224(MPL *mpl);
 /* pseudo-random integer in the range [0, 2^24) */
 
-#define fp_uniform01 _glp_mpl_fp_uniform01
+#define fp_uniform01 _mpl_fp_uniform01
 double fp_uniform01(MPL *mpl);
 /* pseudo-random number in the range [0, 1) */
 
-#define fp_uniform _glp_mpl_uniform
+#define fp_uniform _mpl_uniform
 double fp_uniform(MPL *mpl, double a, double b);
 /* pseudo-random number in the range [a, b) */
 
-#define fp_normal01 _glp_mpl_fp_normal01
+#define fp_normal01 _mpl_fp_normal01
 double fp_normal01(MPL *mpl);
 /* Gaussian random variate with mu = 0 and sigma = 1 */
 
-#define fp_normal _glp_mpl_fp_normal
+#define fp_normal _mpl_fp_normal
 double fp_normal(MPL *mpl, double mu, double sigma);
 /* Gaussian random variate with specified mu and sigma */
 
@@ -1003,15 +1006,15 @@ double fp_normal(MPL *mpl, double mu, double sigma);
 /* * *                         DATE/TIME                          * * */
 /**********************************************************************/
 
-#define fn_gmtime _glp_mpl_fn_gmtime
+#define fn_gmtime _mpl_fn_gmtime
 double fn_gmtime(MPL *mpl);
 /* obtain the current calendar time (UTC) */
 
-#define fn_str2time _glp_mpl_fn_str2time
+#define fn_str2time _mpl_fn_str2time
 double fn_str2time(MPL *mpl, const char *str, const char *fmt);
 /* convert character string to the calendar time */
 
-#define fn_time2str _glp_mpl_fn_time2str
+#define fn_time2str _mpl_fn_time2str
 void fn_time2str(MPL *mpl, char *str, double t, const char *fmt);
 /* convert the calendar time to character string */
 
@@ -1019,7 +1022,7 @@ void fn_time2str(MPL *mpl, char *str, double t, const char *fmt);
 /* * *                     CHARACTER STRINGS                      * * */
 /**********************************************************************/
 
-#define create_string _glp_mpl_create_string
+#define create_string _mpl_create_string
 STRING *create_string
 (     MPL *mpl,
       const char buf[MAX_LENGTH+1]  /* not changed */
@@ -1030,14 +1033,14 @@ STRING *create_string_interned
 );
 /* create character string */
 
-#define copy_string _glp_mpl_copy_string
+#define copy_string _mpl_copy_string
 STRING *copy_string
 (     MPL *mpl,
       const STRING *str             /* not changed */
 );
 /* make copy of character string */
 
-#define compare_strings _glp_mpl_compare_strings
+#define compare_strings _mpl_compare_strings
 int compare_strings
 (     MPL *mpl,
       const STRING *str1,           /* not changed */
@@ -1045,7 +1048,7 @@ int compare_strings
 );
 /* compare one character string with another */
 
-#define fetch_string _glp_mpl_fetch_string
+#define fetch_string _mpl_fetch_string
 char *fetch_string
 (     MPL *mpl,
       const STRING *str,            /* not changed */
@@ -1053,7 +1056,7 @@ char *fetch_string
 );
 /* extract content of character string */
 
-#define delete_string _glp_mpl_delete_string
+#define delete_string _mpl_delete_string
 void delete_string
 (     MPL *mpl,
       STRING *str             /* destroyed */
@@ -1083,11 +1086,11 @@ static GMPL_INLINE bool symbol_is_null(SYMBOL sym) {
     return nanbox_is_undefined_or_null(sym.sym);
 }
 
-#define create_symbol_num _glp_mpl_create_symbol_num
+#define create_symbol_num _mpl_create_symbol_num
 SYMBOL create_symbol_num(MPL *mpl, double num);
 /* create symbol of numeric type */
 
-#define create_symbol_str _glp_mpl_create_symbol_str
+#define create_symbol_str _mpl_create_symbol_str
 SYMBOL create_symbol_str
 (     MPL *mpl,
       STRING *str             /* destroyed */
@@ -1097,7 +1100,7 @@ SYMBOL create_symbol_str
 #define copy_symbol(a, x) (x)
 /* make copy of symbol */
 
-#define compare_symbols _glp_mpl_compare_symbols
+#define compare_symbols _mpl_compare_symbols
 int compare_symbols
 (     MPL *mpl,
       const SYMBOL sym1,           /* not changed */
@@ -1108,14 +1111,14 @@ int compare_symbols
 #define delete_symbol(a, b)
 /* delete symbol */
 
-#define format_symbol _glp_mpl_format_symbol
+#define format_symbol _mpl_format_symbol
 char *format_symbol
 (     MPL *mpl,
       const SYMBOL sym             /* not changed */
 );
 /* format symbol for displaying or printing */
 
-#define concat_symbols _glp_mpl_concat_symbols
+#define concat_symbols _mpl_concat_symbols
 SYMBOL concat_symbols
 (     MPL *mpl,
       SYMBOL sym1,           /* destroyed */
@@ -1136,11 +1139,11 @@ struct TUPLE
       /* the next component of n-tuple */
 };
 
-#define create_tuple _glp_mpl_create_tuple
+#define create_tuple _mpl_create_tuple
 TUPLE *create_tuple(MPL *mpl);
 /* create n-tuple */
 
-#define expand_tuple _glp_mpl_expand_tuple
+#define expand_tuple _mpl_expand_tuple
 TUPLE *expand_tuple
 (     MPL *mpl,
       TUPLE *tuple,           /* modified */
@@ -1148,21 +1151,21 @@ TUPLE *expand_tuple
 );
 /* append symbol to n-tuple */
 
-#define tuple_dimen _glp_mpl_tuple_dimen
+#define tuple_dimen _mpl_tuple_dimen
 int tuple_dimen
 (     MPL *mpl,
       const TUPLE *tuple            /* not changed */
 );
 /* determine dimension of n-tuple */
 
-#define copy_tuple _glp_mpl_copy_tuple
+#define copy_tuple _mpl_copy_tuple
 TUPLE *copy_tuple
 (     MPL *mpl,
       const TUPLE *tuple            /* not changed */
 );
 /* make copy of n-tuple */
 
-#define compare_tuples _glp_mpl_compare_tuples
+#define compare_tuples _mpl_compare_tuples
 int compare_tuples
 (     MPL *mpl,
       const TUPLE *tuple1,          /* not changed */
@@ -1170,7 +1173,7 @@ int compare_tuples
 );
 /* compare one n-tuple with another */
 
-#define build_subtuple _glp_mpl_build_subtuple
+#define build_subtuple _mpl_build_subtuple
 TUPLE *build_subtuple
 (     MPL *mpl,
       const TUPLE *tuple,           /* not changed */
@@ -1178,14 +1181,14 @@ TUPLE *build_subtuple
 );
 /* build subtuple of given n-tuple */
 
-#define delete_tuple _glp_mpl_delete_tuple
+#define delete_tuple _mpl_delete_tuple
 void delete_tuple
 (     MPL *mpl,
       TUPLE *tuple            /* destroyed */
 );
 /* delete n-tuple */
 
-#define format_tuple _glp_mpl_format_tuple
+#define format_tuple _mpl_format_tuple
 char *format_tuple
 (     MPL *mpl,
       int c,
@@ -1207,11 +1210,11 @@ struct ELEMSET /* see ARRAY */
          elemental set */
 #endif
 
-#define create_elemset _glp_mpl_create_elemset
+#define create_elemset _mpl_create_elemset
 ELEMSET *create_elemset(MPL *mpl, int dim);
 /* create elemental set */
 
-#define find_tuple _glp_mpl_find_tuple
+#define find_tuple _mpl_find_tuple
 MEMBER *find_tuple
 (     MPL *mpl,
       ELEMSET *set,           /* modified */
@@ -1219,7 +1222,7 @@ MEMBER *find_tuple
 );
 /* check if elemental set contains given n-tuple */
 
-#define add_tuple _glp_mpl_add_tuple
+#define add_tuple _mpl_add_tuple
 MEMBER *add_tuple
 (     MPL *mpl,
       ELEMSET *set,           /* modified */
@@ -1227,7 +1230,7 @@ MEMBER *add_tuple
 );
 /* add new n-tuple to elemental set */
 
-#define check_then_add _glp_mpl_check_then_add
+#define check_then_add _mpl_check_then_add
 MEMBER *check_then_add
 (     MPL *mpl,
       ELEMSET *set,           /* modified */
@@ -1235,40 +1238,40 @@ MEMBER *check_then_add
 );
 /* check and add new n-tuple to elemental set */
 
-#define copy_elemset_full _glp_mpl_copy_elemset_full
+#define copy_elemset_full _mpl_copy_elemset_full
 ELEMSET *copy_elemset_full
 (     MPL *mpl,
       ELEMSET *set            /* not changed */
 );
 /* make full copy of elemental set */
 
-#define copy_elemset _glp_mpl_copy_elemset
+#define copy_elemset _mpl_copy_elemset
 ELEMSET *copy_elemset
 (     MPL *mpl,
       ELEMSET *set            /* not changed */
 );
 /* make a fake copy of elemental set (by incrementing the refcount field)*/
 
-#define delete_elemset _glp_mpl_delete_elemset
+#define delete_elemset _mpl_delete_elemset
 void delete_elemset
 (     MPL *mpl,
       ELEMSET *set            /* destroyed */
 );
 /* delete elemental set */
 
-#define arelset_size _glp_mpl_arelset_size
+#define arelset_size _mpl_arelset_size
 int arelset_size(MPL *mpl, double t0, double tf, double dt);
 /* compute size of "arithmetic" elemental set */
 
-#define arelset_member _glp_mpl_arelset_member
+#define arelset_member _mpl_arelset_member
 double arelset_member(MPL *mpl, double t0, double tf, double dt, int j);
 /* compute member of "arithmetic" elemental set */
 
-#define create_arelset _glp_mpl_create_arelset
+#define create_arelset _mpl_create_arelset
 ELEMSET *create_arelset(MPL *mpl, double t0, double tf, double dt);
 /* create "arithmetic" elemental set */
 
-#define set_union _glp_mpl_set_union
+#define set_union _mpl_set_union
 ELEMSET *set_union
 (     MPL *mpl,
       ELEMSET *X,             /* destroyed */
@@ -1276,7 +1279,7 @@ ELEMSET *set_union
 );
 /* union of two elemental sets */
 
-#define set_diff _glp_mpl_set_diff
+#define set_diff _mpl_set_diff
 ELEMSET *set_diff
 (     MPL *mpl,
       ELEMSET *X,             /* destroyed */
@@ -1284,7 +1287,7 @@ ELEMSET *set_diff
 );
 /* difference between two elemental sets */
 
-#define set_symdiff _glp_mpl_set_symdiff
+#define set_symdiff _mpl_set_symdiff
 ELEMSET *set_symdiff
 (     MPL *mpl,
       ELEMSET *X,             /* destroyed */
@@ -1292,7 +1295,7 @@ ELEMSET *set_symdiff
 );
 /* symmetric difference between two elemental sets */
 
-#define set_inter _glp_mpl_set_inter
+#define set_inter _mpl_set_inter
 ELEMSET *set_inter
 (     MPL *mpl,
       ELEMSET *X,             /* destroyed */
@@ -1300,7 +1303,7 @@ ELEMSET *set_inter
 );
 /* intersection of two elemental sets */
 
-#define set_cross _glp_mpl_set_cross
+#define set_cross _mpl_set_cross
 ELEMSET *set_cross
 (     MPL *mpl,
       ELEMSET *X,             /* destroyed */
@@ -1353,32 +1356,32 @@ struct FORMULA
       /* the next term of linear form */
 };
 
-#define constant_term _glp_mpl_constant_term
+#define constant_term _mpl_constant_term
 FORMULA *constant_term(MPL *mpl, double coef);
 /* create constant term */
 
-#define single_variable _glp_mpl_single_variable
+#define single_variable _mpl_single_variable
 FORMULA *single_variable
 (     MPL *mpl,
       ELEMVAR *var            /* referenced */
 );
 /* create single variable */
 
-#define copy_formula _glp_mpl_copy_formula
+#define copy_formula _mpl_copy_formula
 FORMULA *copy_formula
 (     MPL *mpl,
       const FORMULA *form           /* not changed */
 );
 /* make copy of linear form */
 
-#define delete_formula _glp_mpl_delete_formula
+#define delete_formula _mpl_delete_formula
 void delete_formula
 (     MPL *mpl,
       FORMULA *form           /* destroyed */
 );
 /* delete linear form */
 
-#define linear_comb _glp_mpl_linear_comb
+#define linear_comb _mpl_linear_comb
 FORMULA *linear_comb
 (     MPL *mpl,
       double a, FORMULA *fx,  /* destroyed */
@@ -1386,7 +1389,7 @@ FORMULA *linear_comb
 );
 /* linear combination of two linear forms */
 
-#define remove_constant _glp_mpl_remove_constant
+#define remove_constant _mpl_remove_constant
 FORMULA *remove_constant
 (     MPL *mpl,
       FORMULA *form,          /* destroyed */
@@ -1394,7 +1397,7 @@ FORMULA *remove_constant
 );
 /* remove constant term from linear form */
 
-#define reduce_terms _glp_mpl_reduce_terms
+#define reduce_terms _mpl_reduce_terms
 FORMULA *reduce_terms
 (     MPL *mpl,
       FORMULA *form           /* destroyed */
@@ -1458,7 +1461,7 @@ union VALUE
       ELEMCON *con;  /* reference */
 };
 
-#define delete_value _glp_mpl_delete_value
+#define delete_value _mpl_delete_value
 void delete_value
 (     MPL *mpl,
       int type,
@@ -1526,11 +1529,11 @@ struct MEMBER
       /* generic value assigned to the member */
 };
 
-#define create_array _glp_mpl_create_array
+#define create_array _mpl_create_array
 ARRAY *create_array(MPL *mpl, int type, int dim);
 /* create array */
 
-#define find_member _glp_mpl_find_member
+#define find_member _mpl_find_member
 MEMBER *find_member
 (     MPL *mpl,
       ARRAY *array,           /* modified */
@@ -1538,7 +1541,7 @@ MEMBER *find_member
 );
 /* find array member with given n-tuple */
 
-#define add_member _glp_mpl_add_member
+#define add_member _mpl_add_member
 MEMBER *add_member
 (     MPL *mpl,
       ARRAY *array,           /* modified */
@@ -1546,14 +1549,14 @@ MEMBER *add_member
 );
 /* add new member to array */
 
-#define delete_array _glp_mpl_delete_array
+#define delete_array _mpl_delete_array
 void delete_array
 (     MPL *mpl,
       ARRAY *array            /* destroyed */
 );
 /* delete array */
 
-#define clear_array _glp_mpl_clear_array
+#define clear_array _mpl_clear_array
 void clear_array
 (     MPL *mpl,
       ARRAY *array            /* cleared */
@@ -1621,7 +1624,7 @@ struct DOMAIN_SLOT
       /* the next slot in the same domain block */
 };
 
-#define assign_dummy_index _glp_mpl_assign_dummy_index
+#define assign_dummy_index _mpl_assign_dummy_index
 void assign_dummy_index
 (     MPL *mpl,
       DOMAIN_SLOT *slot,      /* modified */
@@ -1629,14 +1632,14 @@ void assign_dummy_index
 );
 /* assign new value to dummy index */
 
-#define update_dummy_indices _glp_mpl_update_dummy_indices
+#define update_dummy_indices _mpl_update_dummy_indices
 void update_dummy_indices
 (     MPL *mpl,
       const DOMAIN_BLOCK *block     /* not changed */
 );
 /* update current values of dummy indices */
 
-#define enter_domain_block _glp_mpl_enter_domain_block
+#define enter_domain_block _mpl_enter_domain_block
 int enter_domain_block
 (     MPL *mpl,
       DOMAIN_BLOCK *block,    /* not changed */
@@ -1645,7 +1648,7 @@ int enter_domain_block
 );
 /* enter domain block */
 
-#define eval_within_domain _glp_mpl_eval_within_domain
+#define eval_within_domain _mpl_eval_within_domain
 int eval_within_domain
 (     MPL *mpl,
       DOMAIN *domain,         /* not changed */
@@ -1654,7 +1657,7 @@ int eval_within_domain
 );
 /* perform evaluation within domain scope */
 
-#define loop_within_domain _glp_mpl_loop_within_domain
+#define loop_within_domain _mpl_loop_within_domain
 void loop_within_domain
 (     MPL *mpl,
       DOMAIN *domain,         /* not changed */
@@ -1662,7 +1665,7 @@ void loop_within_domain
 );
 /* perform iterations within domain scope */
 
-#define out_of_domain _glp_mpl_out_of_domain
+#define out_of_domain _mpl_out_of_domain
 void out_of_domain
 (     MPL *mpl,
       const char *name,             /* not changed */
@@ -1670,14 +1673,14 @@ void out_of_domain
 );
 /* raise domain exception */
 
-#define get_domain_tuple _glp_mpl_get_domain_tuple
+#define get_domain_tuple _mpl_get_domain_tuple
 TUPLE *get_domain_tuple
 (     MPL *mpl,
       const DOMAIN *domain          /* not changed */
 );
 /* obtain current n-tuple from domain */
 
-#define clean_domain _glp_mpl_clean_domain
+#define clean_domain _mpl_clean_domain
 void clean_domain(MPL *mpl, DOMAIN *domain);
 /* clean domain */
 
@@ -1738,7 +1741,7 @@ struct GADGET
       /* permutation of integers 1, 2, ..., dim+dimen */
 };
 
-#define check_elem_set _glp_mpl_check_elem_set
+#define check_elem_set _mpl_check_elem_set
 void check_elem_set
 (     MPL *mpl,
       const SET *set,               /* not changed */
@@ -1747,7 +1750,7 @@ void check_elem_set
 );
 /* check elemental set assigned to set member */
 
-#define take_member_set _glp_mpl_take_member_set
+#define take_member_set _mpl_take_member_set
 ELEMSET *take_member_set      /* returns reference, not value */
 (     MPL *mpl,
       SET *set,                     /* maybe updated */
@@ -1755,7 +1758,7 @@ ELEMSET *take_member_set      /* returns reference, not value */
 );
 /* obtain elemental set assigned to set member */
 
-#define eval_member_set _glp_mpl_eval_member_set
+#define eval_member_set _mpl_eval_member_set
 ELEMSET *eval_member_set      /* returns reference, not value */
 (     MPL *mpl,
       SET *set,               /* modifiedd */
@@ -1763,19 +1766,19 @@ ELEMSET *eval_member_set      /* returns reference, not value */
 );
 /* evaluate elemental set assigned to set member */
 
-#define eval_whole_set _glp_mpl_eval_whole_set
+#define eval_whole_set _mpl_eval_whole_set
 void eval_whole_set(MPL *mpl, SET *set);
 /* evaluate model set over entire domain */
 
-#define clean_set _glp_mpl_clean_set
+#define clean_set _mpl_clean_set
 void clean_set(MPL *mpl, SET *set);
 /* clean model set */
 
-#define clear_set _glp_mpl_clear_set
+#define clear_set _mpl_clear_set
 void clear_set(MPL *mpl, SET *set);
 /* clear (remove all data) model set */
 
-#define get_size_set _glp_mpl_get_size_set
+#define get_size_set _mpl_get_size_set
 int get_size_set(MPL *mpl, SET *set);
 /* get the size of a model set */
 
@@ -1797,11 +1800,11 @@ struct PROBLEM
          A_PROBLEM_IP   - integer */
 };
 
-#define add_problem_element _glp_mpl_add_problem_element
+#define add_problem_element _mpl_add_problem_element
 void add_problem_element(MPL *mpl, STATEMENT *stmt);
 /* add an element to the current problem */
 
-#define clean_problem _glp_mpl_clean_problem
+#define clean_problem _mpl_clean_problem
 void clean_problem(MPL *mpl, PROBLEM *prob);
 /* clean model problem */
 
@@ -1826,7 +1829,7 @@ struct SOLVE
          A_PROBLEM_IP   - integer */
 };
 
-#define clean_solve _glp_mpl_clean_solve
+#define clean_solve _mpl_clean_solve
 void clean_solve(MPL *mpl, SOLVE *solve);
 /* clean model solve */
 
@@ -1893,7 +1896,7 @@ struct CONDITION
       /* the next entry for the same parameter */
 };
 
-#define check_value_num _glp_mpl_check_value_num
+#define check_value_num _mpl_check_value_num
 void check_value_num
 (     MPL *mpl,
       const PARAMETER *par,         /* not changed */
@@ -1902,7 +1905,7 @@ void check_value_num
 );
 /* check numeric value assigned to parameter member */
 
-#define take_member_num _glp_mpl_take_member_num
+#define take_member_num _mpl_take_member_num
 double take_member_num
 (     MPL *mpl,
       PARAMETER *par,               /* maybe updated */
@@ -1910,7 +1913,7 @@ double take_member_num
 );
 /* obtain numeric value assigned to parameter member */
 
-#define eval_member_num _glp_mpl_eval_member_num
+#define eval_member_num _mpl_eval_member_num
 double eval_member_num
 (     MPL *mpl,
       PARAMETER *par,         /* not changed */
@@ -1918,7 +1921,7 @@ double eval_member_num
 );
 /* evaluate numeric value assigned to parameter member */
 
-#define check_value_sym _glp_mpl_check_value_sym
+#define check_value_sym _mpl_check_value_sym
 void check_value_sym
 (     MPL *mpl,
       const PARAMETER *par,         /* not changed */
@@ -1927,7 +1930,7 @@ void check_value_sym
 );
 /* check symbolic value assigned to parameter member */
 
-#define take_member_sym _glp_mpl_take_member_sym
+#define take_member_sym _mpl_take_member_sym
 SYMBOL take_member_sym       /* returns value, not reference */
 (     MPL *mpl,
       PARAMETER *par,               /* maybe updated */
@@ -1935,7 +1938,7 @@ SYMBOL take_member_sym       /* returns value, not reference */
 );
 /* obtain symbolic value assigned to parameter member */
 
-#define eval_member_sym _glp_mpl_eval_member_sym
+#define eval_member_sym _mpl_eval_member_sym
 SYMBOL eval_member_sym       /* returns value, not reference */
 (     MPL *mpl,
       PARAMETER *par,         /* not changed */
@@ -1943,15 +1946,15 @@ SYMBOL eval_member_sym       /* returns value, not reference */
 );
 /* evaluate symbolic value assigned to parameter member */
 
-#define eval_whole_par _glp_mpl_eval_whole_par
+#define eval_whole_par _mpl_eval_whole_par
 void eval_whole_par(MPL *mpl, PARAMETER *par);
 /* evaluate model parameter over entire domain */
 
-#define clean_parameter _glp_mpl_clean_parameter
+#define clean_parameter _mpl_clean_parameter
 void clean_parameter(MPL *mpl, PARAMETER *par);
 /* clean model parameter */
 
-#define clear_parameter _glp_mpl_clear_parameter
+#define clear_parameter _mpl_clear_parameter
 void clear_parameter(MPL *mpl, PARAMETER *par);
 /* clear (remove all data) model parameter */
 
@@ -1988,7 +1991,7 @@ struct VARIABLE
       /* array of members, which are assigned elemental variables */
 };
 
-#define take_member_var _glp_mpl_take_member_var
+#define take_member_var _mpl_take_member_var
 ELEMVAR *take_member_var      /* returns reference */
 (     MPL *mpl,
       VARIABLE *var,          /* not changed */
@@ -1996,7 +1999,7 @@ ELEMVAR *take_member_var      /* returns reference */
 );
 /* obtain reference to elemental variable */
 
-#define eval_member_var _glp_mpl_eval_member_var
+#define eval_member_var _mpl_eval_member_var
 ELEMVAR *eval_member_var      /* returns reference */
 (     MPL *mpl,
       VARIABLE *var,          /* not changed */
@@ -2004,15 +2007,15 @@ ELEMVAR *eval_member_var      /* returns reference */
 );
 /* evaluate reference to elemental variable */
 
-#define eval_whole_var _glp_mpl_eval_whole_var
+#define eval_whole_var _mpl_eval_whole_var
 void eval_whole_var(MPL *mpl, VARIABLE *var);
 /* evaluate model variable over entire domain */
 
-#define clean_variable _glp_mpl_clean_variable
+#define clean_variable _mpl_clean_variable
 void clean_variable(MPL *mpl, VARIABLE *var);
 /* clean model variable */
 
-#define clear_variable _glp_mpl_clear_variable
+#define clear_variable _mpl_clear_variable
 void clear_variable(MPL *mpl, VARIABLE *var);
 /* clear (remove all data) model variable */
 
@@ -2051,7 +2054,7 @@ struct CONSTRAINT
       /* array of members, which are assigned elemental constraints */
 };
 
-#define take_member_con _glp_mpl_take_member_con
+#define take_member_con _mpl_take_member_con
 ELEMCON *take_member_con      /* returns reference */
 (     MPL *mpl,
       CONSTRAINT *con,        /* not changed */
@@ -2059,7 +2062,7 @@ ELEMCON *take_member_con      /* returns reference */
 );
 /* obtain reference to elemental constraint */
 
-#define eval_member_con _glp_mpl_eval_member_con
+#define eval_member_con _mpl_eval_member_con
 ELEMCON *eval_member_con      /* returns reference */
 (     MPL *mpl,
       CONSTRAINT *con,        /* not changed */
@@ -2067,15 +2070,15 @@ ELEMCON *eval_member_con      /* returns reference */
 );
 /* evaluate reference to elemental constraint */
 
-#define eval_whole_con _glp_mpl_eval_whole_con
+#define eval_whole_con _mpl_eval_whole_con
 void eval_whole_con(MPL *mpl, CONSTRAINT *con);
 /* evaluate model constraint over entire domain */
 
-#define clean_constraint _glp_mpl_clean_constraint
+#define clean_constraint _mpl_clean_constraint
 void clean_constraint(MPL *mpl, CONSTRAINT *con);
 /* clean model constraint */
 
-#define clear_constraint _glp_mpl_clear_constraint
+#define clear_constraint _mpl_clear_constraint
 void clear_constraint(MPL *mpl, CONSTRAINT *con);
 /* clear (remove all data) model constraint */
 
@@ -2174,43 +2177,43 @@ struct TABDCA
       /* str[k], 1 <= k <= nc, is string value of k-th field */
 };
 
-#define mpl_tab_num_args _glp_mpl_tab_num_args
+#define mpl_tab_num_args _mpl_tab_num_args
 int mpl_tab_num_args(TABDCA *dca);
 
-#define mpl_tab_get_arg _glp_mpl_tab_get_arg
+#define mpl_tab_get_arg _mpl_tab_get_arg
 const char *mpl_tab_get_arg(TABDCA *dca, int k);
 
-#define mpl_tab_num_flds _glp_mpl_tab_num_flds
+#define mpl_tab_num_flds _mpl_tab_num_flds
 int mpl_tab_num_flds(TABDCA *dca);
 
-#define mpl_tab_get_name _glp_mpl_tab_get_name
+#define mpl_tab_get_name _mpl_tab_get_name
 const char *mpl_tab_get_name(TABDCA *dca, int k);
 
-#define mpl_tab_get_type _glp_mpl_tab_get_type
+#define mpl_tab_get_type _mpl_tab_get_type
 int mpl_tab_get_type(TABDCA *dca, int k);
 
-#define mpl_tab_get_num _glp_mpl_tab_get_num
+#define mpl_tab_get_num _mpl_tab_get_num
 double mpl_tab_get_num(TABDCA *dca, int k);
 
-#define mpl_tab_get_str _glp_mpl_tab_get_str
+#define mpl_tab_get_str _mpl_tab_get_str
 const char *mpl_tab_get_str(TABDCA *dca, int k);
 
-#define mpl_tab_set_num _glp_mpl_tab_set_num
-void mpl_tab_set_num(TABDCA *dca, int k, glp_double num);
+#define mpl_tab_set_num _mpl_tab_set_num
+void mpl_tab_set_num(TABDCA *dca, int k, double num);
 
-#define mpl_tab_set_str _glp_mpl_tab_set_str
+#define mpl_tab_set_str _mpl_tab_set_str
 void mpl_tab_set_str(TABDCA *dca, int k, const char *str);
 
-#define mpl_tab_drv_open _glp_mpl_tab_drv_open
+#define mpl_tab_drv_open _mpl_tab_drv_open
 void mpl_tab_drv_open(MPL *mpl, int mode);
 
-#define mpl_tab_drv_read _glp_mpl_tab_drv_read
+#define mpl_tab_drv_read _mpl_tab_drv_read
 int mpl_tab_drv_read(MPL *mpl);
 
-#define mpl_tab_drv_write _glp_mpl_tab_drv_write
+#define mpl_tab_drv_write _mpl_tab_drv_write
 void mpl_tab_drv_write(MPL *mpl);
 
-#define mpl_tab_drv_close _glp_mpl_tab_drv_close
+#define mpl_tab_drv_close _mpl_tab_drv_close
 void mpl_tab_drv_close(MPL *mpl);
 
 /**********************************************************************/
@@ -2457,36 +2460,36 @@ struct CODE
       /* resultant value in generic format */
 };
 
-#define eval_numeric _glp_mpl_eval_numeric
+#define eval_numeric _mpl_eval_numeric
 double eval_numeric(MPL *mpl, CODE *code);
 /* evaluate pseudo-code to determine numeric value */
 
-#define eval_symbolic _glp_mpl_eval_symbolic
+#define eval_symbolic _mpl_eval_symbolic
 SYMBOL eval_symbolic(MPL *mpl, CODE *code);
 /* evaluate pseudo-code to determine symbolic value */
 
-#define eval_logical _glp_mpl_eval_logical
+#define eval_logical _mpl_eval_logical
 int eval_logical(MPL *mpl, CODE *code);
 /* evaluate pseudo-code to determine logical value */
 
-#define eval_tuple _glp_mpl_eval_tuple
+#define eval_tuple _mpl_eval_tuple
 TUPLE *eval_tuple(MPL *mpl, CODE *code);
 /* evaluate pseudo-code to construct n-tuple */
 
-#define eval_elemset _glp_mpl_eval_elemset
+#define eval_elemset _mpl_eval_elemset
 ELEMSET *eval_elemset(MPL *mpl, CODE *code);
 /* evaluate pseudo-code to construct elemental set
    returning a fake copy (refcount incremented)*/
 
-#define is_member _glp_mpl_is_member
+#define is_member _mpl_is_member
 int is_member(MPL *mpl, CODE *code, const TUPLE *tuple);
 /* check if n-tuple is in set specified by pseudo-code */
 
-#define eval_formula _glp_mpl_eval_formula
+#define eval_formula _mpl_eval_formula
 FORMULA *eval_formula(MPL *mpl, CODE *code);
 /* evaluate pseudo-code to construct linear form */
 
-#define clean_code _glp_mpl_clean_code
+#define clean_code _mpl_clean_code
 void clean_code(MPL *mpl, CODE *code);
 /* clean pseudo-code */
 
@@ -2504,7 +2507,7 @@ struct OPT_STMT
       /* option value */
 };
 
-#define clean_option _glp_mpl_clean_option
+#define clean_option _mpl_clean_option
 void clean_option(MPL *mpl, OPT_STMT *opt);
 /* clean model option */
 
@@ -2648,79 +2651,79 @@ struct STATEMENT
          order as they appear in the model section */
 };
 
-#define execute_table _glp_mpl_execute_table
+#define execute_table _mpl_execute_table
 void execute_table(MPL *mpl, TABLE *tab);
 /* execute table statement */
 
-#define free_dca _glp_mpl_free_dca
+#define free_dca _mpl_free_dca
 void free_dca(MPL *mpl);
 /* free table driver communucation area */
 
-#define clean_table _glp_mpl_clean_table
+#define clean_table _mpl_clean_table
 void clean_table(MPL *mpl, TABLE *tab);
 /* clean table statement */
 
-#define execute_check _glp_mpl_execute_check
+#define execute_check _mpl_execute_check
 void execute_check(MPL *mpl, CHECK *chk);
 /* execute check statement */
 
-#define clean_check _glp_mpl_clean_check
+#define clean_check _mpl_clean_check
 void clean_check(MPL *mpl, CHECK *chk);
 /* clean check statement */
 
-#define execute_let _glp_mpl_execute_let
+#define execute_let _mpl_execute_let
 void execute_let(MPL *mpl, LET_STMT *let);
 /* execute let statement */
 
-#define execute_solve _glp_mpl_execute_solve
+#define execute_solve _mpl_execute_solve
 void execute_solve(MPL *mpl, SOLVE *solve);
 /* execute solve statement */
 
-#define clean_let _glp_mpl_clean_let
+#define clean_let _mpl_clean_let
 void clean_let(MPL *mpl, LET_STMT *let);
 /* clean let statement */
 
-#define execute_display _glp_mpl_execute_display
+#define execute_display _mpl_execute_display
 void execute_display(MPL *mpl, DISPLAY *dpy);
 /* execute display statement */
 
-#define clean_display _glp_mpl_clean_display
+#define clean_display _mpl_clean_display
 void clean_display(MPL *mpl, DISPLAY *dpy);
 /* clean display statement */
 
-#define execute_printf _glp_mpl_execute_printf
+#define execute_printf _mpl_execute_printf
 void execute_printf(MPL *mpl, PRINTF *prt);
 /* execute printf statement */
 
-#define clean_printf _glp_mpl_clean_printf
+#define clean_printf _mpl_clean_printf
 void clean_printf(MPL *mpl, PRINTF *prt);
 /* clean printf statement */
 
-#define execute_for _glp_mpl_execute_for
+#define execute_for _mpl_execute_for
 void execute_for(MPL *mpl, FOR *fur);
 /* execute for statement */
 
-#define execute_break_continue _glp_mpl_execute_break_continue
+#define execute_break_continue _mpl_execute_break_continue
 void execute_break_continue(MPL *mpl, int stmt_type);
 /* execute break/continue statement */
 
-#define clean_for _glp_mpl_clean_for
+#define clean_for _mpl_clean_for
 void clean_for(MPL *mpl, FOR *fur);
 /* clean for statement */
 
-#define execute_if _glp_mpl_execute_if
+#define execute_if _mpl_execute_if
 void execute_if(MPL *mpl, IF_STMT *if_stmt);
 /* execute if then else  statement */
 
-#define clean_if _glp_mpl_clean_if
+#define clean_if _mpl_clean_if
 void clean_if(MPL *mpl, IF_STMT *if_stmt);
 /* clean if then else statement */
 
-#define execute_statement _glp_mpl_execute_statement
+#define execute_statement _mpl_execute_statement
 void execute_statement(MPL *mpl, STATEMENT *stmt);
 /* execute specified model statement */
 
-#define clean_statement _glp_mpl_clean_statement
+#define clean_statement _mpl_clean_statement
 void clean_statement(MPL *mpl, STATEMENT *stmt);
 /* clean specified model statement */
 
@@ -2728,31 +2731,31 @@ void clean_statement(MPL *mpl, STATEMENT *stmt);
 /* * *              GENERATING AND POSTSOLVING MODEL              * * */
 /**********************************************************************/
 
-#define alloc_content_for_stmt _glp_mpl_alloc_content_for_stmt
+#define alloc_content_for_stmt _mpl_alloc_content_for_stmt
 void alloc_content_for_stmt(MPL *mpl, STATEMENT *stmt);
 /* allocate content arrays for a model object */
 
-#define alloc_content _glp_mpl_alloc_content
+#define alloc_content _mpl_alloc_content
 void alloc_content(MPL *mpl);
 /* allocate content arrays for all model objects */
 
-#define generate_model _glp_mpl_generate_model
+#define generate_model _mpl_generate_model
 void generate_model(MPL *mpl);
 /* generate model */
 
-#define build_problem _glp_mpl_build_problem
+#define build_problem _mpl_build_problem
 void build_problem(MPL *mpl);
 /* build problem instance */
 
-#define clean_build_problem _glp_mpl_clean_build_problem
+#define clean_build_problem _mpl_clean_build_problem
 void clean_build_problem(MPL *mpl, int skipResetColsRows);
 /* clean problem instance */
 
-#define postsolve_model _glp_mpl_postsolve_model
+#define postsolve_model _mpl_postsolve_model
 void postsolve_model(MPL *mpl);
 /* postsolve model */
 
-#define clean_model _glp_mpl_clean_model
+#define clean_model _mpl_clean_model
 void clean_model(MPL *mpl);
 /* clean model content */
 
@@ -2760,31 +2763,31 @@ void clean_model(MPL *mpl);
 /* * *                        INPUT/OUTPUT                        * * */
 /**********************************************************************/
 
-#define open_input _glp_mpl_open_input
+#define open_input _mpl_open_input
 void open_input(MPL *mpl, char *file);
 /* open input text file */
 
-#define read_char _glp_mpl_read_char
+#define read_char _mpl_read_char
 int read_char(MPL *mpl);
 /* read next character from input text file */
 
-#define close_input _glp_mpl_close_input
+#define close_input _mpl_close_input
 void close_input(MPL *mpl);
 /* close input text file */
 
-#define open_output _glp_mpl_open_output
+#define open_output _mpl_open_output
 void open_output(MPL *mpl, char *file);
 /* open output text file */
 
-#define write_char _glp_mpl_write_char
+#define write_char _mpl_write_char
 void write_char(MPL *mpl, int c);
 /* write next character to output text file */
 
-#define write_text _glp_mpl_write_text
+#define write_text _mpl_write_text
 void write_text(MPL *mpl, char *fmt, ...);
 /* format and write text to output text file */
 
-#define flush_output _glp_mpl_flush_output
+#define flush_output _mpl_flush_output
 void flush_output(MPL *mpl);
 /* finalize writing data to output text file */
 
@@ -2806,123 +2809,123 @@ void flush_output(MPL *mpl);
 #define MPL_INT         422   /* integer */
 #define MPL_BIN         423   /* binary */
 
-#define error _glp_mpl_error
+#define error _mpl_error
 void error(MPL *mpl, char *fmt, ...);
 /* print error message and terminate model processing */
 
-#define warning _glp_mpl_warning
+#define warning _mpl_warning
 void warning(MPL *mpl, char *fmt, ...);
 /* print warning message and continue model processing */
 
-#define mpl_initialize _glp_mpl_initialize
+#define mpl_initialize _mpl_initialize
 MPL *mpl_initialize(void);
 /* create and initialize translator database */
 
-#define mpl_new_scan_input _glp_mpl_new_scan_input
+#define mpl_new_scan_input _mpl_new_scan_input
 glp_input_file_st *mpl_new_scan_input(MPL *mpl);
 /* create a scan input structure */
 
-#define mpl_free_scan_input _glp_mpl_free_scan_input
+#define mpl_free_scan_input _mpl_free_scan_input
 void mpl_free_scan_input(MPL *mpl, glp_input_file_st *sin);
 /* free a scan input structure */
 
-#define mpl_read_model _glp_mpl_read_model
-int mpl_read_model(MPL *mpl, char *file, int skip_data);
+#define mpl_read_model_int _mpl_read_model_int
+int mpl_read_model_int(MPL *mpl, char *file, int skip_data);
 /* read model section and optional data section */
 
-#define mpl_read_data _glp_mpl_read_data
-int mpl_read_data(MPL *mpl, char *file);
+#define mpl_read_data_int _mpl_read_data_int
+int mpl_read_data_int(MPL *mpl, char *file);
 /* read data section */
 
-#define mpl_generate _glp_mpl_generate
-int mpl_generate(MPL *mpl, char *file);
+#define mpl_generate_int _mpl_generate_int
+int mpl_generate_int(MPL *mpl, char *file);
 /* generate model */
 
-#define mpl_get_prob_name _glp_mpl_get_prob_name
+#define mpl_get_prob_name _mpl_get_prob_name
 char *mpl_get_prob_name(MPL *mpl);
 /* obtain problem (model) name */
 
-#define mpl_get_num_rows _glp_mpl_get_num_rows
+#define mpl_get_num_rows _mpl_get_num_rows
 int mpl_get_num_rows(MPL *mpl);
 /* determine number of rows */
 
-#define mpl_get_num_cols _glp_mpl_get_num_cols
+#define mpl_get_num_cols _mpl_get_num_cols
 int mpl_get_num_cols(MPL *mpl);
 /* determine number of columns */
 
-#define mpl_get_row_name _glp_mpl_get_row_name
+#define mpl_get_row_name _mpl_get_row_name
 char *mpl_get_row_name(MPL *mpl, int i);
 /* obtain row name */
 
-#define mpl_get_row_kind _glp_mpl_get_row_kind
+#define mpl_get_row_kind _mpl_get_row_kind
 int mpl_get_row_kind(MPL *mpl, int i);
 /* determine row kind */
 
-#define mpl_get_row_bnds _glp_mpl_get_row_bnds
+#define mpl_get_row_bnds _mpl_get_row_bnds
 int mpl_get_row_bnds(MPL *mpl, int i, double *lb, double *ub);
 /* obtain row bounds */
 
-#define mpl_get_row_bnds_gd _glp_mpl_get_row_bnds_gd
-int mpl_get_row_bnds_gd(MPL *mpl, int i, glp_double *lb, glp_double *ub);
+#define mpl_get_row_bnds_gd _mpl_get_row_bnds_gd
+int mpl_get_row_bnds_gd(MPL *mpl, int i, double *lb, double *ub);
 /* obtain row bounds */
 
-#define mpl_get_mat_row _glp_mpl_get_mat_row
+#define mpl_get_mat_row _mpl_get_mat_row
 int mpl_get_mat_row(MPL *mpl, int i, int ndx[], double val[]);
 /* obtain row of the constraint matrix */
 
-#define mpl_get_mat_row_gd _glp_mpl_get_mat_row_gd
-int mpl_get_mat_row_gd(MPL *mpl, int i, int ndx[], glp_double val[]);
+#define mpl_get_mat_row_gd _mpl_get_mat_row_gd
+int mpl_get_mat_row_gd(MPL *mpl, int i, int ndx[], double val[]);
 /* obtain row of the constraint matrix */
 
-#define mpl_get_row_c0 _glp_mpl_get_row_c0
+#define mpl_get_row_c0 _mpl_get_row_c0
 double mpl_get_row_c0(MPL *mpl, int i);
 /* obtain constant term of free row */
 
-#define mpl_get_col_name _glp_mpl_get_col_name
+#define mpl_get_col_name _mpl_get_col_name
 char *mpl_get_col_name(MPL *mpl, int j);
 /* obtain column name */
 
-#define mpl_get_col_kind _glp_mpl_get_col_kind
+#define mpl_get_col_kind _mpl_get_col_kind
 int mpl_get_col_kind(MPL *mpl, int j);
 /* determine column kind */
 
-#define mpl_get_col_bnds _glp_mpl_get_col_bnds
+#define mpl_get_col_bnds _mpl_get_col_bnds
 int mpl_get_col_bnds(MPL *mpl, int j, double *lb, double *ub);
 /* obtain column bounds */
 
-#define mpl_get_col_bnds_gd _glp_mpl_get_col_bnds_gd
-int mpl_get_col_bnds_gd(MPL *mpl, int j, glp_double *lb, glp_double *ub);
+#define mpl_get_col_bnds_gd _mpl_get_col_bnds_gd
+int mpl_get_col_bnds_gd(MPL *mpl, int j, double *lb, double *ub);
 /* obtain column bounds */
 
-#define mpl_has_solve_stmt _glp_mpl_has_solve_stmt
+#define mpl_has_solve_stmt _mpl_has_solve_stmt
 int mpl_has_solve_stmt(MPL *mpl);
 /* check if model has solve statement */
 
 #if 1 /* 15/V-2010 */
-#define mpl_put_row_soln _glp_mpl_put_row_soln
+#define mpl_put_row_soln _mpl_put_row_soln
 void mpl_put_row_soln(MPL *mpl, int i, int stat, double prim,
       double dual);
 /* store row (constraint/objective) solution components */
 #endif
 
 #if 1 /* 15/V-2010 */
-#define mpl_put_col_soln _glp_mpl_put_col_soln
+#define mpl_put_col_soln _mpl_put_col_soln
 void mpl_put_col_soln(MPL *mpl, int j, int stat, double prim,
       double dual);
 /* store column (variable) solution components */
 #endif
 
 #if 0 /* 15/V-2010 */
-#define mpl_put_col_value _glp_mpl_put_col_value
+#define mpl_put_col_value _mpl_put_col_value
 void mpl_put_col_value(MPL *mpl, int j, double val);
 /* store column value */
 #endif
 
-#define mpl_postsolve _glp_mpl_postsolve
-int mpl_postsolve(MPL *mpl);
+#define mpl_postsolve_int _mpl_postsolve_int
+int mpl_postsolve_int(MPL *mpl);
 /* postsolve model */
 
-#define mpl_terminate _glp_mpl_terminate
+#define mpl_terminate _mpl_terminate
 void mpl_terminate(MPL *mpl);
 /* free all resources used by translator */
 

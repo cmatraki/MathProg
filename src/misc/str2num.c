@@ -1,4 +1,4 @@
-/* str2num.c (convert string to glp_double) */
+/* str2num.c (convert string to double) */
 
 /***********************************************************************
 *  This code is part of GLPK (GNU Linear Programming Kit).
@@ -27,17 +27,17 @@
 /***********************************************************************
 *  NAME
 *
-*  str2num - convert character string to value of glp_double type
+*  str2num - convert character string to value of double type
 *
 *  SYNOPSIS
 *
 *  #include "misc.h"
-*  int str2num(const char *str, glp_double *val);
+*  int str2num(const char *str, double *val);
 *
 *  DESCRIPTION
 *
 *  The routine str2num converts the character string str to a value of
-*  glp_double type and stores the value into location, which the parameter
+*  double type and stores the value into location, which the parameter
 *  val points to (in the case of error content of this location is not
 *  changed).
 *
@@ -49,9 +49,9 @@
 *  1 - value out of range;
 *  2 - character string is syntactically incorrect. */
 
-int str2num(const char *str, glp_double *val_)
+int str2num(const char *str, double *val_)
 {     int k;
-      glp_double val;
+      double val;
       /* scan optional sign */
       k = (str[0] == '+' || str[0] == '-' ? 1 : 0);
       /* check for decimal point */
@@ -97,10 +97,10 @@ frac: /* scan optional fraction part */
             return 2;
       }
       /* check for overflow */
-      if (!(-GLP_DBL_MAX <= val && val <= +GLP_DBL_MAX))
+      if (!(-DBL_MAX <= val && val <= +DBL_MAX))
          return 1;
       /* check for underflow */
-      if (-GLP_DBL_MIN < val && val < +GLP_DBL_MIN)
+      if (-DBL_MIN < val && val < +DBL_MIN)
          val = 0.0;
       /* conversion has been done */
       *val_ = val;
@@ -109,22 +109,7 @@ frac: /* scan optional fraction part */
 
 int str2double(const char *str, double *val_)
 {
-#ifdef WITH_LONG_DOUBLE
-    glp_double gd;
-    int rc = str2num(str, &gd);
-    if(rc) return rc;
-    /* check for overflow */
-    if (!(-DBL_MAX <= gd && gd <= +DBL_MAX))
-         return 1;
-    /* check for underflow */
-    if (-DBL_MIN < gd && gd < +DBL_MIN)
-         *val_ = 0.0;
-    else
-        *val_ = gd;
-    return 0;
-#else
     return str2num(str, val_);
-#endif
 }
 
 /* eof */

@@ -29,7 +29,7 @@
 typedef struct ENV ENV;
 typedef struct MBD MBD;
 
-#include "glpk_real.h"
+//#include "glpk_real.h"
 
 typedef int (*glp_cmpfun)(const void *, const void *);
 extern void glp_qsort(void *base, size_t nel, size_t width, glp_cmpfun cmp);
@@ -120,9 +120,9 @@ struct ENV
       /* handle to MySQL shared library */
       void *h_sqlite;
       /* handle to SQLite shared library */
-      glp_double time_start;
+      double time_start;
       /* start time to compute time spent */
-      glp_double last_time_start;
+      double last_time_start;
       /* last start time to compute time spent */
       size_t last_mem_tpeak;
       /* last peak value of mem_total */
@@ -308,11 +308,11 @@ int glp_close(glp_file *f);
 /* close stream */
 
 #define xtime glp_time
-glp_double glp_time(void);
+double glp_time(void);
 /* determine current universal time */
 
 #define xdifftime glp_difftime
-glp_double glp_difftime(glp_double t1, glp_double t0);
+double glp_difftime(double t1, double t0);
 /* compute difference between two time values */
 
 #define xdlopen _glp_dlopen

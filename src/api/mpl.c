@@ -22,29 +22,29 @@
 ***********************************************************************/
 
 #include "mpl.h"
-#include "prob.h"
+#include "glpk.h"
 
-glp_tran *glp_mpl_alloc_wksp(void)
+mpl_tran *mpl_alloc_wksp(void)
 {     /* allocate the MathProg translator workspace */
-      glp_tran *tran;
+      mpl_tran *tran;
       tran = mpl_initialize();
       return tran;
 }
 
-void glp_mpl_init_rand(glp_tran *tran, int seed)
+void mpl_init_rand(mpl_tran *tran, int seed)
 {     /* initialize pseudo-random number generator */
       if (tran->phase != GLP_TRAN_PHASE_INITIAL)
-         xerror("glp_mpl_init_rand: invalid call sequence\n");
+         xerror("mpl_init_rand: invalid call sequence\n");
       rng_init_rand(tran->rand, seed);
       return;
 }
 
-int glp_mpl_read_model(glp_tran *tran, const char *fname, int skip)
+int mpl_read_model(mpl_tran *tran, const char *fname, int skip)
 {     /* read and translate model section */
       int ret;
       if (tran->phase != GLP_TRAN_PHASE_INITIAL)
-         xerror("glp_mpl_read_model: invalid call sequence\n");
-      ret = mpl_read_model(tran, (char *)fname, skip);
+         xerror("mpl_read_model: invalid call sequence\n");
+      ret = mpl_read_model_int(tran, (char *)fname, skip);
       if (ret == 1 || ret == 2)
          ret = 0;
       else if (ret == 4)
@@ -54,12 +54,12 @@ int glp_mpl_read_model(glp_tran *tran, const char *fname, int skip)
       return ret;
 }
 
-int glp_mpl_read_data(glp_tran *tran, const char *fname)
+int mpl_read_data(mpl_tran *tran, const char *fname)
 {     /* read and translate data section */
       int ret;
       if (!(tran->phase == GLP_TRAN_PHASE_MODEL || tran->phase == GLP_TRAN_PHASE_DATA))
-         xerror("glp_mpl_read_data: invalid call sequence\n");
-      ret = mpl_read_data(tran, (char *)fname);
+         xerror("mpl_read_data: invalid call sequence\n");
+      ret = mpl_read_data_int(tran, (char *)fname);
       if (ret == 2)
          ret = 0;
       else if (ret == 4)
@@ -69,12 +69,12 @@ int glp_mpl_read_data(glp_tran *tran, const char *fname)
       return ret;
 }
 
-int glp_mpl_generate(glp_tran *tran, const char *fname)
+int mpl_generate(mpl_tran *tran, const char *fname)
 {     /* generate the model */
       int ret;
       if (!(tran->phase == GLP_TRAN_PHASE_MODEL || tran->phase == GLP_TRAN_PHASE_DATA))
-         xerror("glp_mpl_generate: invalid call sequence\n");
-      ret = mpl_generate(tran, (char *)fname);
+         xerror("mpl_generate: invalid call sequence\n");
+      ret = mpl_generate_int(tran, (char *)fname);
       if (ret == 3)
          ret = 0;
       else if (ret == 4)
@@ -82,51 +82,51 @@ int glp_mpl_generate(glp_tran *tran, const char *fname)
       return ret;
 }
 
-void glp_mpl_set_solve_callback(glp_tran *tran, glp_solve_callback solve_cb, void *udata)
+void mpl_set_solve_callback(mpl_tran *tran, glp_solve_callback solve_cb, void *udata)
 {
     tran->solve_callback = solve_cb;
     tran->solve_callback_udata = udata;
 }
 
-int glp_mpl_set_genall(glp_tran *tran, int bflag)
+int mpl_set_genall(mpl_tran *tran, int bflag)
 {
     int rc = tran->gen_all;
     tran->gen_all = bflag;
     return rc;
 }
 
-int glp_mpl_set_show_delta(glp_tran *tran, int bflag)
+int mpl_set_show_delta(mpl_tran *tran, int bflag)
 {
     int rc = tran->show_delta;
     tran->show_delta = bflag;
     return rc;
 }
 
-int glp_mpl_set_add_missing_param_values(glp_tran *tran, int bflag)
+int mpl_set_add_missing_param_values(mpl_tran *tran, int bflag)
 {
     int rc = tran->add_missing_param_values;
     tran->add_missing_param_values = bflag;
     return rc;
 }
 
-int glp_mpl_set_msg_lev(glp_tran *tran, int msg_lev)
+int mpl_set_msg_lev(mpl_tran *tran, int msg_lev)
 {
     int rc = tran->msg_lev;
     tran->msg_lev = msg_lev;
     return rc;
 }
 
-void glp_mpl_build_prob(glp_tran *tran, glp_prob *prob)
+void mpl_build_prob(mpl_tran *tran, glp_prob *prob)
 {     /* build LP/MIP problem instance from the model */
       int m, n, i, j, t, kind, type, len, *ind;
-      glp_double lb, ub, *val;
+      double lb, ub, *val;
       if (tran->phase != GLP_TRAN_PHASE_GENERATE)
-         xerror("glp_mpl_build_prob: invalid call sequence\n");
+         xerror("mpl_build_prob: invalid call sequence\n");
       /* erase the problem object */
-      i = glp_get_use_col_row_names(prob);
+//      i = glp_get_use_col_row_names(prob);
       /* save use_col_row_names */
       glp_erase_prob(prob);
-      glp_set_use_col_row_names(prob, i);
+//      glp_set_use_col_row_names(prob, i);
       /* restore use_col_row_names */
       /* set problem name */
       glp_set_prob_name(prob, mpl_get_prob_name(tran));
@@ -136,7 +136,7 @@ void glp_mpl_build_prob(glp_tran *tran, glp_prob *prob)
          glp_add_rows(prob, m);
       for (i = 1; i <= m; i++)
       {  /* set row name */
-         if(prob->use_col_row_names)
+//         if(prob->use_col_row_names)
              glp_set_row_name(prob, i, mpl_get_row_name(tran, i));
          /* set row bounds */
          type = mpl_get_row_bnds_gd(tran, i, &lb, &ub);
@@ -155,7 +155,7 @@ void glp_mpl_build_prob(glp_tran *tran, glp_prob *prob)
          glp_set_row_bnds(prob, i, type, lb, ub);
          /* warn about non-zero constant term */
          if (mpl_get_row_c0(tran, i) != 0.0)
-            xprintf("glp_mpl_build_prob: row %s; constant term %.12" GLP_DBL_FMT_G " ig"
+            xprintf("glp_mpl_build_prob: row %s; constant term %.12g ig"
                "nored\n",
                mpl_get_row_name(tran, i), mpl_get_row_c0(tran, i));
       }
@@ -165,7 +165,7 @@ void glp_mpl_build_prob(glp_tran *tran, glp_prob *prob)
          glp_add_cols(prob, n);
       for (j = 1; j <= n; j++)
       {  /* set column name */
-         if(prob->use_col_row_names)
+//         if(prob->use_col_row_names)
             glp_set_col_name(prob, j, mpl_get_col_name(tran, j));
          /* set column kind */
          kind = mpl_get_col_kind(tran, j);
@@ -202,7 +202,7 @@ void glp_mpl_build_prob(glp_tran *tran, glp_prob *prob)
       }
       /* load the constraint matrix */
       ind = xcalloc(1+n, sizeof(int));
-      val = xcalloc(1+n, sizeof(glp_double));
+      val = xcalloc(1+n, sizeof(double));
       for (i = 1; i <= m; i++)
       {  len = mpl_get_mat_row_gd(tran, i, ind, val);
          glp_set_mat_row(prob, i, len, ind, val);
@@ -230,25 +230,25 @@ void glp_mpl_build_prob(glp_tran *tran, glp_prob *prob)
       return;
 }
 
-int glp_mpl_postsolve(glp_tran *tran, glp_prob *prob, int sol)
+int mpl_postsolve(mpl_tran *tran, glp_prob *prob, int sol)
 {     /* postsolve the model */
       int i, j, m, n, stat, ret, has_shift;
-      glp_double prim, dual;
+      double prim, dual;
       if (!(tran->phase == GLP_TRAN_PHASE_GENERATE && !tran->flag_p))
-         xerror("glp_mpl_postsolve: invalid call sequence\n");
+         xerror("mpl_postsolve: invalid call sequence\n");
       if (!(sol == GLP_SOL || sol == GLP_IPT || sol == GLP_MIP))
-         xerror("glp_mpl_postsolve: sol = %d; invalid parameter\n",
+         xerror("mpl_postsolve: sol = %d; invalid parameter\n",
             sol);
       m = mpl_get_num_rows(tran);
       n = mpl_get_num_cols(tran);
       if (!(m == glp_get_num_rows(prob) &&
             n == glp_get_num_cols(prob)))
-         xerror("glp_mpl_postsolve: wrong problem object\n");
+         xerror("mpl_postsolve: wrong problem object\n");
       if (!mpl_has_solve_stmt(tran))
       {  ret = 0;
          goto done;
       }
-      has_shift = glp_get_obj_shift(prob) != 0.0;
+      has_shift = glp_get_obj_coef(prob, 0) != 0.0;
       for (i = 1; i <= m; i++)
       {  if (sol == GLP_SOL)
          {  stat = glp_get_row_stat(prob, i);
@@ -302,7 +302,7 @@ int glp_mpl_postsolve(glp_tran *tran, glp_prob *prob, int sol)
          if (fabs(dual) < GLP_MPL_MIN_9) dual = 0.0;
          mpl_put_col_soln(tran, j, stat, prim, dual);
       }
-      ret = mpl_postsolve(tran);
+      ret = mpl_postsolve_int(tran);
       if (ret == 3)
          ret = 0;
       else if (ret == 4)
@@ -310,12 +310,12 @@ int glp_mpl_postsolve(glp_tran *tran, glp_prob *prob, int sol)
 done: return ret;
 }
 
-int glp_mpl_waiting_solve(glp_tran *tran)
+int mpl_waiting_solve(mpl_tran *tran)
 {
     return tran->stmt && tran->stmt->type == A_SOLVE;
 }
 
-void glp_mpl_free_wksp(glp_tran *tran)
+void mpl_free_wksp(mpl_tran *tran)
 {     /* free the MathProg translator workspace */
       mpl_terminate(tran);
       return;
@@ -325,7 +325,7 @@ void glp_mpl_free_wksp(glp_tran *tran)
 #include "lp_lib.h"
 //#include "commonlib.h"
 
-lprec *glp_lpsolve_mpl_build_prob(glp_tran *tran)
+lprec *glp_lpsolve_mpl_build_prob(mpl_tran *tran)
 {
   int     ret, m, n, i, ii, j, *ndx, len, kind, type;
   double  lb, ub, *val, infinite;
@@ -495,14 +495,14 @@ done:
   return lp;
 }
 
-int glp_lpsolve_mpl_postsolve(glp_tran *tran, lprec *lp, int sol)
+int glp_lpsolve_mpl_postsolve(mpl_tran *tran, lprec *lp, int sol)
 {     /* postsolve the model */
       int i, j, m, n, stat, ret, has_shift, *bascolumn = NULL;
-      glp_double prim, dual;
+      double prim, dual;
       if (!(tran->phase == GLP_TRAN_PHASE_GENERATE && !tran->flag_p))
          xerror("glp_lpsolve_mpl_postsolve: invalid call sequence\n");
       if (!(sol == GLP_SOL || sol == GLP_IPT || sol == GLP_MIP))
-         xerror("glp_mpl_postsolve: sol = %d; invalid parameter\n",
+         xerror("mpl_postsolve: sol = %d; invalid parameter\n",
             sol);
       m = mpl_get_num_rows(tran);
       n = mpl_get_num_cols(tran);
@@ -563,10 +563,10 @@ done:
 #ifdef WITH_CBC
 #include "Cbc_C_Interface.h"
 
-Cbc_Model *glp_cbc_mpl_build_prob(glp_tran *tran)
+Cbc_Model *glp_cbc_mpl_build_prob(mpl_tran *tran)
 {
   int     ret, m, n, i, ii, j, *ndx, len, kind, type;
-  glp_double  lb, ub, *val, infinite;
+  double  lb, ub, *val, infinite;
   if (tran->phase != GLP_TRAN_PHASE_GENERATE)
      xerror("glp_cbc_mpl_build_prob: invalid call sequence\n");
   Cbc_Model *lp =  Cbc_newModel();
@@ -614,7 +614,7 @@ Cbc_Model *glp_cbc_mpl_build_prob(glp_tran *tran)
 
   /* allocate working arrays */
   ndx = (int *) glp_malloc((1+n) * sizeof(*ndx));
-  val = (glp_double *) glp_malloc((1+n) * sizeof(*val));
+  val = (double *) glp_malloc((1+n) * sizeof(*val));
 
   /* build objective function (the first objective is used) */
   m = mpl_get_num_rows(tran);
@@ -643,7 +643,7 @@ Cbc_Model *glp_cbc_mpl_build_prob(glp_tran *tran)
       break;
     }
     Cbc_addRow(Cbc_Model *model, const char *name, int nz,
-        const int *cols, const glp_double *coefs, char sense, glp_double rhs);
+        const int *cols, const double *coefs, char sense, double rhs);
   }
 
   /* build rows (constraints) */
@@ -705,7 +705,7 @@ Cbc_Model *glp_cbc_mpl_build_prob(glp_tran *tran)
     Cbc_setRowName(lp, ii, mpl_get_row_name(tran, i));
 
     Cbc_addRow(lp, mpl_get_row_name(tran, i), len,
-        ndx+1, val+1, char sense, glp_double rhs);
+        ndx+1, val+1, char sense, double rhs);
   }
   /* set status and free working arrays */
   glp_free(ndx);
@@ -719,10 +719,10 @@ done:
   return lp;
 }
 
-int glp_cbc_mpl_postsolve(glp_tran *tran, Cbc_Model *lp, int sol)
+int glp_cbc_mpl_postsolve(mpl_tran *tran, Cbc_Model *lp, int sol)
 {     /* postsolve the model */
       int i, j, m, n, stat, ret, has_shift, *bascolumn = NULL;
-      glp_double prim, dual;
+      double prim, dual;
       if (!(tran->phase == GLP_TRAN_PHASE_GENERATE && !tran->flag_p))
          xerror("glp_cbc_mpl_postsolve: invalid call sequence\n");
       if (!(sol == GLP_SOL || sol == GLP_IPT || sol == GLP_MIP))

@@ -1,6 +1,6 @@
 # Preliminary makefile
 
-CFLAGS = -I../src -I../src/api -I../src/env -I../src/misc -I../src/mpl -march=native -O2
+CFLAGS = -DWITH_SPLAYTREE -I../src -I../src/api -I../src/env -I../src/misc -I../src/mpl -march=native -O2
 
 OBJSET = \
 mathprog.o \
@@ -15,6 +15,7 @@ env/tls.o \
 misc/avl.o \
 misc/dmp.o \
 misc/jd.o \
+misc/splaytree.o \
 misc/str2int.o \
 misc/str2num.o \
 misc/strspx.o \
@@ -27,29 +28,14 @@ mpl/mpl3.o \
 mpl/mpl4.o \
 mpl/mpl5.o \
 mpl/mpl6.o \
-mpl/mplsql.o \
-zlib/adler32.o \
-zlib/compress.o \
-zlib/crc32.o \
-zlib/deflate.o \
-zlib/gzclose.o \
-zlib/gzlib.o \
-zlib/gzread.o \
-zlib/gzwrite.o \
-zlib/inffast.o \
-zlib/inflate.o \
-zlib/inftrees.o \
-zlib/trees.o \
-zlib/uncompr.o \
-zlib/zio.o \
-zlib/zutil.o
+mpl/mplsql.o
 
 .c.o:
 	gcc $(CFLAGS) -c $*.c -o $*.o
 
 all: mathprog
 
-clean: 
+clean:
 	  rm ../src/mathprog \
 		    ../src/*.o \
           ../src/api/*.o \

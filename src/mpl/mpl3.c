@@ -421,7 +421,7 @@ double fp_normal(MPL *mpl, double mu, double sigma)
 
 STRING *create_string
 (     MPL *mpl,
-      const char buf[MAX_LENGTH+1]  /* not changed */
+      const char buf[]  /* not changed */
 )
 #if 0
 {     STRING *head, *tail;
@@ -4893,7 +4893,7 @@ static void null_func(MPL *mpl, void *info)
       return;
 }
 
-int is_member(MPL *mpl, CODE *code, const TUPLE *tuple)
+int is_member(MPL *mpl, CODE *code, TUPLE *tuple)
 {     int value;
       xassert(code != NULL);
       xassert(code->type == A_ELEMSET);

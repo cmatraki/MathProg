@@ -38,11 +38,10 @@ all: mathprog
 clean:
 	  rm ../src/mathprog \
 		    ../src/*.o \
-          ../src/api/*.o \
+		    ../src/api/*.o \
 		    ../src/env/*.o \
 		    ../src/misc/*.o \
-		    ../src/mpl/*.o \
-		    ../src/zlib/*.o
+		    ../src/mpl/*.o
 
 mathprog: $(OBJSET)
 	  gcc $(CFLAGS) $(OBJSET) -o mathprog -lglpk -lm -lz

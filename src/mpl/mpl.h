@@ -1025,7 +1025,7 @@ void fn_time2str(MPL *mpl, char *str, double t, const char *fmt);
 #define create_string _mpl_create_string
 STRING *create_string
 (     MPL *mpl,
-      const char buf[MAX_LENGTH+1]  /* not changed */
+      const char buf[]  /* not changed */
 );
 STRING *create_string_interned
 (     MPL *mpl,
@@ -2482,7 +2482,7 @@ ELEMSET *eval_elemset(MPL *mpl, CODE *code);
    returning a fake copy (refcount incremented)*/
 
 #define is_member _mpl_is_member
-int is_member(MPL *mpl, CODE *code, const TUPLE *tuple);
+int is_member(MPL *mpl, CODE *code, TUPLE *tuple);
 /* check if n-tuple is in set specified by pseudo-code */
 
 #define eval_formula _mpl_eval_formula

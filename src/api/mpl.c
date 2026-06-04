@@ -139,7 +139,7 @@ void mpl_build_prob(mpl_tran *tran, glp_prob *prob)
 //         if(prob->use_col_row_names)
              glp_set_row_name(prob, i, mpl_get_row_name(tran, i));
          /* set row bounds */
-         type = mpl_get_row_bnds_gd(tran, i, &lb, &ub);
+         type = mpl_get_row_bnds(tran, i, &lb, &ub);
          switch (type)
          {  case MPL_FR: type = GLP_FR; break;
             case MPL_LO: type = GLP_LO; break;
@@ -180,7 +180,7 @@ void mpl_build_prob(mpl_tran *tran, glp_prob *prob)
                xassert(kind != kind);
          }
          /* set column bounds */
-         type = mpl_get_col_bnds_gd(tran, j, &lb, &ub);
+         type = mpl_get_col_bnds(tran, j, &lb, &ub);
          switch (type)
          {  case MPL_FR: type = GLP_FR; break;
             case MPL_LO: type = GLP_LO; break;
@@ -204,7 +204,7 @@ void mpl_build_prob(mpl_tran *tran, glp_prob *prob)
       ind = xcalloc(1+n, sizeof(int));
       val = xcalloc(1+n, sizeof(double));
       for (i = 1; i <= m; i++)
-      {  len = mpl_get_mat_row_gd(tran, i, ind, val);
+      {  len = mpl_get_mat_row(tran, i, ind, val);
          glp_set_mat_row(prob, i, len, ind, val);
       }
       /* build objective function (the first objective is used) */
@@ -218,7 +218,7 @@ void mpl_build_prob(mpl_tran *tran, glp_prob *prob)
             /* set constant term */
             glp_set_obj_coef(prob, 0, mpl_get_row_c0(tran, i));
             /* set objective coefficients */
-            len = mpl_get_mat_row_gd(tran, i, ind, val);
+            len = mpl_get_mat_row(tran, i, ind, val);
             for (t = 1; t <= len; t++)
                glp_set_obj_coef(prob, ind[t], val[t]);
             break;

@@ -2865,16 +2865,8 @@ int mpl_get_row_kind(MPL *mpl, int i);
 int mpl_get_row_bnds(MPL *mpl, int i, double *lb, double *ub);
 /* obtain row bounds */
 
-#define mpl_get_row_bnds_gd _mpl_get_row_bnds_gd
-int mpl_get_row_bnds_gd(MPL *mpl, int i, double *lb, double *ub);
-/* obtain row bounds */
-
 #define mpl_get_mat_row _mpl_get_mat_row
 int mpl_get_mat_row(MPL *mpl, int i, int ndx[], double val[]);
-/* obtain row of the constraint matrix */
-
-#define mpl_get_mat_row_gd _mpl_get_mat_row_gd
-int mpl_get_mat_row_gd(MPL *mpl, int i, int ndx[], double val[]);
 /* obtain row of the constraint matrix */
 
 #define mpl_get_row_c0 _mpl_get_row_c0
@@ -2891,10 +2883,6 @@ int mpl_get_col_kind(MPL *mpl, int j);
 
 #define mpl_get_col_bnds _mpl_get_col_bnds
 int mpl_get_col_bnds(MPL *mpl, int j, double *lb, double *ub);
-/* obtain column bounds */
-
-#define mpl_get_col_bnds_gd _mpl_get_col_bnds_gd
-int mpl_get_col_bnds_gd(MPL *mpl, int j, double *lb, double *ub);
 /* obtain column bounds */
 
 #define mpl_has_solve_stmt _mpl_has_solve_stmt

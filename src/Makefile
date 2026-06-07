@@ -1,6 +1,6 @@
 # Preliminary makefile
 
-CFLAGS = -DWITH_SPLAYTREE -I../src -I../src/api -I../src/env -I../src/misc -I../src/mpl -march=native -O2
+CFLAGS = -DWITH_SPLAYTREE -I../src -I../src/api -I../src/env -I../src/misc -I../src/mpl -I../nl-writer2/include -march=native -O2
 
 OBJSET = \
 mathprog.o \
@@ -28,10 +28,19 @@ mpl/mpl3.o \
 mpl/mpl4.o \
 mpl/mpl5.o \
 mpl/mpl6.o \
-mpl/mplsql.o
+mpl/mplsql.o \
+../nl-writer2/src/nl-solver.o \
+../nl-writer2/src/nl-utils.o \
+../nl-writer2/src/nl-model-c.o \
+../nl-writer2/src/nl-solver-c.o \
+../nl-writer2/src/nl-writer2.o
+
 
 .c.o:
 	gcc $(CFLAGS) -c $*.c -o $*.o
+
+.cc.o:
+	gcc $(CFLAGS) -c $*.cc -o $*.o
 
 all: mathprog
 
@@ -41,10 +50,11 @@ clean:
 		    ../src/api/*.o \
 		    ../src/env/*.o \
 		    ../src/misc/*.o \
-		    ../src/mpl/*.o
+		    ../src/mpl/*.o \
+		    ../nl-writer2/src/*.o
 
 mathprog: $(OBJSET)
-	  gcc $(CFLAGS) $(OBJSET) -o mathprog -lglpk -lm -lz
+	  gcc $(CFLAGS) $(OBJSET) -o mathprog -lglpk -lm -lz -lstdc++
 
 check: mathprog
 	  ./mathprog --version

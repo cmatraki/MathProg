@@ -5375,10 +5375,36 @@ static void add_system_param_sym(MPL *mpl, const char *name, const char *val)
       add_system_param_helper(mpl, name, A_SYMBOLIC, code);
 }
 
+static void add_initial_problem(MPL *mpl, const char *name)
+{     PROBLEM *prob;
+      AVLNODE *node;
+      STATEMENT *stmt;
+
+      prob = alloc(PROBLEM);
+      prob->name = dmp_get_atomv(mpl->pool, strlen(name)+1);
+      strcpy(prob->name, name);
+      prob->alias = NULL;
+      prob->list = NULL;
+      prob->type = A_PROBLEM;
+
+      node = avl_insert_node(mpl->tree, prob->name);
+      avl_set_node_type(node, A_PROBLEM);
+      avl_set_node_link(node, (void *)prob);
+
+      mpl->current_problem = prob;
+      stmt = alloc(STATEMENT);
+      stmt->line = -1;
+      stmt->type = A_PROBLEM;
+      stmt->u.prob = prob;
+      stmt->next = mpl->model;
+      mpl->model = stmt;
+}
+
 void model_section(MPL *mpl)
 {     STATEMENT *stmt, *last_stmt;
       xassert(mpl->model == NULL || mpl->nested_input > 1);
 
+      add_initial_problem(mpl, "Initial");
       add_system_param_num(mpl, "solve_result_num", A_INTEGER, -1);
       add_system_param_sym(mpl, "solve_result", "?");
 

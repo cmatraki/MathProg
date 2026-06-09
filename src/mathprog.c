@@ -1013,7 +1013,7 @@ typedef struct { double low, cap, cost, x; } a_data;
 
 static int solve_callback(mpl_tran *tran, int sol_type, void *udata)
 {
-    int ret = 0, psol_type = GLP_SOL;
+    int ret = 0, psol_type = GLP_SOL, status;
     struct csa *csa = (struct csa *)udata;
     if(!csa->quiet)
         xprintf("Solve callback called\n");
@@ -1136,38 +1136,53 @@ static int solve_callback(mpl_tran *tran, int sol_type, void *udata)
         {
             case 1: /*A_PROBLEM_LP*/
                 glp_simplex(csa->prob, &csa->smcp);
-                if (!(glp_get_status(csa->prob) == GLP_OPT ||
-                      glp_get_status(csa->prob) == GLP_FEAS))
-                   ret = -1;
+                status = glp_get_status(csa->prob);
                 psol_type = GLP_SOL;
                 break;
             case 2: /*A_PROBLEM_MIP*/
                 glp_intopt(csa->prob, &csa->iocp);
-                if (!(glp_mip_status(csa->prob) == GLP_OPT ||
-                      glp_mip_status(csa->prob) == GLP_FEAS))
-                   ret = -1;
+                status = glp_mip_status(csa->prob);
                 psol_type = GLP_MIP;
                 break;
             case 3: /*A_PROBLEM_IP*/
                 glp_interior(csa->prob, &csa->iptcp);
-                if (!(glp_ipt_status(csa->prob) == GLP_OPT ||
-                      glp_ipt_status(csa->prob) == GLP_FEAS))
-                   ret = -1;
+                status = glp_ipt_status(csa->prob);
                 psol_type = GLP_IPT;
                 break;
             default:
                 printf("Unknown solution type %d\n", sol_type);
                 return -1;
         }
-        if(ret)
+        switch(status)
+        {
+            case GLP_OPT:    /* solution is optimal */
+                ret = 0;     /* solved */
+                break;
+            case GLP_NOFEAS: /* no feasible solution exists */
+                ret = 200;   /* infeasible */
+                break;
+            case GLP_UNBND:  /* solution is unbounded */
+                ret = 300;   /* unbounded */
+                break;
+            case GLP_FEAS:   /* solution is feasible */
+                ret = 400;   /* limit */
+                break;
+            case GLP_INFEAS: /* solution is infeasible */
+            case GLP_UNDEF:  /* solution is undefined */
+                ret = 500;   /* failure */
+                break;
+        }
+        if(status != GLP_OPT && status != GLP_FEAS)
         {
             printf("Solver reported a problem\n");
             return ret;
         }
-        ret = mpl_postsolve(csa->tran, csa->prob, psol_type);
+        if(mpl_postsolve(csa->tran, csa->prob, psol_type))
+        {
+            printf("Error on postsolving model\n");
+            return 500;
+        }
     }
-
-    if (ret != 0) printf("Error on postsolving model\n");
     return ret;
 }
 

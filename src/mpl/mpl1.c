@@ -5307,9 +5307,81 @@ STATEMENT *simple_statement(MPL *mpl, int spec)
 -- Parsing model section is terminated by either the keyword 'data', or
 -- the keyword 'end', or the end of file. */
 
+static void add_system_param_helper(MPL *mpl, const char* name, int type, CODE * code)
+{     STATEMENT *stmt;
+      PARAMETER *par;
+      LET_STMT *let;
+      AVLNODE *node;
+      OPERANDS arg;
+
+      par = alloc(PARAMETER);
+      par->name = dmp_get_atomv(mpl->pool, strlen(name)+1);
+      strcpy(par->name, name);
+      par->alias = NULL;
+      par->dim = 0;
+      par->domain = NULL;
+      par->type = type;
+      par->code_valid = 1;
+      par->cond = NULL;
+      par->in = NULL;
+      par->assign = NULL;
+      par->option = NULL;
+      par->scoped = 0;
+      par->data = 0;
+      par->defval.sym = nanbox_null();
+      par->array = NULL;
+
+      node = avl_insert_node(mpl->tree, par->name);
+      avl_set_node_type(node, A_PARAMETER);
+      avl_set_node_link(node, (void *)par);
+
+      let = alloc(LET_STMT);
+      let->domain = NULL;
+
+      arg.par.par = par;
+      arg.par.list = NULL;
+      if (type == A_SYMBOLIC)
+         let->par = make_code(mpl, O_MEMSYM, &arg, A_SYMBOLIC, 0);
+      else
+         let->par = make_code(mpl, O_MEMNUM, &arg, A_NUMERIC, 0);
+      let->assign = code;
+
+      stmt = alloc(STATEMENT);
+      stmt->line = -1;
+      stmt->type = A_PARAMETER;
+      stmt->u.par = par;
+      stmt->next = alloc(STATEMENT);
+      stmt->next->line = -1;
+      stmt->next->type = A_LET;
+      stmt->next->u.let = let;
+      stmt->next->next = mpl->model;
+      mpl->model = stmt;
+}
+
+static void add_system_param_num(MPL *mpl, const char *name, int type, double val)
+{     OPERANDS arg;
+      CODE *code;
+      arg.num = val;
+      code = make_code(mpl, O_NUMBER, &arg, A_NUMERIC, 0);
+      add_system_param_helper(mpl, name, type, code);
+}
+
+static void add_system_param_sym(MPL *mpl, const char *name, const char *val)
+{     OPERANDS arg;
+      CODE *code;
+      arg.str = dmp_get_atomv(mpl->pool, strlen(val)+1);
+      strcpy(arg.str, val);
+      code = make_code(mpl, O_STRING, &arg, A_SYMBOLIC, 0);
+      add_system_param_helper(mpl, name, A_SYMBOLIC, code);
+}
+
 void model_section(MPL *mpl)
 {     STATEMENT *stmt, *last_stmt;
       xassert(mpl->model == NULL || mpl->nested_input > 1);
+
+      add_system_param_num(mpl, "solve_result_num", A_INTEGER, -1);
+      add_system_param_sym(mpl, "solve_result", "?");
+
 #define SET_STMT_TO_MODEL_LAST(s) \
       for(s = mpl->model; s && s->next; s = s->next)
       SET_STMT_TO_MODEL_LAST(last_stmt);

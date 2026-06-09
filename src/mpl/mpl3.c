@@ -5752,6 +5752,37 @@ void clean_table(MPL *mpl, TABLE *tab)
 --
 -- This routine executes specified solve statement. */
 
+static void update_system_param_num(MPL *mpl, const char *name, double val)
+{     AVLNODE *node;
+      PARAMETER *par;
+      node = avl_find_node(mpl->tree, name);
+      par = (PARAMETER *)avl_get_node_link(node);
+      par->array->head->value.num = val;
+}
+
+static void update_system_param_sym(MPL *mpl, const char *name, const char *val)
+{     AVLNODE *node;
+      PARAMETER *par;
+      char *str;
+      node = avl_find_node(mpl->tree, name);
+      par = (PARAMETER *)avl_get_node_link(node);
+      str = (char *)nanbox_to_pointer(par->array->head->value.sym.sym);
+      dmp_free_atom(mpl->pool, str, strlen(str)+1);
+      str = dmp_get_atomv(mpl->pool, strlen(val)+1);
+      strcpy(str, val);
+      par->array->head->value.sym = create_symbol_str(mpl, str);
+}
+
+static char *result_name(int val)
+{     if(val >= 500) return "failure";
+      else if(val >= 400) return "limit";
+      else if(val >= 300) return "unbounded";
+      else if(val >= 200) return "infeasible";
+      else if(val >= 100) return "solved?";
+      else if(val >= 0) return "solved";
+      return "?";
+}
+
 void execute_solve(MPL *mpl, SOLVE *solve)
 {
     int ret;
@@ -5792,6 +5823,8 @@ void execute_solve(MPL *mpl, SOLVE *solve)
             mpl->flag_p = 0;
             mpl->solve_callback_called = 1;
             ret = mpl->solve_callback(mpl, solve->type, mpl->solve_callback_udata);
+            update_system_param_num(mpl, "solve_result_num", ret);
+            update_system_param_sym(mpl, "solve_result", result_name(ret));
         }
         mpl->current_problem = saved_prob;
         mpl->stmt = saved_stmt;

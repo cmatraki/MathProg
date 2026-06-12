@@ -1,6 +1,7 @@
 # Preliminary makefile
 
-CFLAGS = -DWITH_SPLAYTREE -I../src -I../src/api -I../src/env -I../src/misc -I../src/mpl -I../nl-writer2/include -march=native -O2
+CFLAGS = -DWITH_SPLAYTREE -DWITH_NLW2 -I../src -I../src/api -I../src/env\
+ -I../src/misc -I../src/mpl -I../nl-writer2/include -march=native -O2
 
 OBJSET = \
 mathprog.o \

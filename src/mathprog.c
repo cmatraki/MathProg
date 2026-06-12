@@ -37,11 +37,11 @@
 
 #include "mathprog.h"
 
-#ifdef WITH_LPSOLVE
-#include "lp_lib.h"
+#ifdef WITH_NLW2
+#include "api/c/nl-solver-c.h"
 //#include "commonlib.h"
-extern lprec *glp_lpsolve_mpl_build_prob(mpl_tran *tran);
-extern int glp_lpsolve_mpl_postsolve(mpl_tran *tran, lprec *lp, int sol);
+extern NLW2_NLSolver_C *glp_nlw2_mpl_build_prob(mpl_tran *tran);
+extern int glp_nlw2_mpl_postsolve(mpl_tran *tran, NLW2_NLSolver_C *nsol, int sol);
 #endif
 
 #define xassert glp_assert
@@ -175,9 +175,8 @@ struct csa
       int solve_callback_used;
       int solve_callback_used_has_solution;
       int quiet;
-#ifdef WITH_LPSOLVE
-      int with_lpsolve;
-      lprec *lpsolver;
+#ifdef WITH_NLW2
+      char *nlw2_solver;
 #endif
 };
 
@@ -288,8 +287,8 @@ static void print_help(const char *my_name)
       xprintf("   --showdelta       show time/memory delta usage\n");
       xprintf("   --genonly         only generate the model\n");
       xprintf("   --quiet           only display error messages\n");
-#ifdef WITH_LPSOLVE
-      xprintf("   --lpsolve         use lp_solve solver\n");
+#ifdef WITH_NLW2
+      xprintf("   --solver solver   use MP solver via nl-writer2\n");
 #endif
       xprintf("   --name probname   change problem name to probname\n");
 #if 1 /* 18/I-2018 */
@@ -650,9 +649,19 @@ static int parse_cmdline(struct csa *csa, int argc, char *argv[])
             csa->show_delta = 1;
          else if (p("--genonly"))
             csa->genonly = 1;
-#ifdef WITH_LPSOLVE
-         else if (p("--lpsolve"))
-            csa->with_lpsolve = 1;
+#ifdef WITH_NLW2
+         else if (p("--solver"))
+         {  k++;
+            if (k == argc || argv[k][0] == '\0' || argv[k][0] == '-')
+            {  xprintf("No solver binary specified\n");
+               return 1;
+            }
+            if (csa->nlw2_solver != NULL)
+            {  xprintf("Only one solver allowed\n");
+               return 1;
+            }
+            csa->nlw2_solver = argv[k];
+         }
 #endif
          else if (p("--name"))
          {  k++;
@@ -1021,97 +1030,38 @@ static int solve_callback(mpl_tran *tran, int sol_type, void *udata)
     if(!csa->solve_callback_used)
         csa->solve_callback_used = 1;
 
-#ifdef WITH_LPSOLVE
-    if(csa->with_lpsolve)
-    {
-        int i;
+#ifdef WITH_NLW2
+    if (csa->nlw2_solver)
+    {   char s[100];
+        csa->solve_callback_used_has_solution = 1;
         /* build the problem instance from the model */
-        lprec *lp = glp_lpsolve_mpl_build_prob(tran);
-        if(!lp)
-        {
-            printf("Error on building the problem\n");
-            return -1;
-        }
-        if(csa->quiet)
-            set_verbose(lp, IMPORTANT);
-        //set_presolve(lp, PRESOLVE_ROWS | PRESOLVE_COLS, get_presolveloops(lp));
-        //set_scaling(lp, SCALE_CURTISREID); //65);
-        //set_mip_gap(lp, TRUE, 0.05);
+        NLW2_NLSolver_C *nlse = glp_nlw2_mpl_build_prob (tran);
         switch(sol_type)
         {
             case 1: /*A_PROBLEM_LP*/
-                if(lp->int_vars)
-                {
-                    for(i = get_Ncolumns(lp); i >= 1; i--) {
-                      if(is_SOS_var(lp, i)) {
-                        fprintf(stderr, "Unable to remove integer conditions because there is at least one SOS constraint\n");
-                        delete_lp(lp);
-                        return -1;
-                      }
-                      set_semicont(lp, i, FALSE);
-                      set_int(lp, i, FALSE);
-                    }
-                }
-            case 0: /*A_PROBLEM_AUTO*/
+                sprintf (s, "tech:outlev=%d alg:relax=1", !csa->quiet);
+                break;
             case 2: /*A_PROBLEM_MIP*/
+            case 0: /*A_PROBLEM_AUTO*/
+                 sprintf (s, "tech:outlev=%d mip:gap=%f",
+                          !csa->quiet, csa->iocp.mip_gap);
+                break;
             case 3: /*A_PROBLEM_IP*/
-                //print_lp(lp);
-                ret = solve(lp);
-                if (ret)
-                   ret = -1;
+                sprintf (s, "tech:outlev=%d alg:relax=1 alg:method=ipm", !csa->quiet);
                 break;
             default:
-                printf("Unknown solution type %d\n", 0);
+                printf("Unknown solution type %d\n", sol_type);
                 return -1;
         }
-        if(ret)
-        {
-            printf("Solver reported a problem\n");
-            delete_lp(lp);
-            return ret;
+        if (csa->smcp.tm_lim != INT_MAX)
+        {  char t[24];
+           sprintf(t, " lim:time=%d", csa->smcp.tm_lim/1000);
+           strcat(s, t);
         }
-        ret = glp_lpsolve_mpl_postsolve(csa->tran, lp, psol_type);
-        delete_lp(lp);
-    }
-    else
-#endif
-#ifdef WITH_CBC
-    if(csa->with_cbc)
-    {
-        int i;
-        /* build the problem instance from the model */
-        Cbc_Model *lp = glp_cbc_mpl_build_prob(tran);
-        if(!lp)
-        {
-            printf("Error on building the problem\n");
-            return -1;
-        }
-        if(csa->quiet)
-            Cbc_setLogLevel(lp, 0);
-        switch(sol_type)
-        {
-            case 1: /*A_PROBLEM_LP*/
-                Cbc_setSolveRelax(lp, 1);
-            case 0: /*A_PROBLEM_AUTO*/
-            case 2: /*A_PROBLEM_MIP*/
-            case 3: /*A_PROBLEM_IP*/
-                //print_lp(lp);
-                ret = Cbc_solve(lp);
-                if (ret)
-                   ret = -1;
-                break;
-            default:
-                printf("Unknown solution type %d\n", 0);
-                return -1;
-        }
-        if(ret)
-        {
-            printf("Solver reported a problem\n");
-            Cbc_deleteModel(lp);
-            return ret;
-        }
-        ret = glp_lpsolve_mpl_postsolve(csa->tran, lp, psol_type);
-        Cbc_deleteModel(lp);
+        if (csa->smcp.presolve == GLP_OFF) strcat(s, " pre:solve=off");
+        NLW2_RunSolver_C (nlse, csa->nlw2_solver, s);
+
+        ret = glp_nlw2_mpl_postsolve (csa->tran, nlse, sol_type);
     }
     else
 #endif
@@ -1259,9 +1209,8 @@ int __cdecl main(int argc, char *argv[])
       csa->solve_callback_used = 0;
       csa->solve_callback_used_has_solution = 0;
       csa->quiet = 0;
-#ifdef WITH_LPSOLVE
-      csa->with_lpsolve = 0;
-      csa->lpsolver = NULL;
+#ifdef WITH_NLW2
+      csa->nlw2_solver = NULL;
 #endif
       /* parse command-line parameters */
       ret = parse_cmdline(csa, argc, argv);
@@ -1808,10 +1757,6 @@ ranges:        {  ret = glp_print_ranges(csa->prob, 0, NULL, 0,
 done: /* delete the LP/MIP problem object */
       if (csa->prob != NULL)
          glp_delete_prob(csa->prob);
-#ifdef WITH_LPSOLVE
-      if (csa->lpsolver != NULL)
-         delete_lp(csa->lpsolver);
-#endif
       /* free the translator workspace, if necessary */
       if (csa->tran != NULL)
          mathprog_free_wksp(csa->tran);

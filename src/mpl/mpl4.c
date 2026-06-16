@@ -721,13 +721,13 @@ MPL *mpl_initialize(void)
 -- solve_callback_set - set the solve callback and user data.
 -- */
 
-void solve_callback_set(MPL *mpl, glp_solve_callback solve_cb, void *user_data)
+void solve_callback_set(MPL *mpl, mpl_solve_callback solve_cb, void *user_data)
 {
     mpl->solve_callback = solve_cb;
     mpl->solve_callback_udata = user_data;
 }
 
-glp_solve_callback solve_callback_get(MPL *mpl, void **user_data)
+mpl_solve_callback solve_callback_get(MPL *mpl, void **user_data)
 {
     if(user_data) *user_data = mpl->solve_callback_udata;
     return mpl->solve_callback;
@@ -770,7 +770,7 @@ glp_solve_callback solve_callback_get(MPL *mpl, void **user_data)
 --     program should call the routine mpl_terminate to terminate model
 --     processing. */
 
-int mpl_read_model_int(MPL *mpl, char *file, int skip_data)
+int mpl_read_model(MPL *mpl, char *file, int skip_data)
 {     if (mpl->phase != GLP_TRAN_PHASE_INITIAL)
          xfault("mpl_read_model: invalid call sequence\n");
       if (file == NULL)
@@ -845,7 +845,7 @@ done: /* return to the calling program */
 --     program should call the routine mpl_terminate to terminate model
 --     processing. */
 
-int mpl_read_data_int(MPL *mpl, char *file)
+int mpl_read_data(MPL *mpl, char *file)
 #if 0 /* 02/X-2008 */
 {     if (mpl->phase != GLP_TRAN_PHASE_MODEL)
 #else
@@ -915,7 +915,7 @@ done: /* return to the calling program */
 --     program should call the routine mpl_terminate to terminate model
 --     processing. */
 
-int mpl_generate_int(MPL *mpl, char *file)
+int mpl_generate(MPL *mpl, char *file)
 {     if (!(mpl->phase == GLP_TRAN_PHASE_MODEL || mpl->phase == GLP_TRAN_PHASE_DATA))
          xfault("mpl_generate: invalid call sequence\n");
       /* set up error handler */
@@ -1510,7 +1510,7 @@ void mpl_put_col_value(MPL *mpl, int j, double val)
 --     program should call the routine mpl_terminate to terminate model
 --     processing. */
 
-int mpl_postsolve_int(MPL *mpl)
+int mpl_postsolve(MPL *mpl)
 {     if (!(mpl->phase == GLP_TRAN_PHASE_GENERATE && !mpl->flag_p))
          xfault("mpl_postsolve: invalid call sequence\n");
       /* set up error handler */

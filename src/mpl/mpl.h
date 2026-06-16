@@ -216,7 +216,7 @@ enum eGLP_TRAN_PHASE {
 #define T_INPUT         252   /* <- */
 #define T_LAPPEND       253   /* << */
 
-typedef int (*glp_solve_callback)(MPL *mpl, int sol_type, void *udata);
+typedef int (*mpl_solve_callback)(MPL *mpl, int sol_type, void *udata);
 
 #define MAX_NESTED_INPUT 20
 
@@ -318,7 +318,7 @@ struct mpl_tran
       /* this is used to globally invalidate cached values,
          this value is used in CODE.valid */
       void *solve_callback_udata;
-      glp_solve_callback solve_callback;
+      mpl_solve_callback solve_callback;
       int solve_callback_called;
       /* user provided callback to solve the problem,
        it's called when a solve statement is executed */
@@ -722,13 +722,13 @@ void model_section(MPL *mpl);
 /* parse model section */
 
 #define solve_callback_set _mpl_solve_callback_set
-void solve_callback_set(MPL *mpl, glp_solve_callback solve_cb, void *user_data);
+void solve_callback_set(MPL *mpl, mpl_solve_callback solve_cb, void *user_data);
 /* set the solve callback that will be called when a solve
    statement is executed, the user_data pointer is passed
    back */
 
 #define solve_callback_get _mpl_solve_callback_get
-glp_solve_callback solve_callback_get(MPL *mpl, void **user_data);
+mpl_solve_callback solve_callback_get(MPL *mpl, void **user_data);
 /* get the existing solve callback and user data */
 
 /**********************************************************************/
@@ -2829,16 +2829,16 @@ glp_input_file_st *mpl_new_scan_input(MPL *mpl);
 void mpl_free_scan_input(MPL *mpl, glp_input_file_st *sin);
 /* free a scan input structure */
 
-#define mpl_read_model_int _mpl_read_model_int
-int mpl_read_model_int(MPL *mpl, char *file, int skip_data);
+#define mpl_read_model _mpl_read_model
+int mpl_read_model(MPL *mpl, char *file, int skip_data);
 /* read model section and optional data section */
 
-#define mpl_read_data_int _mpl_read_data_int
-int mpl_read_data_int(MPL *mpl, char *file);
+#define mpl_read_data _mpl_read_data
+int mpl_read_data(MPL *mpl, char *file);
 /* read data section */
 
-#define mpl_generate_int _mpl_generate_int
-int mpl_generate_int(MPL *mpl, char *file);
+#define mpl_generate _mpl_generate
+int mpl_generate(MPL *mpl, char *file);
 /* generate model */
 
 #define mpl_get_prob_name _mpl_get_prob_name
@@ -2909,8 +2909,8 @@ void mpl_put_col_value(MPL *mpl, int j, double val);
 /* store column value */
 #endif
 
-#define mpl_postsolve_int _mpl_postsolve_int
-int mpl_postsolve_int(MPL *mpl);
+#define mpl_postsolve _mpl_postsolve
+int mpl_postsolve(MPL *mpl);
 /* postsolve model */
 
 #define mpl_terminate _mpl_terminate

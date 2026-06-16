@@ -1118,7 +1118,7 @@ static int solve_callback(mpl_tran *tran, int sol_type, void *udata)
     {
         csa->solve_callback_used_has_solution = 1;
         /* build the problem instance from the model */
-        mpl_build_prob(csa->tran, csa->prob);
+        mathprog_build_prob(csa->tran, csa->prob);
         glp_sort_matrix(csa->prob);
 
         //glp_scale_prob(csa->prob, GLP_SF_AUTO);
@@ -1177,7 +1177,7 @@ static int solve_callback(mpl_tran *tran, int sol_type, void *udata)
                     ret = 500;   /* failure */
                 break;
         }
-        if(mpl_postsolve(csa->tran, csa->prob, psol_type))
+        if(mathprog_postsolve(csa->tran, csa->prob, psol_type))
         {
             printf("Error on postsolving model\n");
             return -1;
@@ -1362,13 +1362,13 @@ err1:    {  xprintf("MPS file processing error\n");
       else if (csa->format == FMT_MATHPROG)
       {  int k;
          /* allocate the translator workspace */
-         csa->tran = mpl_alloc_wksp();
+         csa->tran = mathprog_alloc_wksp();
          if(csa->quiet)
-            mpl_set_msg_lev(csa->tran, GLP_MSG_ERR);
-         mpl_set_genall(csa->tran, csa->gen_all);
-         mpl_set_show_delta(csa->tran, csa->show_delta);
+            mathprog_set_msg_lev(csa->tran, GLP_MSG_ERR);
+         mathprog_set_genall(csa->tran, csa->gen_all);
+         mathprog_set_show_delta(csa->tran, csa->show_delta);
          if(!csa->check && !csa->solve_callback_skip)
-             mpl_set_solve_callback(csa->tran, solve_callback, csa);
+             mathprog_set_solve_callback(csa->tran, solve_callback, csa);
          /* set seed value */
          if (csa->seed == 0x80000000)
 #if 0 /* 10/VI-2013 */
@@ -1378,24 +1378,24 @@ err1:    {  xprintf("MPS file processing error\n");
 #endif
             xprintf("Seed value %d will be used\n", csa->seed);
          }
-         mpl_init_rand(csa->tran, csa->seed);
+         mathprog_init_rand(csa->tran, csa->seed);
          /* read model section and optional data section */
-         if (mpl_read_model(csa->tran, csa->in_file, csa->ndf > 0))
+         if (mathprog_read_model(csa->tran, csa->in_file, csa->ndf > 0))
 err2:    {  xprintf("MathProg model processing error\n");
             ret = EXIT_FAILURE;
             goto done;
          }
          /* read optional data section(s), if necessary */
          for (k = 1; k <= csa->ndf; k++)
-         {  if (mpl_read_data(csa->tran, csa->in_data[k]))
+         {  if (mathprog_read_data(csa->tran, csa->in_data[k]))
                goto err2;
          }
          /* generate the model */
-         if (mpl_generate(csa->tran, csa->out_dpy)) goto err2;
+         if (mathprog_generate(csa->tran, csa->out_dpy)) goto err2;
          if (csa->genonly || (csa->solve_callback_used &&
                  csa->solve_callback_used_has_solution == 0)) goto done;
          /* build the problem instance from the model */
-         mpl_build_prob(csa->tran, csa->prob);
+         mathprog_build_prob(csa->tran, csa->prob);
       }
       else if (csa->format == FMT_MIN_COST)
       {  csa->graph = glp_create_graph(sizeof(v_data), sizeof(a_data));
@@ -1714,21 +1714,21 @@ skip: /* postsolve the model, if necessary */
                   glp_get_status(csa->prob) == GLP_FEAS))
                ret = -1;
             else
-               ret = mpl_postsolve(csa->tran, csa->prob, GLP_SOL);
+               ret = mathprog_postsolve(csa->tran, csa->prob, GLP_SOL);
          }
          else if (csa->solution == SOL_INTERIOR)
          {  if (!(glp_ipt_status(csa->prob) == GLP_OPT ||
                   glp_ipt_status(csa->prob) == GLP_FEAS))
                ret = -1;
             else
-               ret = mpl_postsolve(csa->tran, csa->prob, GLP_IPT);
+               ret = mathprog_postsolve(csa->tran, csa->prob, GLP_IPT);
          }
          else if (csa->solution == SOL_INTEGER)
          {  if (!(glp_mip_status(csa->prob) == GLP_OPT ||
                   glp_mip_status(csa->prob) == GLP_FEAS))
                ret = -1;
             else
-               ret = mpl_postsolve(csa->tran, csa->prob, GLP_MIP);
+               ret = mathprog_postsolve(csa->tran, csa->prob, GLP_MIP);
          }
          else
             xassert(csa != csa);
@@ -1814,7 +1814,7 @@ done: /* delete the LP/MIP problem object */
 #endif
       /* free the translator workspace, if necessary */
       if (csa->tran != NULL)
-         mpl_free_wksp(csa->tran);
+         mathprog_free_wksp(csa->tran);
       /* delete the network problem object, if necessary */
       if (csa->graph != NULL)
          glp_delete_graph(csa->graph);

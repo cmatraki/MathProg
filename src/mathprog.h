@@ -34,54 +34,54 @@ extern "C" {
 typedef struct mpl_tran mpl_tran;
 /* MathProg translator workspace */
 
-mpl_tran *mpl_alloc_wksp(void);
+mpl_tran *mathprog_alloc_wksp(void);
 /* allocate the MathProg translator workspace */
 
-void mpl_init_rand(mpl_tran *tran, int seed);
+void mathprog_init_rand(mpl_tran *tran, int seed);
 /* initialize pseudo-random number generator */
 
-int mpl_read_model(mpl_tran *tran, const char *fname, int skip);
+int mathprog_read_model(mpl_tran *tran, const char *fname, int skip);
 /* read and translate model section */
 
-int mpl_read_data(mpl_tran *tran, const char *fname);
+int mathprog_read_data(mpl_tran *tran, const char *fname);
 /* read and translate data section */
 
-int mpl_generate(mpl_tran *tran, const char *fname);
+int mathprog_generate(mpl_tran *tran, const char *fname);
 /* generate the model */
 
-typedef int (*glp_solve_callback)(mpl_tran *mpl, int sol_type, void *udata);
-void mpl_set_solve_callback(mpl_tran *tran, glp_solve_callback solve_cb, void *udata);
+typedef int (*mpl_solve_callback)(mpl_tran *mpl, int sol_type, void *udata);
+void mathprog_set_solve_callback(mpl_tran *tran, mpl_solve_callback solve_cb, void *udata);
 /* set the solve callback that will be called when a solve
    statement is executed, the user_data pointer is passed
    back */
 
-int mpl_set_genall(mpl_tran *tran, int bflag);
+int mathprog_set_genall(mpl_tran *tran, int bflag);
 /* set the gen_all option, pre generate all entities in the model
    return the previous value */
 
-int mpl_set_show_delta(mpl_tran *tran, int bflag);
+int mathprog_set_show_delta(mpl_tran *tran, int bflag);
 /* set the show_delta option, show time/memory delta usage
    return the previous value */
 
-int mpl_set_add_missing_param_values(mpl_tran *tran, int bflag);
+int mathprog_set_add_missing_param_values(mpl_tran *tran, int bflag);
 /* set the add_missing_param_values option, parameters
    with missing values and a default option by default
    calculates it every unless this option is set to non zero */
 
-int mpl_set_msg_lev(mpl_tran *tran, int msg_lev);
+int mathprog_set_msg_lev(mpl_tran *tran, int msg_lev);
 /* set the message level (verbosity)
    return the previous value */
 
-void mpl_build_prob(mpl_tran *tran, glp_prob *prob);
+void mathprog_build_prob(mpl_tran *tran, glp_prob *prob);
 /* build LP/MIP problem instance from the model */
 
-int mpl_postsolve(mpl_tran *tran, glp_prob *prob, int sol);
+int mathprog_postsolve(mpl_tran *tran, glp_prob *prob, int sol);
 /* postsolve the model */
 
-int mpl_waiting_solve(mpl_tran *tran);
+int mathprog_waiting_solve(mpl_tran *tran);
 /* check if the model execution is waiting for solve */
 
-void mpl_free_wksp(mpl_tran *tran);
+void mathprog_free_wksp(mpl_tran *tran);
 /* free the MathProg translator workspace */
 
 #ifdef __cplusplus

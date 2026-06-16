@@ -33,8 +33,6 @@
 #include "nanbox.h"
 #define GMPL_INLINE inline
 
-#define GLP_MPL_MIN_9 1e-9
-
 #if 0 /* 22/I-2013 */
 typedef struct MPL MPL;
 #else

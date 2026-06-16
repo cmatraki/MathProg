@@ -1135,23 +1135,23 @@ static int solve_callback(mpl_tran *tran, int sol_type, void *udata)
         switch(sol_type)
         {
             case 1: /*A_PROBLEM_LP*/
-                glp_simplex(csa->prob, &csa->smcp);
+                ret = glp_simplex(csa->prob, &csa->smcp);
                 status = glp_get_status(csa->prob);
                 psol_type = GLP_SOL;
                 break;
             case 2: /*A_PROBLEM_MIP*/
-                glp_intopt(csa->prob, &csa->iocp);
+                ret = glp_intopt(csa->prob, &csa->iocp);
                 status = glp_mip_status(csa->prob);
                 psol_type = GLP_MIP;
                 break;
             case 3: /*A_PROBLEM_IP*/
-                glp_interior(csa->prob, &csa->iptcp);
+                ret = glp_interior(csa->prob, &csa->iptcp);
                 status = glp_ipt_status(csa->prob);
                 psol_type = GLP_IPT;
                 break;
             default:
                 printf("Unknown solution type %d\n", sol_type);
-                return -1;
+                ret = -1;
         }
         switch(status)
         {
@@ -1169,18 +1169,18 @@ static int solve_callback(mpl_tran *tran, int sol_type, void *udata)
                 break;
             case GLP_INFEAS: /* solution is infeasible */
             case GLP_UNDEF:  /* solution is undefined */
-                ret = 500;   /* failure */
+                if (ret == GLP_ENODFS)
+                    ret = 450;   /* limit, problem is either infeasible or unbounded. */
+                else if (ret == GLP_EITLIM || ret == GLP_ETMLIM || ret == GLP_EMIPGAP)
+                    ret = 470;   /* limit, no solution returned */
+                else
+                    ret = 500;   /* failure */
                 break;
-        }
-        if(status != GLP_OPT && status != GLP_FEAS)
-        {
-            printf("Solver reported a problem\n");
-            return ret;
         }
         if(mpl_postsolve(csa->tran, csa->prob, psol_type))
         {
             printf("Error on postsolving model\n");
-            return 500;
+            return -1;
         }
     }
     return ret;

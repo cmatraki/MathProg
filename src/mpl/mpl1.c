@@ -1124,7 +1124,7 @@ CODE *numeric_argument(MPL *mpl, char *func)
       if (x->type == A_SYMBOLIC)
          x = make_unary(mpl, O_CVTNUM, x, A_NUMERIC, 0);
       /* check that now the argument is of numeric type */
-      if (x->type != A_NUMERIC)
+      if (x->type != A_NUMERIC && x->type != A_FORMULA)
          error(mpl, "argument for %s has invalid type", func);
       xassert(x->dim == 0);
       return x;
@@ -2397,7 +2397,7 @@ CODE *expression_1(MPL *mpl)
          xassert(strlen(opstr) < sizeof(opstr));
          if (x->type == A_SYMBOLIC)
             x = make_unary(mpl, O_CVTNUM, x, A_NUMERIC, 0);
-         if (x->type != A_NUMERIC)
+         if (x->type != A_NUMERIC && x->type != A_FORMULA)
             error_preceding(mpl, opstr);
          get_token(mpl /* ^ | ** */);
          if (mpl->scan_input->token == T_PLUS || mpl->scan_input->token == T_MINUS)
@@ -2473,8 +2473,6 @@ CODE *expression_3(MPL *mpl)
                y = make_unary(mpl, O_CVTNUM, y, A_NUMERIC, 0);
             if (!(y->type == A_NUMERIC || y->type == A_FORMULA))
                error_following(mpl, "*");
-            if (x->type == A_FORMULA && y->type == A_FORMULA)
-               error(mpl, "multiplication of linear forms not allowed");
             if (x->type == A_NUMERIC && y->type == A_NUMERIC)
                x = make_binary(mpl, O_MUL, x, y, A_NUMERIC, 0);
             else
@@ -2489,9 +2487,9 @@ CODE *expression_3(MPL *mpl)
             y = expression_2(mpl);
             if (y->type == A_SYMBOLIC)
                y = make_unary(mpl, O_CVTNUM, y, A_NUMERIC, 0);
-            if (y->type != A_NUMERIC)
+            if (!(y->type == A_NUMERIC || y->type == A_FORMULA))
                error_following(mpl, "/");
-            if (x->type == A_NUMERIC)
+            if (x->type == A_NUMERIC && y->type == A_NUMERIC)
                x = make_binary(mpl, O_DIV, x, y, A_NUMERIC, 0);
             else
                x = make_binary(mpl, O_DIV, x, y, A_FORMULA, 0);

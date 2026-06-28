@@ -180,7 +180,7 @@ void build_problem(MPL *mpl)
       MEMBER *memb;
       VARIABLE *v;
       CONSTRAINT *c;
-      FORMULA *t;
+      LINFORM *t;
       int i, j;
       xassert(mpl->m == 0);
       xassert(mpl->n == 0);
@@ -206,7 +206,9 @@ void build_problem(MPL *mpl)
                memb->value.con->i = ++mpl->m;
                /* walk through linear form and mark elemental variables,
                   which are referenced at least once */
-               for (t = memb->value.con->form; t != NULL; t = t->next)
+               if (memb->value.con->eqn->nl != 0)
+                  error(mpl, "nonlinear constraints not supported.");
+               for (t = memb->value.con->eqn->lin; t != NULL; t = t->next)
                {  xassert(t->var != NULL);
                   t->var->memb->value.var->j = -1;
                }
@@ -360,9 +362,12 @@ void clean_model(MPL *mpl)
       if (dmp_in_use(mpl->elemvars) != 0)
          error(mpl, "internal logic error: %d elemental variable(s) wer"
             "e lost", dmp_in_use(mpl->elemvars));
-      if (dmp_in_use(mpl->formulae) != 0)
+      if (dmp_in_use(mpl->linforms) != 0)
          error(mpl, "internal logic error: %d linear term(s) were lost",
-            dmp_in_use(mpl->formulae));
+            dmp_in_use(mpl->linforms));
+      if (dmp_in_use(mpl->rowexprs) != 0)
+         error(mpl, "internal logic error: %d row expression(s) were lost",
+            dmp_in_use(mpl->rowexprs));
       if (dmp_in_use(mpl->elemcons) != 0)
          error(mpl, "internal logic error: %d elemental constraint(s) w"
             "ere lost", dmp_in_use(mpl->elemcons));
@@ -681,7 +686,8 @@ MPL *mpl_initialize(void)
       mpl->arrays = dmp_create_poolx(sizeof(ARRAY));
       mpl->members = dmp_create_poolx(sizeof(MEMBER));
       mpl->elemvars = dmp_create_poolx(sizeof(ELEMVAR));
-      mpl->formulae = dmp_create_poolx(sizeof(FORMULA));
+      mpl->linforms = dmp_create_poolx(sizeof(LINFORM));
+      mpl->rowexprs = dmp_create_poolx(sizeof(ROWEXPR));
       mpl->elemcons = dmp_create_poolx(sizeof(ELEMCON));
       mpl->a_list = NULL;
       mpl->sym_buf = xcalloc(MAX_STR_BUF_LENGTH+1, sizeof(char));
@@ -1207,14 +1213,14 @@ int mpl_get_row_bnds(MPL *mpl, int i, double *_lb, double *_ub)
 -- of the constraint matrix (i.e. number of non-zero coefficients). */
 
 int mpl_get_mat_row(MPL *mpl, int i, int ndx[], double val[])
-{     FORMULA *term;
+{     LINFORM *term;
       int len = 0;
       if (mpl->phase != GLP_TRAN_PHASE_GENERATE)
          xfault("mpl_get_mat_row: invalid call sequence\n");
       if (!(1 <= i && i <= mpl->m))
          xfault("mpl_get_mat_row: i = %d; row number out of range\n",
             i);
-      for (term = mpl->row[i]->form; term != NULL; term = term->next)
+      for (term = mpl->row[i]->eqn->lin; term != NULL; term = term->next)
       {  xassert(term->var != NULL);
          len++;
          xassert(len <= mpl->n);
@@ -1589,7 +1595,8 @@ void mpl_terminate(MPL *mpl)
       dmp_delete_pool(mpl->arrays);
       dmp_delete_pool(mpl->members);
       dmp_delete_pool(mpl->elemvars);
-      dmp_delete_pool(mpl->formulae);
+      dmp_delete_pool(mpl->linforms);
+      dmp_delete_pool(mpl->rowexprs);
       dmp_delete_pool(mpl->elemcons);
       xfree(mpl->sym_buf);
       xfree(mpl->tup_buf);

@@ -45,7 +45,8 @@ typedef struct SYMBOL SYMBOL;
 typedef struct TUPLE TUPLE;
 typedef struct ARRAY ELEMSET;
 typedef struct ELEMVAR ELEMVAR;
-typedef struct FORMULA FORMULA;
+typedef struct ROWEXPR ROWEXPR;
+typedef struct LINFORM LINFORM;
 typedef struct ELEMCON ELEMCON;
 typedef union VALUE VALUE;
 typedef struct ARRAY ARRAY;
@@ -336,8 +337,10 @@ struct mpl_tran
       /* memory pool to allocate MEMBER data structures */
       DMP *elemvars;
       /* memory pool to allocate ELEMVAR data structures */
-      DMP *formulae;
-      /* memory pool to allocate FORMULA data structures */
+      DMP *linforms;
+      /* memory pool to allocate LINFORM data structures */
+      DMP *rowexprs;
+      /* memory pool to allocate ROWEXPR data structures */
       DMP *elemcons;
       /* memory pool to allocate ELEMCON data structures */
       ARRAY *a_list;
@@ -1341,7 +1344,7 @@ struct ELEMVAR
 /* * *                        LINEAR FORMS                        * * */
 /**********************************************************************/
 
-struct FORMULA
+struct LINFORM
 {     /* term of linear form c * x, where c is a coefficient, x is an
          elemental variable; the linear form itself is the sum of terms
          and is associated with its first term; (note that the linear
@@ -1350,55 +1353,63 @@ struct FORMULA
       /* coefficient at elemental variable or constant term */
       ELEMVAR *var;
       /* reference to elemental variable; NULL means constant term */
-      FORMULA *next;
+      LINFORM *next;
       /* the next term of linear form */
 };
 
+struct ROWEXPR
+{     /* linear + nonlinear expression */
+      int nl;  // just a flag for now, eventually will be CODE*. 
+      /* nonlinear part */
+      LINFORM *lin;
+      /* linear part */
+};
+
 #define constant_term _mpl_constant_term
-FORMULA *constant_term(MPL *mpl, double coef);
+LINFORM *constant_term(MPL *mpl, double coef);
 /* create constant term */
 
 #define single_variable _mpl_single_variable
-FORMULA *single_variable
+LINFORM *single_variable
 (     MPL *mpl,
       ELEMVAR *var            /* referenced */
 );
 /* create single variable */
 
 #define copy_formula _mpl_copy_formula
-FORMULA *copy_formula
+LINFORM *copy_formula
 (     MPL *mpl,
-      const FORMULA *form           /* not changed */
+      const LINFORM *form           /* not changed */
 );
 /* make copy of linear form */
 
 #define delete_formula _mpl_delete_formula
 void delete_formula
 (     MPL *mpl,
-      FORMULA *form           /* destroyed */
+      LINFORM *form           /* destroyed */
 );
 /* delete linear form */
 
 #define linear_comb _mpl_linear_comb
-FORMULA *linear_comb
+LINFORM *linear_comb
 (     MPL *mpl,
-      double a, FORMULA *fx,  /* destroyed */
-      double b, FORMULA *fy   /* destroyed */
+      double a, LINFORM *fx,  /* destroyed */
+      double b, LINFORM *fy   /* destroyed */
 );
 /* linear combination of two linear forms */
 
 #define remove_constant _mpl_remove_constant
-FORMULA *remove_constant
+LINFORM *remove_constant
 (     MPL *mpl,
-      FORMULA *form,          /* destroyed */
+      LINFORM *form,          /* destroyed */
       double *coef            /* modified */
 );
 /* remove constant term from linear form */
 
 #define reduce_terms _mpl_reduce_terms
-FORMULA *reduce_terms
+LINFORM *reduce_terms
 (     MPL *mpl,
-      FORMULA *form           /* destroyed */
+      LINFORM *form           /* destroyed */
 );
 /* reduce identical terms in linear form */
 
@@ -1414,8 +1425,8 @@ struct ELEMCON
       /* model constraint, which contains this elemental constraint */
       MEMBER *memb;
       /* array member, which is assigned this elemental constraint */
-      FORMULA *form;
-      /* linear form */
+      ROWEXPR *eqn;
+      /* linear + nonlienar part */
       double lbnd;
       /* lower bound */
       double ubnd;
@@ -1455,7 +1466,7 @@ union VALUE
       TUPLE *tuple;  /* value */
       ELEMSET *set;  /* value */
       ELEMVAR *var;  /* reference */
-      FORMULA *form; /* value */
+      LINFORM *form; /* value */
       ELEMCON *con;  /* reference */
 };
 
@@ -2484,7 +2495,7 @@ int is_member(MPL *mpl, CODE *code, TUPLE *tuple);
 /* check if n-tuple is in set specified by pseudo-code */
 
 #define eval_formula _mpl_eval_formula
-FORMULA *eval_formula(MPL *mpl, CODE *code);
+LINFORM *eval_formula(MPL *mpl, CODE *code);
 /* evaluate pseudo-code to construct linear form */
 
 #define clean_code _mpl_clean_code

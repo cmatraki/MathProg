@@ -1377,12 +1377,12 @@ ELEMSET *set_cross
 --
 -- This routine creates the linear form, which is a constant term. */
 
-FORMULA *constant_term(MPL *mpl, double coef)
-{     FORMULA *form;
+LINFORM *constant_term(MPL *mpl, double coef)
+{     LINFORM *form;
       if (coef == 0.0)
          form = NULL;
       else
-      {  form = dmp_get_atom(mpl->formulae, sizeof(FORMULA));
+      {  form = dmp_get_atom(mpl->linforms, sizeof(LINFORM));
          form->coef = coef;
          form->var = NULL;
          form->next = NULL;
@@ -1396,13 +1396,13 @@ FORMULA *constant_term(MPL *mpl, double coef)
 -- This routine creates the linear form, which is a single elemental
 -- variable. */
 
-FORMULA *single_variable
+LINFORM *single_variable
 (     MPL *mpl,
       ELEMVAR *var            /* referenced */
 )
-{     FORMULA *form;
+{     LINFORM *form;
       xassert(var != NULL);
-      form = dmp_get_atom(mpl->formulae, sizeof(FORMULA));
+      form = dmp_get_atom(mpl->linforms, sizeof(LINFORM));
       form->coef = 1.0;
       form->var = var;
       form->next = NULL;
@@ -1414,20 +1414,20 @@ FORMULA *single_variable
 --
 -- This routine returns an exact copy of linear form. */
 
-FORMULA *copy_formula
+LINFORM *copy_formula
 (     MPL *mpl,
-      const FORMULA *form           /* not changed */
+      const LINFORM *form           /* not changed */
 )
-{     FORMULA *head, *tail;
+{     LINFORM *head, *tail;
       if (form == NULL)
          head = NULL;
       else
-      {  head = tail = dmp_get_atom(mpl->formulae, sizeof(FORMULA));
+      {  head = tail = dmp_get_atom(mpl->linforms, sizeof(LINFORM));
          for (; form != NULL; form = form->next)
          {  tail->coef = form->coef;
             tail->var = form->var;
             if (form->next != NULL)
-                tail = (tail->next = dmp_get_atom(mpl->formulae, sizeof(FORMULA)));
+                tail = (tail->next = dmp_get_atom(mpl->linforms, sizeof(LINFORM)));
          }
          tail->next = NULL;
       }
@@ -1441,13 +1441,13 @@ FORMULA *copy_formula
 
 void delete_formula
 (     MPL *mpl,
-      FORMULA *form           /* destroyed */
+      LINFORM *form           /* destroyed */
 )
-{     FORMULA *temp;
+{     LINFORM *temp;
       while (form != NULL)
       {  temp = form;
          form = form->next;
-         dmp_free_atom(mpl->formulae, temp, sizeof(FORMULA));
+         dmp_free_atom(mpl->linforms, temp, sizeof(LINFORM));
       }
       return;
 }
@@ -1462,12 +1462,12 @@ void delete_formula
 -- where a and b are numeric coefficients, fx and fy are linear forms
 -- (destroyed on exit). */
 
-FORMULA *linear_comb
+LINFORM *linear_comb
 (     MPL *mpl,
-      double a, FORMULA *fx,  /* destroyed */
-      double b, FORMULA *fy   /* destroyed */
+      double a, LINFORM *fx,  /* destroyed */
+      double b, LINFORM *fy   /* destroyed */
 )
-{     FORMULA *form = NULL, *term, *temp;
+{     LINFORM *form = NULL, *term, *temp;
       double c0 = 0.0;
       for (term = fx; term != NULL; term = term->next)
       {  if (term->var == NULL)
@@ -1485,7 +1485,7 @@ FORMULA *linear_comb
       }
       for (term = fx; term != NULL; term = term->next)
       {  if (term->var != NULL && term->var->temp != 0.0)
-         {  temp = dmp_get_atom(mpl->formulae, sizeof(FORMULA));
+         {  temp = dmp_get_atom(mpl->linforms, sizeof(LINFORM));
             temp->coef = term->var->temp, temp->var = term->var;
             temp->next = form, form = temp;
             term->var->temp = 0.0;
@@ -1493,14 +1493,14 @@ FORMULA *linear_comb
       }
       for (term = fy; term != NULL; term = term->next)
       {  if (term->var != NULL && term->var->temp != 0.0)
-         {  temp = dmp_get_atom(mpl->formulae, sizeof(FORMULA));
+         {  temp = dmp_get_atom(mpl->linforms, sizeof(LINFORM));
             temp->coef = term->var->temp, temp->var = term->var;
             temp->next = form, form = temp;
             term->var->temp = 0.0;
          }
       }
       if (c0 != 0.0)
-      {  temp = dmp_get_atom(mpl->formulae, sizeof(FORMULA));
+      {  temp = dmp_get_atom(mpl->linforms, sizeof(LINFORM));
          temp->coef = c0, temp->var = NULL;
          temp->next = form, form = temp;
       }
@@ -1515,12 +1515,12 @@ FORMULA *linear_comb
 -- This routine removes constant term from linear form and stores its
 -- value to given location. */
 
-FORMULA *remove_constant
+LINFORM *remove_constant
 (     MPL *mpl,
-      FORMULA *form,          /* destroyed */
+      LINFORM *form,          /* destroyed */
       double *coef            /* modified */
 )
-{     FORMULA *head = NULL, *temp;
+{     LINFORM *head = NULL, *temp;
       *coef = 0.0;
       while (form != NULL)
       {  temp = form;
@@ -1528,7 +1528,7 @@ FORMULA *remove_constant
          if (temp->var == NULL)
          {  /* constant term */
             *coef = fp_add(mpl, *coef, temp->coef);
-            dmp_free_atom(mpl->formulae, temp, sizeof(FORMULA));
+            dmp_free_atom(mpl->linforms, temp, sizeof(LINFORM));
          }
          else
          {  /* linear term */
@@ -1544,11 +1544,11 @@ FORMULA *remove_constant
 --
 -- This routine reduces identical terms in specified linear form. */
 
-FORMULA *reduce_terms
+LINFORM *reduce_terms
 (     MPL *mpl,
-      FORMULA *form           /* destroyed */
+      LINFORM *form           /* destroyed */
 )
-{     FORMULA *term, *next_term;
+{     LINFORM *term, *next_term;
       double c0 = 0.0;
       for (term = form; term != NULL; term = term->next)
       {  if (term->var == NULL)
@@ -1568,7 +1568,7 @@ FORMULA *reduce_terms
             term->next = form, form = term;
          }
          else
-            dmp_free_atom(mpl->formulae, term, sizeof(FORMULA));
+            dmp_free_atom(mpl->linforms, term, sizeof(LINFORM));
       }
       return form;
 }
@@ -3646,14 +3646,16 @@ ELEMCON *take_member_con      /* returns reference */
          refer->memb = memb;
          /* compute linear form */
          xassert(con->code != NULL);
-         refer->form = eval_formula(mpl, con->code);
+         refer->eqn = dmp_get_atom(mpl->rowexprs, sizeof(ROWEXPR));
+         refer->eqn->nl = 0;
+         refer->eqn->lin = eval_formula(mpl, con->code);
          /* compute lower and upper bounds */
          if (con->lbnd == NULL && con->ubnd == NULL)
          {  /* objective has no bounds */
             double temp;
             xassert(con->type == A_MINIMIZE || con->type == A_MAXIMIZE);
             /* carry the constant term to the right-hand side */
-            refer->form = remove_constant(mpl, refer->form, &temp);
+            refer->eqn->lin = remove_constant(mpl, refer->eqn->lin, &temp);
             refer->lbnd = refer->ubnd = - temp;
          }
          else if (con->lbnd != NULL && con->ubnd == NULL)
@@ -3661,10 +3663,10 @@ ELEMCON *take_member_con      /* returns reference */
                standard form a * x - c * y >= d - b */
             double temp;
             xassert(con->type == A_CONSTRAINT);
-            refer->form = linear_comb(mpl,
-               +1.0, refer->form,
+            refer->eqn->lin = linear_comb(mpl,
+               +1.0, refer->eqn->lin,
                -1.0, eval_formula(mpl, con->lbnd));
-            refer->form = remove_constant(mpl, refer->form, &temp);
+            refer->eqn->lin = remove_constant(mpl, refer->eqn->lin, &temp);
             refer->lbnd = - temp;
             refer->ubnd = 0.0;
          }
@@ -3673,10 +3675,10 @@ ELEMCON *take_member_con      /* returns reference */
                standard form a * x - c * y <= d - b */
             double temp;
             xassert(con->type == A_CONSTRAINT);
-            refer->form = linear_comb(mpl,
-               +1.0, refer->form,
+            refer->eqn->lin = linear_comb(mpl,
+               +1.0, refer->eqn->lin,
                -1.0, eval_formula(mpl, con->ubnd));
-            refer->form = remove_constant(mpl, refer->form, &temp);
+            refer->eqn->lin = remove_constant(mpl, refer->eqn->lin, &temp);
             refer->lbnd = 0.0;
             refer->ubnd = - temp;
          }
@@ -3685,10 +3687,10 @@ ELEMCON *take_member_con      /* returns reference */
                standard form a * x - c * y = d - b */
             double temp;
             xassert(con->type == A_CONSTRAINT);
-            refer->form = linear_comb(mpl,
-               +1.0, refer->form,
+            refer->eqn->lin = linear_comb(mpl,
+               +1.0, refer->eqn->lin,
                -1.0, eval_formula(mpl, con->lbnd));
-            refer->form = remove_constant(mpl, refer->form, &temp);
+            refer->eqn->lin = remove_constant(mpl, refer->eqn->lin, &temp);
             refer->lbnd = refer->ubnd = - temp;
          }
          else
@@ -3696,8 +3698,8 @@ ELEMCON *take_member_con      /* returns reference */
                the standard form c - b <= a * x <= d - b */
             double temp, temp1, temp2;
             xassert(con->type == A_CONSTRAINT);
-            refer->form = remove_constant(mpl, refer->form, &temp);
-            FORMULA *ftmp = remove_constant(mpl, eval_formula(mpl, con->lbnd),
+            refer->eqn->lin = remove_constant(mpl, refer->eqn->lin, &temp);
+            LINFORM *ftmp = remove_constant(mpl, eval_formula(mpl, con->lbnd),
                &temp1);
             xassert(ftmp == NULL);
             ftmp = remove_constant(mpl, eval_formula(mpl, con->ubnd),
@@ -3800,7 +3802,8 @@ void clean_constraint(MPL *mpl, CONSTRAINT *con)
       if (con->ubnd != con->lbnd) clean_code(mpl, con->ubnd);
       /* delete content array */
       for (memb = con->array->head; memb != NULL; memb = memb->next)
-      {  delete_formula(mpl, memb->value.con->form);
+      {  delete_formula(mpl, memb->value.con->eqn->lin);
+         dmp_free_atom(mpl->rowexprs, memb->value.con->eqn, sizeof(ROWEXPR));
          dmp_free_atom(mpl->elemcons, memb->value.con, sizeof(ELEMCON));
       }
       delete_array(mpl, con->array), con->array = NULL;
@@ -5047,9 +5050,9 @@ struct iter_form_info
 {     /* working info used by the routine iter_form_func */
       CODE *code;
       /* pseudo-code for iterated operation to be performed */
-      FORMULA *value;
+      LINFORM *value;
       /* resultant value */
-      FORMULA *tail;
+      LINFORM *tail;
       /* pointer to the last term */
 };
 
@@ -5073,7 +5076,7 @@ static int iter_form_func(MPL *mpl, void *_info)
                idea is to gather all terms of the integrand in one list
                and reduce identical terms only once after all terms of
                the resultant linear form have been evaluated */
-            {  FORMULA *form, *term;
+            {  LINFORM *form, *term;
                form = eval_formula(mpl, info->code->arg.loop.x);
                if (info->value == NULL)
                {  xassert(info->tail == NULL);
@@ -5094,8 +5097,8 @@ static int iter_form_func(MPL *mpl, void *_info)
       return 0;
 }
 
-FORMULA *eval_formula(MPL *mpl, CODE *code)
-{     FORMULA *value;
+LINFORM *eval_formula(MPL *mpl, CODE *code)
+{     LINFORM *value;
       xassert(code != NULL);
       xassert(code->type == A_FORMULA);
       xassert(code->dim == 0);
@@ -6130,7 +6133,7 @@ static void display_code(MPL *mpl, CODE *code)
             break;
          case A_FORMULA:
             /* linear form */
-            {  FORMULA *form, *term;
+            {  LINFORM *form, *term;
                form = eval_formula(mpl, code);
                if (form == NULL)
                   write_text(mpl, "linear form is empty\n");
@@ -6613,7 +6616,8 @@ void clear_constraint(MPL *mpl, CONSTRAINT *con)
     /* delete content array */
     for (memb = con->array->head; memb != NULL; memb = memb->next)
     {
-        delete_formula(mpl, memb->value.con->form);
+        delete_formula(mpl, memb->value.con->eqn->lin);
+        dmp_free_atom(mpl->rowexprs, memb->value.con->eqn, sizeof(ROWEXPR));
         dmp_free_atom(mpl->elemcons, memb->value.con, sizeof(ELEMCON));
         delete_value(mpl, con->array->type, &memb->value);
     }

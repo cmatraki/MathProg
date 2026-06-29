@@ -1124,6 +1124,20 @@ CODE *numeric_argument(MPL *mpl, char *func)
       if (x->type == A_SYMBOLIC)
          x = make_unary(mpl, O_CVTNUM, x, A_NUMERIC, 0);
       /* check that now the argument is of numeric type */
+      if (x->type != A_NUMERIC)
+         error(mpl, "argument for %s has invalid type", func);
+      xassert(x->dim == 0);
+      return x;
+}
+
+/* Like numeric_argument but allows also A_FORMULA. */
+CODE *expression_argument(MPL *mpl, char *func)
+{     CODE *x;
+      x = expression_5(mpl);
+      /* convert the argument to numeric type, if necessary */
+      if (x->type == A_SYMBOLIC)
+         x = make_unary(mpl, O_CVTNUM, x, A_NUMERIC, 0);
+      /* check that now the argument is of approrpiate type */
       if (x->type != A_NUMERIC && x->type != A_FORMULA)
          error(mpl, "argument for %s has invalid type", func);
       xassert(x->dim == 0);
@@ -1411,6 +1425,8 @@ CODE *function_reference(MPL *mpl)
             arg.arg.x = elemset_argument(mpl, func);
          else if (op == O_LENGTH)
             arg.arg.x = symbolic_argument(mpl, func);
+         else if (op == O_SQRT)
+            arg.arg.x = expression_argument(mpl, func);
          else
             arg.arg.x = numeric_argument(mpl, func);
          /* check a token that follows the argument */
@@ -1424,6 +1440,8 @@ CODE *function_reference(MPL *mpl)
       /* make pseudo-code to call the built-in function */
       if (op == O_SUBSTR || op == O_SUBSTR3 || op == O_TIME2STR || op == O_VERSION)
          code = make_code(mpl, op, &arg, A_SYMBOLIC, 0);
+      else if (op == O_SQRT)
+         code = make_code(mpl, op, &arg, arg.arg.x->type, 0);
       else
          code = make_code(mpl, op, &arg, A_NUMERIC, 0);
       /* the reference ends with the right parenthesis */
@@ -2408,7 +2426,7 @@ CODE *expression_1(MPL *mpl)
             y = make_unary(mpl, O_CVTNUM, y, A_NUMERIC, 0);
          if (y->type != A_NUMERIC)
             error_following(mpl, opstr);
-         x = make_binary(mpl, O_POWER, x, y, A_NUMERIC, 0);
+         x = make_binary(mpl, O_POWER, x, y, x->type, 0);
       }
       return x;
 }

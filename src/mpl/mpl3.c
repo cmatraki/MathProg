@@ -3717,9 +3717,11 @@ ELEMCON *take_member_con      /* returns reference */
             ROWEXPR *ftmp = eval_formula(mpl, con->lbnd);
             ftmp->lin = remove_constant(mpl, ftmp->lin, &temp1);
             xassert(ftmp->lin == NULL && ftmp->nl == 0);
+            delete_formula(mpl, ftmp);
             ftmp = eval_formula(mpl, con->ubnd);
             ftmp->lin = remove_constant(mpl, ftmp->lin, &temp2);
             xassert(ftmp->lin == NULL && ftmp->nl == 0);
+            delete_formula(mpl, ftmp);
             refer->lbnd = fp_sub(mpl, temp1, temp);
             refer->ubnd = fp_sub(mpl, temp2, temp);
          }
@@ -5098,6 +5100,7 @@ static int iter_form_func(MPL *mpl, void *_info)
                term = form->lin;
                if (info->value == NULL || info->value->lin == NULL)
                {  xassert(info->tail == NULL);
+                  if (info->value) delete_formula(mpl, info->value);
                   info->value = form;
                }
                else
@@ -5207,7 +5210,7 @@ ROWEXPR *eval_formula(MPL *mpl, CODE *code)
                   eval_formula(mpl, code->arg.arg.y),
                   0.0, value);
             }
-            else if (code->arg.arg.x->type == A_NUMERIC
+            else if (code->arg.arg.x->type == A_FORMULA
                && code->arg.arg.y->type == A_FORMULA)
             {  value = dmp_get_atom(mpl->rowexprs, sizeof(ROWEXPR));
                value->nl = 1;
@@ -5264,7 +5267,44 @@ ROWEXPR *eval_formula(MPL *mpl, CODE *code)
                info->tail = NULL;
                loop_within_domain(mpl, code->arg.loop.domain, info,
                   iter_form_func);
-               value->lin = reduce_terms(mpl, info->value->lin);
+               value= info->value;
+               value->lin = reduce_terms(mpl, value->lin);
+            }
+            break;
+         case O_POWER:
+            if (code->arg.arg.y->type == A_NUMERIC)
+            {  double ex = eval_numeric(mpl, code->arg.arg.y);
+               if (ex == 0)
+               {  value = dmp_get_atom(mpl->rowexprs, sizeof(ROWEXPR));
+                  value->nl = 0;
+                  value->lin = constant_term(mpl, 1.0);
+               }
+               else if (ex == 1)
+                  value = eval_formula(mpl, code->arg.arg.x);
+               else
+               {  value = dmp_get_atom(mpl->rowexprs, sizeof(ROWEXPR));
+                  value->nl = 1;
+                  value->lin = NULL;
+               }
+            }
+            else
+            {  value = dmp_get_atom(mpl->rowexprs, sizeof(ROWEXPR));
+               value->nl = 1;
+               value->lin = NULL;
+            }
+            break;
+         case O_SQRT:
+            /* square root */
+            if (code->arg.arg.x->type == A_FORMULA)
+            {  value = dmp_get_atom(mpl->rowexprs, sizeof(ROWEXPR));
+               value->nl = 1;
+               value->lin = NULL;
+            }
+            else
+            {  value = dmp_get_atom(mpl->rowexprs, sizeof(ROWEXPR));
+               value->nl = 0;
+               value->lin = constant_term(mpl, eval_numeric(mpl,
+                  code->arg.arg.x));
             }
             break;
          default:

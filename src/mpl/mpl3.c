@@ -1377,17 +1377,21 @@ ELEMSET *set_cross
 --
 -- This routine creates the linear form, which is a constant term. */
 
-LINFORM *constant_term(MPL *mpl, double coef)
+ROWEXPR *constant_term(MPL *mpl, double coef)
 {     LINFORM *form;
+      ROWEXPR *ret;
       if (coef == 0.0)
-         form = NULL;
+         ret = NULL;
       else
       {  form = dmp_get_atom(mpl->linforms, sizeof(LINFORM));
          form->coef = coef;
          form->var = NULL;
          form->next = NULL;
+         ret = dmp_get_atom(mpl->rowexprs, sizeof(ROWEXPR));
+         ret->nl = 0;
+         ret->lin = form;
       }
-      return form;
+      return ret;
 }
 
 /*----------------------------------------------------------------------
@@ -1396,17 +1400,21 @@ LINFORM *constant_term(MPL *mpl, double coef)
 -- This routine creates the linear form, which is a single elemental
 -- variable. */
 
-LINFORM *single_variable
+ROWEXPR *single_variable
 (     MPL *mpl,
       ELEMVAR *var            /* referenced */
 )
 {     LINFORM *form;
+      ROWEXPR *ret;
       xassert(var != NULL);
       form = dmp_get_atom(mpl->linforms, sizeof(LINFORM));
       form->coef = 1.0;
       form->var = var;
       form->next = NULL;
-      return form;
+      ret = dmp_get_atom(mpl->rowexprs, sizeof(ROWEXPR));
+      ret->nl = 0;
+      ret->lin = form;
+      return ret;
 }
 
 /*----------------------------------------------------------------------
@@ -5152,34 +5160,26 @@ ROWEXPR *eval_formula(MPL *mpl, CODE *code)
 #if 1 /* 15/V-2010 */
                xassert(code->arg.var.suff == DOT_NONE);
 #endif
-               value = dmp_get_atom(mpl->rowexprs, sizeof(ROWEXPR));
-               value->nl = 0;
-               value->lin = single_variable(mpl,
+               value = single_variable(mpl,
                   eval_member_var(mpl, code->arg.var.var, tuple));
                delete_tuple(mpl, tuple);
             }
             break;
          case O_CVTLFM:
             /* convert to linear form */
-            value = dmp_get_atom(mpl->rowexprs, sizeof(ROWEXPR));
-            value->nl = 0;
-            value->lin = constant_term(mpl, eval_numeric(mpl,
+            value = constant_term(mpl, eval_numeric(mpl,
                code->arg.arg.x));
             break;
          case O_PLUS:
             /* unary plus */
-            value = dmp_get_atom(mpl->rowexprs, sizeof(ROWEXPR));
-            value->nl = 0;
-            value->lin = constant_term(mpl, 0.0);
+            value = constant_term(mpl, 0.0);
             value = linear_comb(mpl,
                 0.0, value,
                +1.0, eval_formula(mpl, code->arg.arg.x));
             break;
          case O_MINUS:
             /* unary minus */
-            value = dmp_get_atom(mpl->rowexprs, sizeof(ROWEXPR));
-            value->nl = 0;
-            value->lin = constant_term(mpl, 0.0);
+            value = constant_term(mpl, 0.0);
             value = linear_comb(mpl,
                 0.0, value,
                -1.0, eval_formula(mpl, code->arg.arg.x));
@@ -5202,9 +5202,7 @@ ROWEXPR *eval_formula(MPL *mpl, CODE *code)
             xassert(code->arg.arg.y != NULL);
             if (code->arg.arg.x->type == A_NUMERIC)
             {  xassert(code->arg.arg.y->type == A_FORMULA);
-               value = dmp_get_atom(mpl->rowexprs, sizeof(ROWEXPR));
-               value->nl = 0;
-               value->lin = constant_term(mpl, 0.0);
+               value = constant_term(mpl, 0.0);
                value = linear_comb(mpl,
                   eval_numeric(mpl, code->arg.arg.x),
                   eval_formula(mpl, code->arg.arg.y),
@@ -5219,9 +5217,7 @@ ROWEXPR *eval_formula(MPL *mpl, CODE *code)
             else
             {  xassert(code->arg.arg.x->type == A_FORMULA);
                xassert(code->arg.arg.y->type == A_NUMERIC);
-               value = dmp_get_atom(mpl->rowexprs, sizeof(ROWEXPR));
-               value->nl = 0;
-               value->lin = constant_term(mpl, 0.0);
+               value = constant_term(mpl, 0.0);
                value = linear_comb(mpl,
                   eval_numeric(mpl, code->arg.arg.y),
                   eval_formula(mpl, code->arg.arg.x),
@@ -5236,9 +5232,7 @@ ROWEXPR *eval_formula(MPL *mpl, CODE *code)
                value->lin = NULL;
             }
             else
-            {  value = dmp_get_atom(mpl->rowexprs, sizeof(ROWEXPR));
-               value->nl = 0;
-               value->lin = constant_term(mpl, 0.0);
+            {  value = constant_term(mpl, 0.0);
                value = linear_comb(mpl,
                   fp_div(mpl, 1.0, eval_numeric(mpl, code->arg.arg.y)),
                   eval_formula(mpl, code->arg.arg.x),
@@ -5250,10 +5244,7 @@ ROWEXPR *eval_formula(MPL *mpl, CODE *code)
             if (eval_logical(mpl, code->arg.arg.x))
                value = eval_formula(mpl, code->arg.arg.y);
             else if (code->arg.arg.z == NULL)
-            {  value = dmp_get_atom(mpl->rowexprs, sizeof(ROWEXPR));
-               value->nl = 0;
-               value->lin = constant_term(mpl, 0.0);
-            }
+               value = constant_term(mpl, 0.0);
             else
                value = eval_formula(mpl, code->arg.arg.z);
             break;
@@ -5261,9 +5252,7 @@ ROWEXPR *eval_formula(MPL *mpl, CODE *code)
             /* summation over domain */
             {  struct iter_form_info _info, *info = &_info;
                info->code = code;
-               info->value = dmp_get_atom(mpl->rowexprs, sizeof(ROWEXPR));
-               info->value->nl = 0;
-               info->value->lin = constant_term(mpl, 0.0);
+               info->value = constant_term(mpl, 0.0);
                info->tail = NULL;
                loop_within_domain(mpl, code->arg.loop.domain, info,
                   iter_form_func);
@@ -5275,10 +5264,7 @@ ROWEXPR *eval_formula(MPL *mpl, CODE *code)
             if (code->arg.arg.y->type == A_NUMERIC)
             {  double ex = eval_numeric(mpl, code->arg.arg.y);
                if (ex == 0)
-               {  value = dmp_get_atom(mpl->rowexprs, sizeof(ROWEXPR));
-                  value->nl = 0;
-                  value->lin = constant_term(mpl, 1.0);
-               }
+                  value = constant_term(mpl, 1.0);
                else if (ex == 1)
                   value = eval_formula(mpl, code->arg.arg.x);
                else
@@ -5301,11 +5287,8 @@ ROWEXPR *eval_formula(MPL *mpl, CODE *code)
                value->lin = NULL;
             }
             else
-            {  value = dmp_get_atom(mpl->rowexprs, sizeof(ROWEXPR));
-               value->nl = 0;
-               value->lin = constant_term(mpl, eval_numeric(mpl,
+               value = constant_term(mpl, eval_numeric(mpl,
                   code->arg.arg.x));
-            }
             break;
          default:
             xassert(code != code);

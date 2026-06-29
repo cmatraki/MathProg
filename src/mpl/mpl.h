@@ -1369,11 +1369,11 @@ struct ROWEXPR
 };
 
 #define constant_term _mpl_constant_term
-LINFORM *constant_term(MPL *mpl, double coef);
+ROWEXPR *constant_term(MPL *mpl, double coef);
 /* create constant term */
 
 #define single_variable _mpl_single_variable
-LINFORM *single_variable
+ROWEXPR *single_variable
 (     MPL *mpl,
       ELEMVAR *var            /* referenced */
 );

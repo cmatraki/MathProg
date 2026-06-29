@@ -1388,7 +1388,7 @@ ROWEXPR *constant_term(MPL *mpl, double coef)
          form->var = NULL;
          form->next = NULL;
          ret = dmp_get_atom(mpl->rowexprs, sizeof(ROWEXPR));
-         ret->nl = 0;
+         ret->nl = NULL;
          ret->lin = form;
       }
       return ret;
@@ -1412,7 +1412,7 @@ ROWEXPR *single_variable
       form->var = var;
       form->next = NULL;
       ret = dmp_get_atom(mpl->rowexprs, sizeof(ROWEXPR));
-      ret->nl = 0;
+      ret->nl = NULL;
       ret->lin = form;
       return ret;
 }
@@ -1455,18 +1455,26 @@ ROWEXPR *copy_formula
 --
 -- This routine deletes specified linear form. */
 
+
+void delete_linform
+(     MPL *mpl,
+      LINFORM *form           /* destroyed */
+)
+{     LINFORM *temp;
+      while (form != NULL)
+      {  temp = form;
+         form = form->next;
+         dmp_free_atom(mpl->linforms, temp, sizeof(LINFORM));
+      }
+      return;
+}
+
 void delete_formula
 (     MPL *mpl,
       ROWEXPR *form           /* destroyed */
 )
-{     LINFORM *temp, *ptr;
-      if (form == NULL) return;
-      ptr = form->lin;
-      while (ptr != NULL)
-      {  temp = ptr;
-         ptr = ptr->next;
-         dmp_free_atom(mpl->linforms, temp, sizeof(LINFORM));
-      }
+{     if (form == NULL) return;
+      delete_linform(mpl, form->lin);
       dmp_free_atom(mpl->rowexprs, form, sizeof(ROWEXPR));
       return;
 }
@@ -1525,9 +1533,9 @@ ROWEXPR *linear_comb
          temp->next = form, form = temp;
       }
       ret = dmp_get_atom(mpl->rowexprs, sizeof(ROWEXPR));
-      ret->nl = 0;
-      if (fx != NULL) ret->nl |= !!(a * fx->nl);
-      if (fy != NULL) ret->nl |= !!(b * fy->nl);
+      ret->nl = NULL;
+      if (fx != NULL && fx->nl != NULL && a != 0) ret->nl = (void *)1;
+      if (fy != NULL && fy->nl != NULL && b != 0) ret->nl = (void *)1;
       ret->lin = form;
       delete_formula(mpl, fx);
       delete_formula(mpl, fy);
@@ -3724,11 +3732,11 @@ ELEMCON *take_member_con      /* returns reference */
             refer->eqn->lin = remove_constant(mpl, refer->eqn->lin, &temp);
             ROWEXPR *ftmp = eval_formula(mpl, con->lbnd);
             ftmp->lin = remove_constant(mpl, ftmp->lin, &temp1);
-            xassert(ftmp->lin == NULL && ftmp->nl == 0);
+            xassert(ftmp->lin == NULL && ftmp->nl == NULL);
             delete_formula(mpl, ftmp);
             ftmp = eval_formula(mpl, con->ubnd);
             ftmp->lin = remove_constant(mpl, ftmp->lin, &temp2);
-            xassert(ftmp->lin == NULL && ftmp->nl == 0);
+            xassert(ftmp->lin == NULL && ftmp->nl == NULL);
             delete_formula(mpl, ftmp);
             refer->lbnd = fp_sub(mpl, temp1, temp);
             refer->ubnd = fp_sub(mpl, temp2, temp);
@@ -5103,7 +5111,7 @@ static int iter_form_func(MPL *mpl, void *_info)
             {  ROWEXPR *form;
                LINFORM *term;
                form = eval_formula(mpl, info->code->arg.loop.x);
-               if (form->nl != 0)
+               if (form->nl != NULL)
                   error(mpl, "nonlinear iterated operator");
                term = form->lin;
                if (info->value == NULL || info->value->lin == NULL)
@@ -5211,7 +5219,7 @@ ROWEXPR *eval_formula(MPL *mpl, CODE *code)
             else if (code->arg.arg.x->type == A_FORMULA
                && code->arg.arg.y->type == A_FORMULA)
             {  value = dmp_get_atom(mpl->rowexprs, sizeof(ROWEXPR));
-               value->nl = 1;
+               value->nl = (void *)1;
                value->lin = NULL;
             }
             else
@@ -5228,7 +5236,7 @@ ROWEXPR *eval_formula(MPL *mpl, CODE *code)
             /* division */
             if (code->arg.arg.y->type == A_FORMULA)
             {  value = dmp_get_atom(mpl->rowexprs, sizeof(ROWEXPR));
-               value->nl = 1;
+               value->nl = (void *)1;
                value->lin = NULL;
             }
             else
@@ -5269,13 +5277,13 @@ ROWEXPR *eval_formula(MPL *mpl, CODE *code)
                   value = eval_formula(mpl, code->arg.arg.x);
                else
                {  value = dmp_get_atom(mpl->rowexprs, sizeof(ROWEXPR));
-                  value->nl = 1;
+                  value->nl = (void *)1;
                   value->lin = NULL;
                }
             }
             else
             {  value = dmp_get_atom(mpl->rowexprs, sizeof(ROWEXPR));
-               value->nl = 1;
+               value->nl = (void *)1;
                value->lin = NULL;
             }
             break;
@@ -5283,7 +5291,7 @@ ROWEXPR *eval_formula(MPL *mpl, CODE *code)
             /* square root */
             if (code->arg.arg.x->type == A_FORMULA)
             {  value = dmp_get_atom(mpl->rowexprs, sizeof(ROWEXPR));
-               value->nl = 1;
+               value->nl = (void *)1;
                value->lin = NULL;
             }
             else
@@ -6217,7 +6225,7 @@ static void display_code(MPL *mpl, CODE *code)
                form = eval_formula(mpl, code);
                if (form == NULL || form->lin == NULL)
                   write_text(mpl, "linear form is empty\n");
-               if(form && form->nl != 0)
+               if(form && form->nl != NULL)
                   error(mpl, "unexpected nonlinear term");
                for (term = form ? form->lin : NULL; term != NULL; term = term->next)
                {  if (term->var == NULL)

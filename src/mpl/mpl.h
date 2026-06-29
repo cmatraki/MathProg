@@ -91,6 +91,7 @@ typedef struct LET_STMT LET_STMT;
 typedef struct DATA_STMT DATA_STMT;
 typedef struct MODEL_STMT MODEL_STMT;
 typedef struct OPT_STMT OPT_STMT;
+typedef struct NL_EXPR NL_EXPR;
 
 /**********************************************************************/
 /* * *                    TRANSLATOR DATABASE                     * * */
@@ -1362,7 +1363,7 @@ struct LINFORM
 
 struct ROWEXPR
 {     /* linear + nonlinear expression */
-      int nl;  // just a flag for now, eventually will be CODE*. 
+      NL_EXPR *nl;
       /* nonlinear part */
       LINFORM *lin;
       /* linear part */
@@ -1385,6 +1386,12 @@ ROWEXPR *copy_formula
       const ROWEXPR *form           /* not changed */
 );
 /* make copy of linear form */
+
+#define delete_linform _mpl_delete_linform
+void delete_linform
+(     MPL *mpl,
+      LINFORM *form           /* destroyed */
+);
 
 #define delete_formula _mpl_delete_formula
 void delete_formula

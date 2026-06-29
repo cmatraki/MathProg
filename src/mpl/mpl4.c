@@ -206,7 +206,7 @@ void build_problem(MPL *mpl)
                memb->value.con->i = ++mpl->m;
                /* walk through linear form and mark elemental variables,
                   which are referenced at least once */
-               if (memb->value.con->eqn->nl != 0)
+               if (memb->value.con->eqn->nl != NULL)
                   error(mpl, "nonlinear constraints not supported.");
                for (t = memb->value.con->eqn->lin; t != NULL; t = t->next)
                {  xassert(t->var != NULL);

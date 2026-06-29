@@ -1377,24 +1377,24 @@ LINFORM *single_variable
 /* create single variable */
 
 #define copy_formula _mpl_copy_formula
-LINFORM *copy_formula
+ROWEXPR *copy_formula
 (     MPL *mpl,
-      const LINFORM *form           /* not changed */
+      const ROWEXPR *form           /* not changed */
 );
 /* make copy of linear form */
 
 #define delete_formula _mpl_delete_formula
 void delete_formula
 (     MPL *mpl,
-      LINFORM *form           /* destroyed */
+      ROWEXPR *form           /* destroyed */
 );
 /* delete linear form */
 
 #define linear_comb _mpl_linear_comb
-LINFORM *linear_comb
+ROWEXPR *linear_comb
 (     MPL *mpl,
-      double a, LINFORM *fx,  /* destroyed */
-      double b, LINFORM *fy   /* destroyed */
+      double a, ROWEXPR *fx,  /* destroyed */
+      double b, ROWEXPR *fy   /* destroyed */
 );
 /* linear combination of two linear forms */
 
@@ -1466,7 +1466,7 @@ union VALUE
       TUPLE *tuple;  /* value */
       ELEMSET *set;  /* value */
       ELEMVAR *var;  /* reference */
-      LINFORM *form; /* value */
+      ROWEXPR *form; /* value */
       ELEMCON *con;  /* reference */
 };
 
@@ -2495,7 +2495,7 @@ int is_member(MPL *mpl, CODE *code, TUPLE *tuple);
 /* check if n-tuple is in set specified by pseudo-code */
 
 #define eval_formula _mpl_eval_formula
-LINFORM *eval_formula(MPL *mpl, CODE *code);
+ROWEXPR *eval_formula(MPL *mpl, CODE *code);
 /* evaluate pseudo-code to construct linear form */
 
 #define clean_code _mpl_clean_code

@@ -45,7 +45,7 @@ typedef struct SYMBOL SYMBOL;
 typedef struct TUPLE TUPLE;
 typedef struct ARRAY ELEMSET;
 typedef struct ELEMVAR ELEMVAR;
-typedef struct ROWEXPR ROWEXPR;
+typedef struct FORMULA FORMULA;
 typedef struct LINFORM LINFORM;
 typedef struct ELEMCON ELEMCON;
 typedef union VALUE VALUE;
@@ -340,8 +340,8 @@ struct mpl_tran
       /* memory pool to allocate ELEMVAR data structures */
       DMP *linforms;
       /* memory pool to allocate LINFORM data structures */
-      DMP *rowexprs;
-      /* memory pool to allocate ROWEXPR data structures */
+      DMP *formulae;
+      /* memory pool to allocate FORMULA data structures */
       DMP *nlexprs;
       /* memory pool to allocate NL_EXPR data structures */
       DMP *elemcons;
@@ -1391,7 +1391,7 @@ struct NL_EXPR
       } u;
 };
 
-struct ROWEXPR
+struct FORMULA
 {     /* linear + nonlinear expression */
       NL_EXPR *nl;
       /* nonlinear part */
@@ -1400,15 +1400,15 @@ struct ROWEXPR
 };
 
 #define make_formula _mpl_make_formula
-ROWEXPR *make_formula(MPL *mpl, LINFORM *lin, NL_EXPR *nl);
+FORMULA *make_formula(MPL *mpl, LINFORM *lin, NL_EXPR *nl);
 /* create formula */
 
 #define constant_term _mpl_constant_term
-ROWEXPR *constant_term(MPL *mpl, double coef);
+FORMULA *constant_term(MPL *mpl, double coef);
 /* create constant term */
 
 #define single_variable _mpl_single_variable
-ROWEXPR *single_variable
+FORMULA *single_variable
 (     MPL *mpl,
       ELEMVAR *var            /* referenced */
 );
@@ -1426,14 +1426,14 @@ NL_EXPR *make_nl_expr
 #define formula_to_nl_expr _mpl_formula_to_nl_expr
 NL_EXPR *formula_to_nl_expr
 (     MPL *mpl,
-      ROWEXPR *form           /* consumed */
+      FORMULA *form           /* consumed */
 );
 /* create nonlinear expression from formula */
 
 #define copy_formula _mpl_copy_formula
-ROWEXPR *copy_formula
+FORMULA *copy_formula
 (     MPL *mpl,
-      const ROWEXPR *form           /* not changed */
+      const FORMULA *form           /* not changed */
 );
 /* make copy of formula */
 
@@ -1454,7 +1454,7 @@ NL_EXPR *copy_nl_expr
 #define delete_formula _mpl_delete_formula
 void delete_formula
 (     MPL *mpl,
-      ROWEXPR *form           /* destroyed */
+      FORMULA *form           /* destroyed */
 );
 /* delete formula */
 
@@ -1473,10 +1473,10 @@ void delete_nl_expr
 /* delete NL_EXPR and all owned operands */
 
 #define linear_comb _mpl_linear_comb
-ROWEXPR *linear_comb
+FORMULA *linear_comb
 (     MPL *mpl,
-      double a, ROWEXPR *fx,  /* destroyed */
-      double b, ROWEXPR *fy   /* destroyed */
+      double a, FORMULA *fx,  /* destroyed */
+      double b, FORMULA *fy   /* destroyed */
 );
 /* linear combination of two formulas */
 
@@ -1507,7 +1507,7 @@ struct ELEMCON
       /* model constraint, which contains this elemental constraint */
       MEMBER *memb;
       /* array member, which is assigned this elemental constraint */
-      ROWEXPR *eqn;
+      FORMULA *eqn;
       /* linear + nonlienar part */
       double lbnd;
       /* lower bound */
@@ -1548,7 +1548,7 @@ union VALUE
       TUPLE *tuple;  /* value */
       ELEMSET *set;  /* value */
       ELEMVAR *var;  /* reference */
-      ROWEXPR *form; /* value */
+      FORMULA *form; /* value */
       ELEMCON *con;  /* reference */
 };
 
@@ -2577,11 +2577,11 @@ int is_member(MPL *mpl, CODE *code, TUPLE *tuple);
 /* check if n-tuple is in set specified by pseudo-code */
 
 #define eval_formula _mpl_eval_formula
-ROWEXPR *eval_formula(MPL *mpl, CODE *code);
+FORMULA *eval_formula(MPL *mpl, CODE *code);
 /* evaluate pseudo-code to construct linear form */
 
 #define print_formula _mpl_print_formula
-void print_formula(MPL *mpl, const ROWEXPR *form);
+void print_formula(MPL *mpl, const FORMULA *form);
 /* print a formula to stdout */
 
 #define clean_code _mpl_clean_code

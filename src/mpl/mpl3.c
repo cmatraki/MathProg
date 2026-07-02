@@ -1378,10 +1378,10 @@ ELEMSET *set_cross
 -- This routine creates a formula from a linear form and a nonlinear
    expression. An empty formula is represented by a NULL pointer. */
 
-ROWEXPR *make_formula(MPL *mpl, LINFORM *lin, NL_EXPR *nl)
+FORMULA *make_formula(MPL *mpl, LINFORM *lin, NL_EXPR *nl)
 {  if (lin == NULL && nl == NULL) return NULL;
-   ROWEXPR *ret;
-   ret = dmp_get_atom(mpl->rowexprs, sizeof(ROWEXPR));
+   FORMULA *ret;
+   ret = dmp_get_atom(mpl->formulae, sizeof(FORMULA));
    ret->nl = nl;
    ret->lin = lin;
    return ret;
@@ -1393,9 +1393,9 @@ ROWEXPR *make_formula(MPL *mpl, LINFORM *lin, NL_EXPR *nl)
 -- This routine creates a formula, which is a constant term.
 -- A zero constant is represented by a NULL pointer. */
 
-ROWEXPR *constant_term(MPL *mpl, double coef)
+FORMULA *constant_term(MPL *mpl, double coef)
 {     LINFORM *form;
-      ROWEXPR *ret;
+      FORMULA *ret;
       if (coef == 0.0)
          ret = NULL;
       else
@@ -1414,7 +1414,7 @@ ROWEXPR *constant_term(MPL *mpl, double coef)
 -- This routine creates the linear form, which is a single elemental
 -- variable. */
 
-ROWEXPR *single_variable
+FORMULA *single_variable
 (     MPL *mpl,
       ELEMVAR *var            /* referenced */
 )
@@ -1456,7 +1456,7 @@ NL_EXPR *make_nl_expr
 
 NL_EXPR *formula_to_nl_expr
 (     MPL *mpl,
-      ROWEXPR *form           /* consumed */
+      FORMULA *form           /* consumed */
 )
 {     NL_EXPR *ret;
       if (form == NULL)
@@ -1485,11 +1485,11 @@ NL_EXPR *formula_to_nl_expr
 --
 -- This routine returns an exact copy of formula. */
 
-ROWEXPR *copy_formula
+FORMULA *copy_formula
 (     MPL *mpl,
-      const ROWEXPR *form           /* not changed */
+      const FORMULA *form           /* not changed */
 )
-{     ROWEXPR *ret;
+{     FORMULA *ret;
       if (form == NULL)
          ret = NULL;
       else
@@ -1552,12 +1552,12 @@ NL_EXPR *copy_nl_expr
 
 void delete_formula
 (     MPL *mpl,
-      ROWEXPR *form           /* destroyed */
+      FORMULA *form           /* destroyed */
 )
 {     if (form == NULL) return;
       delete_nl_expr(mpl, form->nl);
       delete_linform(mpl, form->lin);
-      dmp_free_atom(mpl->rowexprs, form, sizeof(ROWEXPR));
+      dmp_free_atom(mpl->formulae, form, sizeof(FORMULA));
       return;
 }
 
@@ -1609,13 +1609,13 @@ void delete_nl_expr
 -- where a and b are numeric coefficients, fx and fy are formulas
 -- (destroyed on exit). */
 
-ROWEXPR *linear_comb
+FORMULA *linear_comb
 (     MPL *mpl,
-      double a, ROWEXPR *fx,  /* destroyed */
-      double b, ROWEXPR *fy   /* destroyed */
+      double a, FORMULA *fx,  /* destroyed */
+      double b, FORMULA *fy   /* destroyed */
 )
 {     LINFORM *form = NULL, *term, *temp;
-      ROWEXPR *ret;
+      FORMULA *ret;
       NL_EXPR *nl_x = NULL, *nl_y = NULL, *t;
       double c0 = 0.0;
       /* steal nl chains before delete_formula is called */
@@ -3877,7 +3877,7 @@ ELEMCON *take_member_con      /* returns reference */
             double temp, temp1, temp2;
             xassert(con->type == A_CONSTRAINT);
             refer->eqn->lin = remove_constant(mpl, refer->eqn->lin, &temp);
-            ROWEXPR *ftmp = eval_formula(mpl, con->lbnd);
+            FORMULA *ftmp = eval_formula(mpl, con->lbnd);
             ftmp->lin = remove_constant(mpl, ftmp->lin, &temp1);
             xassert(ftmp->lin == NULL && ftmp->nl == NULL);
             delete_formula(mpl, ftmp);
@@ -5229,7 +5229,7 @@ struct iter_form_info
 {     /* working info used by the routine iter_form_func */
       CODE *code;
       /* pseudo-code for iterated operation to be performed */
-      ROWEXPR *value;
+      FORMULA *value;
       /* resultant value */
       LINFORM *tail;
       /* pointer to the last term */
@@ -5255,7 +5255,7 @@ static int iter_form_func(MPL *mpl, void *_info)
                idea is to gather all terms of the integrand in one list
                and reduce identical terms only once after all terms of
                the resultant linear form have been evaluated */
-            {  ROWEXPR *form;
+            {  FORMULA *form;
                LINFORM *term;
                form = eval_formula(mpl, info->code->arg.loop.x);
                if (form == NULL)
@@ -5266,7 +5266,7 @@ static int iter_form_func(MPL *mpl, void *_info)
                if (info->value == NULL || info->value->lin == NULL)
                {  xassert(info->tail == NULL);
                   /* The accumulator is empty; take ownership of this
-                     ROWEXPR (replacing the NULL/empty placeholder). */
+                     FORMULA (replacing the NULL/empty placeholder). */
                   if (info->value) delete_formula(mpl, info->value);
                   info->value = form;
                }
@@ -5289,12 +5289,12 @@ static int iter_form_func(MPL *mpl, void *_info)
       return 0;
 }
 
-static int is_empty_formula(ROWEXPR *form)
+static int is_empty_formula(FORMULA *form)
 {  return form == NULL || (form->lin == NULL && form->nl == NULL);
 }
 
-ROWEXPR *eval_formula(MPL *mpl, CODE *code)
-{     ROWEXPR *value;
+FORMULA *eval_formula(MPL *mpl, CODE *code)
+{     FORMULA *value;
       xassert(code != NULL);
       xassert(code->type == A_FORMULA);
       xassert(code->dim == 0);
@@ -5376,7 +5376,7 @@ ROWEXPR *eval_formula(MPL *mpl, CODE *code)
             }
             else if (code->arg.arg.x->type == A_FORMULA
                   && code->arg.arg.y->type == A_FORMULA)
-            {  ROWEXPR *fx, *fy;
+            {  FORMULA *fx, *fy;
                fx = eval_formula(mpl, code->arg.arg.x);
                fy = eval_formula(mpl, code->arg.arg.y);
                if (is_empty_formula(fx) || is_empty_formula(fy))
@@ -5402,7 +5402,7 @@ ROWEXPR *eval_formula(MPL *mpl, CODE *code)
          case O_DIV:
             /* division */
             if (code->arg.arg.y->type == A_FORMULA)
-            {  ROWEXPR *fx, *fy;
+            {  FORMULA *fx, *fy;
                /* numerator may be numeric or formula */
                if (code->arg.arg.x->type == A_NUMERIC)
                   fx = constant_term(mpl,
@@ -5440,7 +5440,7 @@ ROWEXPR *eval_formula(MPL *mpl, CODE *code)
                loop_within_domain(mpl, code->arg.loop.domain, info,
                   iter_form_func);
                value = info->value;
-               /* A zero/empty sum is represented by a NULL ROWEXPR. */
+               /* A zero/empty sum is represented by a NULL FORMULA. */
                if (value != NULL)
                   value->lin = reduce_terms(mpl, value->lin);
             }
@@ -5453,16 +5453,16 @@ ROWEXPR *eval_formula(MPL *mpl, CODE *code)
                else if (ex == 1)
                   value = eval_formula(mpl, code->arg.arg.x);
                else
-               {  ROWEXPR *fx = eval_formula(mpl, code->arg.arg.x);
-                  ROWEXPR *fy = constant_term(mpl, ex);
+               {  FORMULA *fx = eval_formula(mpl, code->arg.arg.x);
+                  FORMULA *fy = constant_term(mpl, ex);
                   value = make_formula(mpl, NULL, make_nl_expr(mpl,
                      O_POWER, formula_to_nl_expr(mpl, fx),
                      formula_to_nl_expr(mpl, fy)));
                }
             }
             else
-            {  ROWEXPR *fx = eval_formula(mpl, code->arg.arg.x);
-               ROWEXPR *fy = eval_formula(mpl, code->arg.arg.y);
+            {  FORMULA *fx = eval_formula(mpl, code->arg.arg.x);
+               FORMULA *fy = eval_formula(mpl, code->arg.arg.y);
                value = make_formula(mpl, NULL, make_nl_expr(mpl,
                   O_POWER, formula_to_nl_expr(mpl, fx),
                   formula_to_nl_expr(mpl, fy)));
@@ -5471,7 +5471,7 @@ ROWEXPR *eval_formula(MPL *mpl, CODE *code)
          case O_SQRT:
             /* square root */
             if (code->arg.arg.x->type == A_FORMULA)
-            {  ROWEXPR *fx = eval_formula(mpl, code->arg.arg.x);
+            {  FORMULA *fx = eval_formula(mpl, code->arg.arg.x);
                value = make_formula(mpl, NULL, make_nl_expr(mpl,
                   O_SQRT, formula_to_nl_expr(mpl, fx), NULL));
             }
@@ -6401,7 +6401,7 @@ static void display_code(MPL *mpl, CODE *code)
             break;
          case A_FORMULA:
             /* linear form */
-            {  ROWEXPR *form;
+            {  FORMULA *form;
                LINFORM *term;
                form = eval_formula(mpl, code);
                if (form == NULL || form->lin == NULL)
@@ -7313,7 +7313,7 @@ static void print_nl_expr(MPL *mpl, const NL_EXPR *nl, int paren)
       if (paren && nl->op != O_LINFORM) xprintf(")");
 }
 
-void print_formula(MPL *mpl, const ROWEXPR *form)
+void print_formula(MPL *mpl, const FORMULA *form)
 {     if (form && form->lin)
       {  print_linform(mpl, form->lin, 0);
          if (form->nl)

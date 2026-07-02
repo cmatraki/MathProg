@@ -369,9 +369,9 @@ void clean_model(MPL *mpl)
       if (dmp_in_use(mpl->linforms) != 0)
          error(mpl, "internal logic error: %d linear term(s) were lost",
             dmp_in_use(mpl->linforms));
-      if (dmp_in_use(mpl->rowexprs) != 0)
+      if (dmp_in_use(mpl->formulae) != 0)
          error(mpl, "internal logic error: %d row expression(s) were lost",
-            dmp_in_use(mpl->rowexprs));
+            dmp_in_use(mpl->formulae));
       if (dmp_in_use(mpl->nlexprs) != 0)
          error(mpl, "internal logic error: %d nl term(s) were lost",
             dmp_in_use(mpl->nlexprs));
@@ -694,7 +694,7 @@ MPL *mpl_initialize(void)
       mpl->members = dmp_create_poolx(sizeof(MEMBER));
       mpl->elemvars = dmp_create_poolx(sizeof(ELEMVAR));
       mpl->linforms = dmp_create_poolx(sizeof(LINFORM));
-      mpl->rowexprs = dmp_create_poolx(sizeof(ROWEXPR));
+      mpl->formulae = dmp_create_poolx(sizeof(FORMULA));
       mpl->nlexprs  = dmp_create_poolx(sizeof(NL_EXPR));
       mpl->elemcons = dmp_create_poolx(sizeof(ELEMCON));
       mpl->a_list = NULL;
@@ -1604,7 +1604,7 @@ void mpl_terminate(MPL *mpl)
       dmp_delete_pool(mpl->members);
       dmp_delete_pool(mpl->elemvars);
       dmp_delete_pool(mpl->linforms);
-      dmp_delete_pool(mpl->rowexprs);
+      dmp_delete_pool(mpl->formulae);
       dmp_delete_pool(mpl->nlexprs);
       dmp_delete_pool(mpl->elemcons);
       xfree(mpl->sym_buf);

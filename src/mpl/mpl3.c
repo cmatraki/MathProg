@@ -1369,13 +1369,29 @@ ELEMSET *set_cross
 /* (there are no specific routines for elemental variables) */
 
 /**********************************************************************/
-/* * *                        LINEAR FORMS                        * * */
+/* * *                          FORMULAS                          * * */
 /**********************************************************************/
+
+/*----------------------------------------------------------------------
+-- make_formula - create formula.
+--
+-- This routine creates a formula from a linear form and a nonlinear
+   expression. An empty formula is represented by a NULL pointer. */
+
+ROWEXPR *make_formula(MPL *mpl, LINFORM *lin, NL_EXPR *nl)
+{  if (lin == NULL && nl == NULL) return NULL;
+   ROWEXPR *ret;
+   ret = dmp_get_atom(mpl->rowexprs, sizeof(ROWEXPR));
+   ret->nl = nl;
+   ret->lin = lin;
+   return ret;
+}
 
 /*----------------------------------------------------------------------
 -- constant_term - create constant term.
 --
--- This routine creates the linear form, which is a constant term. */
+-- This routine creates a formula, which is a constant term.
+-- A zero constant is represented by a NULL pointer. */
 
 ROWEXPR *constant_term(MPL *mpl, double coef)
 {     LINFORM *form;
@@ -1387,9 +1403,7 @@ ROWEXPR *constant_term(MPL *mpl, double coef)
          form->coef = coef;
          form->var = NULL;
          form->next = NULL;
-         ret = dmp_get_atom(mpl->rowexprs, sizeof(ROWEXPR));
-         ret->nl = NULL;
-         ret->lin = form;
+         ret = make_formula(mpl, form, NULL);
       }
       return ret;
 }
@@ -1405,56 +1419,152 @@ ROWEXPR *single_variable
       ELEMVAR *var            /* referenced */
 )
 {     LINFORM *form;
-      ROWEXPR *ret;
       xassert(var != NULL);
       form = dmp_get_atom(mpl->linforms, sizeof(LINFORM));
       form->coef = 1.0;
       form->var = var;
       form->next = NULL;
-      ret = dmp_get_atom(mpl->rowexprs, sizeof(ROWEXPR));
-      ret->nl = NULL;
-      ret->lin = form;
+      return make_formula(mpl, form, NULL);
+}
+
+/*----------------------------------------------------------------------
+-- make_nl_expr - create nonlinear expression.
+--
+-- This routine creates a nonlinear expression with one or two nonlinear
+-- expressions as operands. */
+
+NL_EXPR *make_nl_expr
+(     MPL *mpl,
+      int op,
+      NL_EXPR *x,             /* consumed */
+      NL_EXPR *y              /* consumed; NULL for unary operation */
+)
+{     NL_EXPR *ret;
+      xassert(op != O_LINFORM);
+      ret = dmp_get_atom(mpl->nlexprs, sizeof(NL_EXPR));
+      ret->op = op;
+      ret->u.arg.x = x;
+      ret->u.arg.y = y;
       return ret;
 }
 
 /*----------------------------------------------------------------------
--- copy_formula - make copy of linear form.
+-- formula_to_nl_expr - create nonlinear expression from formula.
 --
--- This routine returns an exact copy of linear form. */
+-- This routine creates a nonlinear expression from a formula, combining
+-- the constituent linear form and nonlinear expression as needed. */
+
+NL_EXPR *formula_to_nl_expr
+(     MPL *mpl,
+      ROWEXPR *form           /* consumed */
+)
+{     NL_EXPR *ret;
+      if (form == NULL)
+         ret = NULL;
+      else if (form->lin == NULL)
+      {  ret = form->nl;
+         form->nl = NULL;
+      }
+      else
+      {  ret = dmp_get_atom(mpl->nlexprs, sizeof(NL_EXPR));
+         ret->op = O_LINFORM;
+         ret->u.lin = form->lin;
+         form->lin = NULL;
+         if (form->nl != NULL)
+         {  ret = make_nl_expr(mpl, O_ADD, ret, form->nl);
+            form->nl = NULL;
+         }
+      }
+      /* lin and nl are moved, form can be deleted */
+      delete_formula(mpl, form);
+      return ret;
+}
+
+/*----------------------------------------------------------------------
+-- copy_formula - make copy of formula.
+--
+-- This routine returns an exact copy of formula. */
 
 ROWEXPR *copy_formula
 (     MPL *mpl,
       const ROWEXPR *form           /* not changed */
 )
-{     LINFORM *ptr, *tail;
-      ROWEXPR *ret;
+{     ROWEXPR *ret;
       if (form == NULL)
          ret = NULL;
-      else if (form->lin == NULL)
-      {  ret = dmp_get_atom(mpl->rowexprs, sizeof(ROWEXPR));
-         ret->nl = form->nl;
-         ret->lin = NULL;
-      }
       else
-      {  ret = dmp_get_atom(mpl->rowexprs, sizeof(ROWEXPR));
-         ret->nl = form->nl;
-         ret->lin = tail = dmp_get_atom(mpl->linforms, sizeof(LINFORM));
-         for (ptr = form->lin; ptr != NULL; ptr = ptr->next)
-         {  tail->coef = ptr->coef;
-            tail->var = ptr->var;
-            if (ptr->next != NULL)
-                tail = (tail->next = dmp_get_atom(mpl->linforms, sizeof(LINFORM)));
-         }
-         tail->next = NULL;
-      }
+         ret = make_formula(mpl, copy_linform(mpl, form->lin),
+            copy_nl_expr(mpl, form->nl));
       return ret;
 }
 
 /*----------------------------------------------------------------------
--- delete_formula - delete linear form.
+-- copy_linform - make copy of linear form.
+--
+-- This routine returns an exact copy of linear form. */
+
+LINFORM *copy_linform
+(     MPL *mpl,
+      const LINFORM *form           /* not changed */
+)
+{     LINFORM *head, *tail;
+      if (form == NULL)
+         head = NULL;
+      else
+      {  head = tail = dmp_get_atom(mpl->linforms, sizeof(LINFORM));
+         for (; form != NULL; form = form->next)
+         {  tail->coef = form->coef;
+            tail->var = form->var;
+            if (form->next != NULL)
+                tail = (tail->next = dmp_get_atom(mpl->linforms, sizeof(LINFORM)));
+         }
+         tail->next = NULL;
+      }
+      return head;
+}
+
+/*----------------------------------------------------------------------
+-- copy_nl_expr - make copy of nonlinear expression.
+--
+-- This routine returns an exact copy of a nonlinear expression. */
+
+NL_EXPR *copy_nl_expr
+(     MPL *mpl,
+      const NL_EXPR *nl       /* not changed */
+)
+{     NL_EXPR *node;
+      if (nl == NULL) return NULL;
+      node = dmp_get_atom(mpl->nlexprs, sizeof(NL_EXPR));
+      node->op   = nl->op;
+      if (nl->op != O_LINFORM)
+      {  node->u.arg.x    = copy_nl_expr(mpl, nl->u.arg.x);
+         node->u.arg.y    = copy_nl_expr(mpl, nl->u.arg.y);
+      }
+      else
+         node->u.lin  = copy_linform(mpl, nl->u.lin);
+      return node;
+}
+
+/*----------------------------------------------------------------------
+-- delete_formula - delete formula.
+--
+-- This routine deletes specified formula. */
+
+void delete_formula
+(     MPL *mpl,
+      ROWEXPR *form           /* destroyed */
+)
+{     if (form == NULL) return;
+      delete_nl_expr(mpl, form->nl);
+      delete_linform(mpl, form->lin);
+      dmp_free_atom(mpl->rowexprs, form, sizeof(ROWEXPR));
+      return;
+}
+
+/*----------------------------------------------------------------------
+-- delete_linform - delete linear form.
 --
 -- This routine deletes specified linear form. */
-
 
 void delete_linform
 (     MPL *mpl,
@@ -1469,24 +1579,34 @@ void delete_linform
       return;
 }
 
-void delete_formula
+/*----------------------------------------------------------------------
+-- delete_nl_expr - delete nonlinear expression.
+--
+-- This routine deletes specified nonlinear expression. */
+
+void delete_nl_expr
 (     MPL *mpl,
-      ROWEXPR *form           /* destroyed */
+      NL_EXPR *nl             /* destroyed */
 )
-{     if (form == NULL) return;
-      delete_linform(mpl, form->lin);
-      dmp_free_atom(mpl->rowexprs, form, sizeof(ROWEXPR));
+{     if (nl == NULL) return;
+      if (nl->op != O_LINFORM)
+      {  delete_nl_expr(mpl, nl->u.arg.x);
+         delete_nl_expr(mpl, nl->u.arg.y);
+      }
+      else
+         delete_linform(mpl, nl->u.lin);
+      dmp_free_atom(mpl->nlexprs, nl, sizeof(NL_EXPR));
       return;
 }
 
 /*----------------------------------------------------------------------
--- linear_comb - linear combination of two linear forms.
+-- linear_comb - linear combination of two formulas.
 --
 -- This routine computes the linear combination:
 --
 --    a * fx + b * fy,
 --
--- where a and b are numeric coefficients, fx and fy are linear forms
+-- where a and b are numeric coefficients, fx and fy are formulas
 -- (destroyed on exit). */
 
 ROWEXPR *linear_comb
@@ -1496,7 +1616,11 @@ ROWEXPR *linear_comb
 )
 {     LINFORM *form = NULL, *term, *temp;
       ROWEXPR *ret;
+      NL_EXPR *nl_x = NULL, *nl_y = NULL, *t;
       double c0 = 0.0;
+      /* steal nl chains before delete_formula is called */
+      if (fx != NULL) { nl_x = fx->nl; fx->nl = NULL; }
+      if (fy != NULL) { nl_y = fy->nl; fy->nl = NULL; }
       for (term = fx ? fx->lin : NULL; term != NULL; term = term->next)
       {  if (term->var == NULL)
             c0 = fp_add(mpl, c0, fp_mul(mpl, a, term->coef));
@@ -1532,11 +1656,34 @@ ROWEXPR *linear_comb
          temp->coef = c0, temp->var = NULL;
          temp->next = form, form = temp;
       }
-      ret = dmp_get_atom(mpl->rowexprs, sizeof(ROWEXPR));
-      ret->nl = NULL;
-      if (fx != NULL && fx->nl != NULL && a != 0) ret->nl = (void *)1;
-      if (fy != NULL && fy->nl != NULL && b != 0) ret->nl = (void *)1;
-      ret->lin = form;
+      /* scale nl_x by a; drop (and free) if coefficient is zero */
+      if (a == 0.0 || nl_x == NULL)
+      {  delete_nl_expr(mpl, nl_x);
+         nl_x = NULL;
+      }
+      else if (a == -1)
+         nl_x = make_nl_expr(mpl, O_MINUS, nl_x, NULL);
+      else if (a != 1.0)
+         nl_x = make_nl_expr(mpl, O_MUL,
+            formula_to_nl_expr(mpl, constant_term(mpl, a)), nl_x);
+      /* scale nl_y by b; drop (and free) if coefficient is zero */
+      if (b == 0.0 || nl_y == NULL)
+      {  delete_nl_expr(mpl, nl_y);
+         nl_y = NULL;
+      }
+      else if (b == -1)
+         nl_y = make_nl_expr(mpl, O_MINUS, nl_y, NULL);
+      else if (b != 1.0)
+         nl_y = make_nl_expr(mpl, O_MUL,
+            formula_to_nl_expr(mpl, constant_term(mpl, b)), nl_y);
+      /* concatenate nl_x and nl_y into result */
+      if (nl_x != NULL && nl_y != NULL)
+         ret = make_formula(mpl, form,
+            make_nl_expr(mpl, O_ADD, nl_x, nl_y));
+      else if (nl_x != NULL)
+         ret = make_formula(mpl, form, nl_x);
+      else
+         ret = make_formula(mpl, form, nl_y);
       delete_formula(mpl, fx);
       delete_formula(mpl, fy);
       return ret;
@@ -5111,18 +5258,25 @@ static int iter_form_func(MPL *mpl, void *_info)
             {  ROWEXPR *form;
                LINFORM *term;
                form = eval_formula(mpl, info->code->arg.loop.x);
+               if (form == NULL)
+                  break;
                if (form->nl != NULL)
                   error(mpl, "nonlinear iterated operator");
                term = form->lin;
                if (info->value == NULL || info->value->lin == NULL)
                {  xassert(info->tail == NULL);
+                  /* The accumulator is empty; take ownership of this
+                     ROWEXPR (replacing the NULL/empty placeholder). */
                   if (info->value) delete_formula(mpl, info->value);
                   info->value = form;
                }
                else
                {  xassert(info->tail != NULL);
+                  /* Splice the linear terms from form into the accumulator's
+                     tail, null out form->lin, then free the empty shell. */
                   info->tail->next = form->lin;
-                  dmp_free_atom(mpl->rowexprs, form, sizeof(ROWEXPR));
+                  form->lin = NULL;
+                  delete_formula(mpl, form);
                }
                for (; term != NULL; term = term->next)
                   if(!term->next) info->tail = term;
@@ -5133,6 +5287,10 @@ static int iter_form_func(MPL *mpl, void *_info)
             xassert(info != info);
       }
       return 0;
+}
+
+static int is_empty_formula(ROWEXPR *form)
+{  return form == NULL || (form->lin == NULL && form->nl == NULL);
 }
 
 ROWEXPR *eval_formula(MPL *mpl, CODE *code)
@@ -5217,10 +5375,19 @@ ROWEXPR *eval_formula(MPL *mpl, CODE *code)
                   0.0, value);
             }
             else if (code->arg.arg.x->type == A_FORMULA
-               && code->arg.arg.y->type == A_FORMULA)
-            {  value = dmp_get_atom(mpl->rowexprs, sizeof(ROWEXPR));
-               value->nl = (void *)1;
-               value->lin = NULL;
+                  && code->arg.arg.y->type == A_FORMULA)
+            {  ROWEXPR *fx, *fy;
+               fx = eval_formula(mpl, code->arg.arg.x);
+               fy = eval_formula(mpl, code->arg.arg.y);
+               if (is_empty_formula(fx) || is_empty_formula(fy))
+               {  value = NULL;
+                  delete_formula(mpl, fx);
+                  delete_formula(mpl, fy);
+               }
+               else
+                  value = make_formula(mpl, NULL, make_nl_expr(mpl,
+                     O_MUL, formula_to_nl_expr(mpl, fx),
+                     formula_to_nl_expr(mpl, fy)));
             }
             else
             {  xassert(code->arg.arg.x->type == A_FORMULA);
@@ -5235,9 +5402,17 @@ ROWEXPR *eval_formula(MPL *mpl, CODE *code)
          case O_DIV:
             /* division */
             if (code->arg.arg.y->type == A_FORMULA)
-            {  value = dmp_get_atom(mpl->rowexprs, sizeof(ROWEXPR));
-               value->nl = (void *)1;
-               value->lin = NULL;
+            {  ROWEXPR *fx, *fy;
+               /* numerator may be numeric or formula */
+               if (code->arg.arg.x->type == A_NUMERIC)
+                  fx = constant_term(mpl,
+                     eval_numeric(mpl, code->arg.arg.x));
+               else
+                  fx = eval_formula(mpl, code->arg.arg.x);
+               fy = eval_formula(mpl, code->arg.arg.y);
+               value = make_formula(mpl, NULL, make_nl_expr(mpl, O_DIV,
+                  formula_to_nl_expr(mpl, fx),
+                  formula_to_nl_expr(mpl, fy)));
             }
             else
             {  value = constant_term(mpl, 0.0);
@@ -5264,8 +5439,10 @@ ROWEXPR *eval_formula(MPL *mpl, CODE *code)
                info->tail = NULL;
                loop_within_domain(mpl, code->arg.loop.domain, info,
                   iter_form_func);
-               value= info->value;
-               value->lin = reduce_terms(mpl, value->lin);
+               value = info->value;
+               /* A zero/empty sum is represented by a NULL ROWEXPR. */
+               if (value != NULL)
+                  value->lin = reduce_terms(mpl, value->lin);
             }
             break;
          case O_POWER:
@@ -5276,23 +5453,27 @@ ROWEXPR *eval_formula(MPL *mpl, CODE *code)
                else if (ex == 1)
                   value = eval_formula(mpl, code->arg.arg.x);
                else
-               {  value = dmp_get_atom(mpl->rowexprs, sizeof(ROWEXPR));
-                  value->nl = (void *)1;
-                  value->lin = NULL;
+               {  ROWEXPR *fx = eval_formula(mpl, code->arg.arg.x);
+                  ROWEXPR *fy = constant_term(mpl, ex);
+                  value = make_formula(mpl, NULL, make_nl_expr(mpl,
+                     O_POWER, formula_to_nl_expr(mpl, fx),
+                     formula_to_nl_expr(mpl, fy)));
                }
             }
             else
-            {  value = dmp_get_atom(mpl->rowexprs, sizeof(ROWEXPR));
-               value->nl = (void *)1;
-               value->lin = NULL;
+            {  ROWEXPR *fx = eval_formula(mpl, code->arg.arg.x);
+               ROWEXPR *fy = eval_formula(mpl, code->arg.arg.y);
+               value = make_formula(mpl, NULL, make_nl_expr(mpl,
+                  O_POWER, formula_to_nl_expr(mpl, fx),
+                  formula_to_nl_expr(mpl, fy)));
             }
             break;
          case O_SQRT:
             /* square root */
             if (code->arg.arg.x->type == A_FORMULA)
-            {  value = dmp_get_atom(mpl->rowexprs, sizeof(ROWEXPR));
-               value->nl = (void *)1;
-               value->lin = NULL;
+            {  ROWEXPR *fx = eval_formula(mpl, code->arg.arg.x);
+               value = make_formula(mpl, NULL, make_nl_expr(mpl,
+                  O_SQRT, formula_to_nl_expr(mpl, fx), NULL));
             }
             else
                value = constant_term(mpl, eval_numeric(mpl,
@@ -7050,6 +7231,96 @@ void clean_statement(MPL *mpl, STATEMENT *stmt)
             xassert(stmt != stmt);
       }
       return;
+}
+
+/*----------------------------------------------------------------------
+-- print_formula - print a formula to stdout.
+--
+-- Prints a human-readable representation of the formula. */
+
+static void print_linform(MPL *mpl, const LINFORM *form, int paren)
+{     int first = 1;
+      if (form == NULL)
+      {  xprintf("0");
+         return;
+      }
+      if (form->next == NULL && form->coef == 1.0)
+         paren = 0;
+      if (form->next == NULL && form->coef > 0 && form->var == NULL)
+         paren = 0;
+      if (paren) xprintf("(");
+      for (; form != NULL; form = form->next)
+      {  if (!first) xprintf(" + ");
+         first = 0;
+         if (form->var == NULL)
+            xprintf("%g", form->coef);
+         else
+         {  if (form->coef == -1.0)
+               xprintf("-");
+            else if (form->coef != 1.0)
+               xprintf("%g*", form->coef);
+            xprintf("%s%s", form->var->var->name,
+              format_tuple(mpl, '[', form->var->memb->tuple));
+         }
+      }
+      if (paren) xprintf(")");
+}
+
+static void print_nl_expr(MPL *mpl, const NL_EXPR *nl, int paren)
+{     if (paren && nl->op != O_LINFORM) xprintf("(");
+      switch (nl->op)
+      {  case O_MUL:
+            print_nl_expr(mpl, nl->u.arg.x, 1);
+            xprintf(" * ");
+            print_nl_expr(mpl, nl->u.arg.y, 1);
+            break;
+         case O_DIV:
+            print_nl_expr(mpl, nl->u.arg.x, 1);
+            xprintf(" / ");
+            print_nl_expr(mpl, nl->u.arg.y, 1);
+            break;
+         case O_ADD:
+            print_nl_expr(mpl, nl->u.arg.x, 0);
+            xprintf(" + ");
+            print_nl_expr(mpl, nl->u.arg.y, 0);
+            break;
+         case O_SUB:
+            print_nl_expr(mpl, nl->u.arg.x, 0);
+            xprintf(" - ");
+            print_nl_expr(mpl, nl->u.arg.y, 1);
+            break;
+         case O_MINUS:
+            xprintf(" -");
+            print_nl_expr(mpl, nl->u.arg.x, 1);
+            break;
+         case O_POWER:
+            print_nl_expr(mpl, nl->u.arg.x, 1);
+            xprintf(" ^ ");
+            print_nl_expr(mpl, nl->u.arg.y, 1);
+            break;
+         case O_SQRT:
+            xprintf("sqrt(");
+            print_nl_expr(mpl, nl->u.arg.x, 0);
+            xprintf(")");
+            break;
+         case O_LINFORM:
+            print_linform(mpl, nl->u.lin, paren);
+            break;
+         default:
+            xprintf("?(op=%d)", nl->op);
+            break;
+      }
+      if (paren && nl->op != O_LINFORM) xprintf(")");
+}
+
+void print_formula(MPL *mpl, const ROWEXPR *form)
+{     if (form && form->lin)
+      {  print_linform(mpl, form->lin, 0);
+         if (form->nl)
+            xprintf(" + ");
+      }
+      if (form && form->nl)
+         print_nl_expr(mpl, form->nl, 0);
 }
 
 /* eof */

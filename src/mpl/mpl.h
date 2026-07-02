@@ -342,6 +342,8 @@ struct mpl_tran
       /* memory pool to allocate LINFORM data structures */
       DMP *rowexprs;
       /* memory pool to allocate ROWEXPR data structures */
+      DMP *nlexprs;
+      /* memory pool to allocate NL_EXPR data structures */
       DMP *elemcons;
       /* memory pool to allocate ELEMCON data structures */
       ARRAY *a_list;
@@ -1345,7 +1347,7 @@ struct ELEMVAR
 };
 
 /**********************************************************************/
-/* * *                        LINEAR FORMS                        * * */
+/* * *                          FORMULAS                          * * */
 /**********************************************************************/
 
 struct LINFORM
@@ -1361,6 +1363,34 @@ struct LINFORM
       /* the next term of linear form */
 };
 
+struct NL_EXPR
+{     /* tree describing nonlinear expression; variables and constants
+         are represented as linear forms */
+      int op;
+      /* operation code */
+      /* subset of CODE operations */
+#define O_NUMBER        301   /* take floating-point number */
+#define O_MINUS         322   /* unary minus */
+#define O_SQRT          330   /* square root */
+#define O_ADD           339   /* addition */
+#define O_SUB           340   /* subtraction */
+#define O_MUL           342   /* multiplication */
+#define O_DIV           343   /* division */
+#define O_POWER         346   /* exponentiation (raise to power) */
+      /* only for NL_EXPR */
+#define O_LINFORM       501   /* LINFORM */
+      union u
+      {  struct
+         {  NL_EXPR *x;
+            /* first operand (owned) */
+            NL_EXPR *y;
+            /* second operand (owned); NULL for unary operators */
+         } arg;
+         LINFORM *lin;
+         /* used with O_LINFORM (owned) */
+      } u;
+};
+
 struct ROWEXPR
 {     /* linear + nonlinear expression */
       NL_EXPR *nl;
@@ -1368,6 +1398,10 @@ struct ROWEXPR
       LINFORM *lin;
       /* linear part */
 };
+
+#define make_formula _mpl_make_formula
+ROWEXPR *make_formula(MPL *mpl, LINFORM *lin, NL_EXPR *nl);
+/* create formula */
 
 #define constant_term _mpl_constant_term
 ROWEXPR *constant_term(MPL *mpl, double coef);
@@ -1380,25 +1414,63 @@ ROWEXPR *single_variable
 );
 /* create single variable */
 
+#define make_nl_expr _mpl_make_nl_expr
+NL_EXPR *make_nl_expr
+(     MPL *mpl,
+      int op,
+      NL_EXPR *x,             /* consumed */
+      NL_EXPR *y              /* consumed; NULL for unary ops */
+);
+/* create nonlinear expression */
+
+#define formula_to_nl_expr _mpl_formula_to_nl_expr
+NL_EXPR *formula_to_nl_expr
+(     MPL *mpl,
+      ROWEXPR *form           /* consumed */
+);
+/* create nonlinear expression from formula */
+
 #define copy_formula _mpl_copy_formula
 ROWEXPR *copy_formula
 (     MPL *mpl,
       const ROWEXPR *form           /* not changed */
 );
+/* make copy of formula */
+
+#define copy_linform _mpl_copy_linform
+LINFORM *copy_linform
+(     MPL *mpl,
+      const LINFORM *form           /* not changed */
+);
 /* make copy of linear form */
 
-#define delete_linform _mpl_delete_linform
-void delete_linform
+#define copy_nl_expr _mpl_copy_nl_expr
+NL_EXPR *copy_nl_expr
 (     MPL *mpl,
-      LINFORM *form           /* destroyed */
+      const NL_EXPR *nl       /* not changed */
 );
+/* deep-copy NL_EXPR */
 
 #define delete_formula _mpl_delete_formula
 void delete_formula
 (     MPL *mpl,
       ROWEXPR *form           /* destroyed */
 );
+/* delete formula */
+
+#define delete_linform _mpl_delete_linform
+void delete_linform
+(     MPL *mpl,
+      LINFORM *form           /* destroyed */
+);
 /* delete linear form */
+
+#define delete_nl_expr _mpl_delete_nl_expr
+void delete_nl_expr
+(     MPL *mpl,
+      NL_EXPR *nl             /* destroyed */
+);
+/* delete NL_EXPR and all owned operands */
 
 #define linear_comb _mpl_linear_comb
 ROWEXPR *linear_comb
@@ -1406,7 +1478,7 @@ ROWEXPR *linear_comb
       double a, ROWEXPR *fx,  /* destroyed */
       double b, ROWEXPR *fy   /* destroyed */
 );
-/* linear combination of two linear forms */
+/* linear combination of two formulas */
 
 #define remove_constant _mpl_remove_constant
 LINFORM *remove_constant
@@ -2507,6 +2579,10 @@ int is_member(MPL *mpl, CODE *code, TUPLE *tuple);
 #define eval_formula _mpl_eval_formula
 ROWEXPR *eval_formula(MPL *mpl, CODE *code);
 /* evaluate pseudo-code to construct linear form */
+
+#define print_formula _mpl_print_formula
+void print_formula(MPL *mpl, const ROWEXPR *form);
+/* print a formula to stdout */
 
 #define clean_code _mpl_clean_code
 void clean_code(MPL *mpl, CODE *code);

@@ -207,7 +207,11 @@ void build_problem(MPL *mpl)
                /* walk through linear form and mark elemental variables,
                   which are referenced at least once */
                if (memb->value.con->eqn->nl != NULL)
+               {  xprintf("nonlinear expression: ");
+                  print_formula(mpl, memb->value.con->eqn);
+                  xprintf("\n");
                   error(mpl, "nonlinear constraints not supported.");
+               }
                for (t = memb->value.con->eqn->lin; t != NULL; t = t->next)
                {  xassert(t->var != NULL);
                   t->var->memb->value.var->j = -1;
@@ -368,6 +372,9 @@ void clean_model(MPL *mpl)
       if (dmp_in_use(mpl->rowexprs) != 0)
          error(mpl, "internal logic error: %d row expression(s) were lost",
             dmp_in_use(mpl->rowexprs));
+      if (dmp_in_use(mpl->nlexprs) != 0)
+         error(mpl, "internal logic error: %d nl term(s) were lost",
+            dmp_in_use(mpl->nlexprs));
       if (dmp_in_use(mpl->elemcons) != 0)
          error(mpl, "internal logic error: %d elemental constraint(s) w"
             "ere lost", dmp_in_use(mpl->elemcons));
@@ -688,6 +695,7 @@ MPL *mpl_initialize(void)
       mpl->elemvars = dmp_create_poolx(sizeof(ELEMVAR));
       mpl->linforms = dmp_create_poolx(sizeof(LINFORM));
       mpl->rowexprs = dmp_create_poolx(sizeof(ROWEXPR));
+      mpl->nlexprs  = dmp_create_poolx(sizeof(NL_EXPR));
       mpl->elemcons = dmp_create_poolx(sizeof(ELEMCON));
       mpl->a_list = NULL;
       mpl->sym_buf = xcalloc(MAX_STR_BUF_LENGTH+1, sizeof(char));
@@ -1597,6 +1605,7 @@ void mpl_terminate(MPL *mpl)
       dmp_delete_pool(mpl->elemvars);
       dmp_delete_pool(mpl->linforms);
       dmp_delete_pool(mpl->rowexprs);
+      dmp_delete_pool(mpl->nlexprs);
       dmp_delete_pool(mpl->elemcons);
       xfree(mpl->sym_buf);
       xfree(mpl->tup_buf);

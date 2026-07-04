@@ -1449,7 +1449,7 @@ NL_EXPR *copy_nl_expr
 (     MPL *mpl,
       const NL_EXPR *nl       /* not changed */
 );
-/* deep-copy NL_EXPR */
+/* deep-copy nonlenear expression */
 
 #define delete_formula _mpl_delete_formula
 void delete_formula
@@ -1470,7 +1470,7 @@ void delete_nl_expr
 (     MPL *mpl,
       NL_EXPR *nl             /* destroyed */
 );
-/* delete NL_EXPR and all owned operands */
+/* delete nonlenear expression */
 
 #define linear_comb _mpl_linear_comb
 FORMULA *linear_comb
@@ -1494,6 +1494,20 @@ LINFORM *reduce_terms
       LINFORM *form           /* destroyed */
 );
 /* reduce identical terms in linear form */
+
+#define simplify_formula _mpl_simplify_formula
+FORMULA *simplify_formula
+(     MPL *mpl,
+      FORMULA *form           /* destroyed */
+);
+/* simplifies formula */
+
+#define simplify_nl_expr _mpl_simplify_nl_expr
+NL_EXPR *simplify_nl_expr
+(     MPL *mpl,
+      NL_EXPR *form           /* destroyed */
+);
+/* simplifies nonlinear expression */
 
 /**********************************************************************/
 /* * *                   ELEMENTAL CONSTRAINTS                    * * */

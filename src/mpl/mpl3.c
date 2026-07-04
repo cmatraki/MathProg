@@ -1662,24 +1662,34 @@ FORMULA *linear_comb
          nl_x = NULL;
       }
       else if (a == -1)
-         nl_x = make_nl_expr(mpl, O_MINUS, nl_x, NULL);
+      {  nl_x = make_nl_expr(mpl, O_MINUS, nl_x, NULL);
+         nl_x = simplify_nl_expr(mpl, nl_x);
+      }
       else if (a != 1.0)
-         nl_x = make_nl_expr(mpl, O_MUL,
+      {  nl_x = make_nl_expr(mpl, O_MUL,
             formula_to_nl_expr(mpl, constant_term(mpl, a)), nl_x);
+         nl_x = simplify_nl_expr(mpl, nl_x);
+      }
       /* scale nl_y by b; drop (and free) if coefficient is zero */
       if (b == 0.0 || nl_y == NULL)
       {  delete_nl_expr(mpl, nl_y);
          nl_y = NULL;
       }
       else if (b == -1)
-         nl_y = make_nl_expr(mpl, O_MINUS, nl_y, NULL);
+      {  nl_y = make_nl_expr(mpl, O_MINUS, nl_y, NULL);
+         nl_y = simplify_nl_expr(mpl, nl_y);
+      }
       else if (b != 1.0)
-         nl_y = make_nl_expr(mpl, O_MUL,
+      {  nl_y = make_nl_expr(mpl, O_MUL,
             formula_to_nl_expr(mpl, constant_term(mpl, b)), nl_y);
+         nl_y = simplify_nl_expr(mpl, nl_y);
+      }
       /* concatenate nl_x and nl_y into result */
       if (nl_x != NULL && nl_y != NULL)
-         ret = make_formula(mpl, form,
-            make_nl_expr(mpl, O_ADD, nl_x, nl_y));
+      {  t = make_nl_expr(mpl, O_ADD, nl_x, nl_y);
+         t = simplify_nl_expr(mpl, t);
+         ret = make_formula(mpl, form, t);
+      }
       else if (nl_x != NULL)
          ret = make_formula(mpl, form, nl_x);
       else
@@ -1751,6 +1761,194 @@ LINFORM *reduce_terms
             dmp_free_atom(mpl->linforms, term, sizeof(LINFORM));
       }
       return form;
+}
+
+/*----------------------------------------------------------------------
+-- simplify_nl_expr - simplifies nonlinear expression.
+--
+-- This routine returns simplified version of nonlinear expression.
+-- Also converts to the following canonical forms:
+--    x - y -> x + -y
+--    x / ct -> 1 / ct * x
+-- Uses minimal recursion, only after non-trivial changes. */
+
+static int nl_expr_is_const(const NL_EXPR *nl, double *c_out)
+{  if (nl == NULL || (nl->op == O_LINFORM && nl->u.lin == NULL))
+   {  if (c_out) *c_out = 0.0;
+      return 1;
+   }
+   if (nl->op == O_LINFORM && nl->u.lin->var == NULL
+         && nl->u.lin->next == NULL)
+   {  if (c_out) *c_out = nl->u.lin->coef;
+      return 1;
+   }
+   return 0;
+}
+
+NL_EXPR *simplify_nl_expr(MPL *mpl, NL_EXPR *nl)
+{  double cx, cy;
+   if (nl == NULL) return NULL;
+   switch (nl->op)
+   {  case O_ADD:
+         if (nl_expr_is_const(nl->u.arg.x, &cx) && cx == 0.0)
+         {  NL_EXPR *y = nl->u.arg.y;
+            nl->u.arg.y = NULL;
+            delete_nl_expr(mpl, nl);
+            return y;
+         }
+         if (nl_expr_is_const(nl->u.arg.y, &cy) && cy == 0.0)
+         {  NL_EXPR *x = nl->u.arg.x;
+            nl->u.arg.x = NULL;
+            delete_nl_expr(mpl, nl);
+            return x;
+         }
+         if (nl->u.arg.x != NULL && nl->u.arg.x->op == O_LINFORM
+            && nl->u.arg.y != NULL && nl->u.arg.y->op == O_LINFORM)
+         {  FORMULA *tmp = linear_comb(mpl, +1.0,
+               make_formula(mpl, nl->u.arg.x->u.lin, NULL), +1.0,
+               make_formula(mpl, nl->u.arg.y->u.lin, NULL));
+            nl->u.arg.x->u.lin = NULL;
+            nl->u.arg.y->u.lin = NULL;
+            delete_nl_expr(mpl, nl);
+            return formula_to_nl_expr(mpl, tmp);
+         }
+         break;
+      case O_SUB:
+         nl->op = O_ADD;
+         nl->u.arg.y = simplify_nl_expr(mpl,
+            make_nl_expr(mpl, O_MINUS, nl->u.arg.y, NULL));
+         return simplify_nl_expr(mpl, nl);
+      case O_MINUS:
+         if (nl->u.arg.x == NULL)
+         {  delete_nl_expr(mpl, nl);
+            return NULL;
+         }
+         if (nl->u.arg.x != NULL && nl->u.arg.x->op == O_LINFORM)
+         {  FORMULA *tmp = linear_comb(mpl, -1.0,
+            make_formula(mpl, nl->u.arg.x->u.lin, NULL), +1.0, NULL);
+            nl->u.arg.x->u.lin = NULL;
+            delete_nl_expr(mpl, nl);
+            return formula_to_nl_expr(mpl, tmp);
+         }
+         if (nl->u.arg.x != NULL && nl->u.arg.x->op == O_MINUS)
+         {  NL_EXPR *tmp = nl->u.arg.x->u.arg.x;
+            nl->u.arg.x->u.arg.x = NULL;
+            delete_nl_expr(mpl, nl);
+            return simplify_nl_expr(mpl, tmp);
+         }
+         break;
+      case O_MUL:
+         if (nl_expr_is_const(nl->u.arg.x, &cx))
+         {  if (cx == 1.0)
+            {  NL_EXPR *y = nl->u.arg.y;
+               nl->u.arg.y = NULL;
+               delete_nl_expr(mpl, nl);
+               return y;
+            }
+            if (nl->u.arg.y == NULL)
+            {  delete_nl_expr(mpl, nl);
+               return NULL;
+            }
+            if (nl->u.arg.y != NULL && nl->u.arg.y->op == O_LINFORM)
+            {  FORMULA *tmp = linear_comb(mpl, cx, make_formula(mpl,
+                  nl->u.arg.y->u.lin, NULL), +1.0, NULL);
+               nl->u.arg.y->u.lin = NULL;
+               delete_nl_expr(mpl, nl);
+               return formula_to_nl_expr(mpl, tmp);
+            }
+            if (cx == -1)
+            {  nl->op = O_MINUS;
+               delete_nl_expr(mpl, nl->u.arg.x);
+               nl->u.arg.x = nl->u.arg.y;
+               nl->u.arg.y = NULL;
+               return simplify_nl_expr(mpl, nl);
+            }
+         }
+         else if (nl_expr_is_const(nl->u.arg.y, &cy))
+         {  /* x is not constant so we can safely swap and recurse */
+            NL_EXPR *tmp;
+            tmp = nl->u.arg.y;
+            nl->u.arg.y = nl->u.arg.x;
+            nl->u.arg.x = tmp;
+            return simplify_nl_expr(mpl, nl);
+         }
+         break;
+      case O_DIV:
+         if (nl_expr_is_const(nl->u.arg.y, &cy))
+         {  nl->op = O_MUL;
+            delete_nl_expr(mpl, nl->u.arg.y);
+            nl->u.arg.y = nl->u.arg.x;
+            nl->u.arg.x = formula_to_nl_expr(mpl,
+               constant_term(mpl, fp_div(mpl, 1.0, cy)));
+            return simplify_nl_expr(mpl, nl);
+         }
+         break;
+      case O_POWER:
+         if (nl_expr_is_const(nl->u.arg.y, &cy))
+         {  if (cy == 1.0)
+            {  NL_EXPR *x = nl->u.arg.x;
+               nl->u.arg.x = NULL;
+               delete_nl_expr(mpl, nl);
+               return x;
+            }
+            if (cy == 0.0 && nl->u.arg.x != NULL
+               && nl->u.arg.x->op == O_LINFORM)
+            {  delete_nl_expr(mpl, nl);
+               return formula_to_nl_expr(mpl, constant_term(mpl, 1));
+            }
+         }
+         break;
+      case O_SQRT:
+         if (nl_expr_is_const(nl->u.arg.x, &cx) && cx >= 0.0)
+         {  delete_nl_expr(mpl, nl);
+            return formula_to_nl_expr(mpl,
+               constant_term(mpl, fp_sqrt(mpl, cx)));
+         }
+         break;
+      default:
+         break;
+   }
+   return nl;
+}
+
+/*----------------------------------------------------------------------
+-- simplify_formula - simplifies formula.
+--
+-- This routine returns simplified version of a formula.
+-- Simplifies the nonlinear expression and extracts any linear forms. */
+
+FORMULA *simplify_formula(MPL *mpl, FORMULA *form)
+{  if (form == NULL) return NULL;
+   if (form->nl != NULL)
+      form->nl = simplify_nl_expr(mpl, form->nl);
+   if (form->lin == NULL && form->nl == NULL)
+   {  delete_formula(mpl, form);
+      return NULL;
+   }
+   if (form->nl != NULL && form->nl->op == O_LINFORM)
+   {  FORMULA *tmp = linear_comb(mpl, +1.0,
+         make_formula(mpl, form->lin, NULL), +1.0,
+         make_formula(mpl, form->nl->u.lin, NULL));
+      form->nl->u.lin = NULL;
+      form->lin = NULL;
+      delete_formula(mpl, form);
+      form = tmp;
+   }
+   if (form->nl != NULL && form->nl->op == O_ADD
+      && form->nl->u.arg.x != NULL
+      && form->nl->u.arg.x->op == O_LINFORM)
+   {  /* only need to check the order used by formula_to_nl_expr */
+      FORMULA *tmp = linear_comb(mpl, +1.0,
+         make_formula(mpl, form->lin, NULL), +1.0,
+         make_formula(mpl, form->nl->u.arg.x->u.lin, NULL));
+      tmp->nl = form->nl->u.arg.y;
+      form->nl->u.arg.x->u.lin = NULL;
+      form->nl->u.arg.y = NULL;
+      form->lin = NULL;
+      delete_formula(mpl, form);
+      form = tmp;
+   }
+   return form;
 }
 
 /**********************************************************************/
@@ -5289,10 +5487,6 @@ static int iter_form_func(MPL *mpl, void *_info)
       return 0;
 }
 
-static int is_empty_formula(FORMULA *form)
-{  return form == NULL || (form->lin == NULL && form->nl == NULL);
-}
-
 FORMULA *eval_formula(MPL *mpl, CODE *code)
 {     FORMULA *value;
       xassert(code != NULL);
@@ -5379,15 +5573,9 @@ FORMULA *eval_formula(MPL *mpl, CODE *code)
             {  FORMULA *fx, *fy;
                fx = eval_formula(mpl, code->arg.arg.x);
                fy = eval_formula(mpl, code->arg.arg.y);
-               if (is_empty_formula(fx) || is_empty_formula(fy))
-               {  value = NULL;
-                  delete_formula(mpl, fx);
-                  delete_formula(mpl, fy);
-               }
-               else
-                  value = make_formula(mpl, NULL, make_nl_expr(mpl,
-                     O_MUL, formula_to_nl_expr(mpl, fx),
-                     formula_to_nl_expr(mpl, fy)));
+               value = make_formula(mpl, NULL, make_nl_expr(mpl,
+                  O_MUL, formula_to_nl_expr(mpl, fx),
+                  formula_to_nl_expr(mpl, fy)));
             }
             else
             {  xassert(code->arg.arg.x->type == A_FORMULA);
@@ -5448,17 +5636,11 @@ FORMULA *eval_formula(MPL *mpl, CODE *code)
          case O_POWER:
             if (code->arg.arg.y->type == A_NUMERIC)
             {  double ex = eval_numeric(mpl, code->arg.arg.y);
-               if (ex == 0)
-                  value = constant_term(mpl, 1.0);
-               else if (ex == 1)
-                  value = eval_formula(mpl, code->arg.arg.x);
-               else
-               {  FORMULA *fx = eval_formula(mpl, code->arg.arg.x);
-                  FORMULA *fy = constant_term(mpl, ex);
-                  value = make_formula(mpl, NULL, make_nl_expr(mpl,
-                     O_POWER, formula_to_nl_expr(mpl, fx),
-                     formula_to_nl_expr(mpl, fy)));
-               }
+               FORMULA *fx = eval_formula(mpl, code->arg.arg.x);
+               FORMULA *fy = constant_term(mpl, ex);
+               value = make_formula(mpl, NULL, make_nl_expr(mpl,
+                  O_POWER, formula_to_nl_expr(mpl, fx),
+                  formula_to_nl_expr(mpl, fy)));
             }
             else
             {  FORMULA *fx = eval_formula(mpl, code->arg.arg.x);
@@ -5482,6 +5664,7 @@ FORMULA *eval_formula(MPL *mpl, CODE *code)
          default:
             xassert(code != code);
       }
+      value = simplify_formula(mpl, value);
       /* save resultant value */
       xassert(!code->valid);
       code->valid = mpl->last_code_valid;
@@ -7267,7 +7450,11 @@ static void print_linform(MPL *mpl, const LINFORM *form, int paren)
 }
 
 static void print_nl_expr(MPL *mpl, const NL_EXPR *nl, int paren)
-{     if (paren && nl->op != O_LINFORM) xprintf("(");
+{     if (nl == NULL)
+      {  xprintf("0");
+         return;
+      }
+      if (paren && nl->op != O_LINFORM) xprintf("(");
       switch (nl->op)
       {  case O_MUL:
             print_nl_expr(mpl, nl->u.arg.x, 1);
@@ -7281,8 +7468,14 @@ static void print_nl_expr(MPL *mpl, const NL_EXPR *nl, int paren)
             break;
          case O_ADD:
             print_nl_expr(mpl, nl->u.arg.x, 0);
-            xprintf(" + ");
-            print_nl_expr(mpl, nl->u.arg.y, 0);
+            if (nl->u.arg.y != NULL && nl->u.arg.y->op == O_MINUS)
+            {  xprintf(" - ");
+               print_nl_expr(mpl, nl->u.arg.y->u.arg.x, 1);
+            }
+            else
+            {  xprintf(" + ");
+               print_nl_expr(mpl, nl->u.arg.y, 0);
+            }
             break;
          case O_SUB:
             print_nl_expr(mpl, nl->u.arg.x, 0);

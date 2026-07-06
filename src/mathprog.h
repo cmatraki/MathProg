@@ -72,7 +72,7 @@ int mathprog_set_msg_lev(mpl_tran *tran, int msg_lev);
 /* set the message level (verbosity)
    return the previous value */
 
-void mathprog_build_prob(mpl_tran *tran, glp_prob *prob);
+int mathprog_build_prob(mpl_tran *tran, glp_prob *prob);
 /* build LP/MIP problem instance from the model */
 
 int mathprog_postsolve(mpl_tran *tran, glp_prob *prob, int sol);

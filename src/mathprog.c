@@ -1118,7 +1118,7 @@ static int solve_callback(mpl_tran *tran, int sol_type, void *udata)
     {
         csa->solve_callback_used_has_solution = 1;
         /* build the problem instance from the model */
-        mathprog_build_prob(csa->tran, csa->prob);
+        if (mathprog_build_prob(csa->tran, csa->prob)) return 500;
         glp_sort_matrix(csa->prob);
 
         //glp_scale_prob(csa->prob, GLP_SF_AUTO);
@@ -1177,7 +1177,7 @@ static int solve_callback(mpl_tran *tran, int sol_type, void *udata)
                     ret = 500;   /* failure */
                 break;
         }
-        if(mathprog_postsolve(csa->tran, csa->prob, psol_type))
+        if (mathprog_postsolve(csa->tran, csa->prob, psol_type))
         {
             printf("Error on postsolving model\n");
             return -1;

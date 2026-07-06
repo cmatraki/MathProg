@@ -375,6 +375,8 @@ struct mpl_tran
       /* col[0] is not used;
          col[j] is elemental variable, which corresponds to j-th column
          of the problem, 1 <= j <= n */
+      int is_nl;
+      /* problem contains nonlinear expressions */
       /*--------------------------------------------------------------*/
       /* input/output segment */
       glp_file *out_fp;
@@ -2977,6 +2979,10 @@ int mpl_get_row_bnds(MPL *mpl, int i, double *lb, double *ub);
 #define mpl_get_mat_row _mpl_get_mat_row
 int mpl_get_mat_row(MPL *mpl, int i, int ndx[], double val[]);
 /* obtain row of the constraint matrix */
+
+#define mpl_get_row_nl _mpl_get_row_nl
+NL_EXPR *mpl_get_row_nl(MPL *mpl, int i);
+/* get nonlinear expression for row - draft */
 
 #define mpl_get_row_c0 _mpl_get_row_c0
 double mpl_get_row_c0(MPL *mpl, int i);

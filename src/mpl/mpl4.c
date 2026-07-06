@@ -175,17 +175,35 @@ void generate_model(MPL *mpl)
 -- This routine builds lists of rows and columns for problem instance,
 -- which corresponds to the generated model. */
 
+static void mark_linform_vars(LINFORM *t)
+{     for (; t != NULL; t = t->next)
+      {  if (t->var != NULL)
+            t->var->memb->value.var->j = -1;
+      }
+}
+
+static void mark_nl_expr_vars(NL_EXPR *nl)
+{     if (nl == NULL)
+         return;
+      if (nl->op == O_LINFORM)
+         mark_linform_vars(nl->u.lin);
+      else
+      {  mark_nl_expr_vars(nl->u.arg.x);
+         mark_nl_expr_vars(nl->u.arg.y);
+      }
+}
+
 void build_problem(MPL *mpl)
 {     STATEMENT *stmt, *stmt_list;
       MEMBER *memb;
       VARIABLE *v;
       CONSTRAINT *c;
-      LINFORM *t;
       int i, j;
       xassert(mpl->m == 0);
       xassert(mpl->n == 0);
       xassert(mpl->row == NULL);
       xassert(mpl->col == NULL);
+      xassert(mpl->is_nl == 0);
       stmt_list = mpl->current_problem ? mpl->current_problem->list : mpl->model;
 #ifndef XASSERT_DISABLED
       /* check that all elemental variables has zero column numbers */
@@ -204,18 +222,12 @@ void build_problem(MPL *mpl)
             for (memb = c->array->head; memb != NULL; memb = memb->next)
             {  xassert(memb->value.con->i == 0);
                memb->value.con->i = ++mpl->m;
+               if (memb->value.con->eqn->nl != NULL)
+                  mpl->is_nl = 1;
                /* walk through linear form and mark elemental variables,
                   which are referenced at least once */
-               if (memb->value.con->eqn->nl != NULL)
-               {  xprintf("nonlinear expression: ");
-                  print_formula(mpl, memb->value.con->eqn);
-                  xprintf("\n");
-                  error(mpl, "nonlinear constraints not supported.");
-               }
-               for (t = memb->value.con->eqn->lin; t != NULL; t = t->next)
-               {  xassert(t->var != NULL);
-                  t->var->memb->value.var->j = -1;
-               }
+               mark_linform_vars(memb->value.con->eqn->lin);
+               mark_nl_expr_vars(memb->value.con->eqn->nl);
             }
          }
       }
@@ -306,6 +318,7 @@ void clean_build_problem(MPL *mpl, int skipResetColsRows)
       mpl->n = 0;
       mpl->row = NULL;
       mpl->col = NULL;
+      mpl->is_nl = 0;
 }
 
 /*----------------------------------------------------------------------
@@ -1220,22 +1233,70 @@ int mpl_get_row_bnds(MPL *mpl, int i, double *_lb, double *_ub)
 -- The routine mpl_get_mat_row returns len, which is length of i-th row
 -- of the constraint matrix (i.e. number of non-zero coefficients). */
 
+static LINFORM *get_nl_expr_vars(MPL *mpl, NL_EXPR *nl, LINFORM *tmp)
+{  if (nl == NULL) return tmp;
+   if (nl->op == O_LINFORM)
+   {  LINFORM *term;
+
+      for (term = nl->u.lin; term != NULL; term = term->next)
+      {  if (term->var == NULL) continue;
+         if (term->var != NULL && term->var->temp == 0)
+         {  LINFORM *new = dmp_get_atom(mpl->linforms, sizeof(LINFORM));
+            new->coef = 1.0;
+            new->var = term->var;
+            new->next = tmp;
+            tmp = new;
+            term->var->temp = 1;
+         }
+      }
+      return tmp;
+   }
+   tmp = get_nl_expr_vars(mpl, nl->u.arg.x, tmp);
+   tmp = get_nl_expr_vars(mpl, nl->u.arg.y, tmp);
+   return tmp;
+}
+
 int mpl_get_mat_row(MPL *mpl, int i, int ndx[], double val[])
 {     LINFORM *term;
+      LINFORM *nl_vars;
       int len = 0;
       if (mpl->phase != GLP_TRAN_PHASE_GENERATE)
          xfault("mpl_get_mat_row: invalid call sequence\n");
       if (!(1 <= i && i <= mpl->m))
          xfault("mpl_get_mat_row: i = %d; row number out of range\n",
             i);
+      nl_vars = get_nl_expr_vars(mpl, mpl->row[i]->eqn->nl, NULL);
       for (term = mpl->row[i]->eqn->lin; term != NULL; term = term->next)
       {  xassert(term->var != NULL);
          len++;
          xassert(len <= mpl->n);
          if (ndx != NULL) ndx[len] = term->var->j;
          if (val != NULL) val[len] = term->coef;
+         term->var->temp = 0;
       }
+      /* add variables only in nonlinear part with zero coefficient */
+      for (term = nl_vars; term != NULL; term = term->next)
+      {  if (term->var->temp != 0)
+         {  len++;
+            xassert(len <= mpl->n);
+            if (ndx != NULL) ndx[len] = term->var->j;
+            if (val != NULL) val[len] = 0;
+            term->var->temp = 0;
+         }
+      }
+      delete_linform(mpl, nl_vars);
       return len;
+}
+
+/* draft API to get nonlinear expression for row */
+NL_EXPR *mpl_get_row_nl(MPL *mpl, int i)
+{     if (mpl->phase != GLP_TRAN_PHASE_GENERATE)
+         xfault("mpl_get_row_nl: invalid call sequence\n");
+      if (!(1 <= i && i <= mpl->m))
+         xfault("mpl_get_row_nl: i = %d; row number out of range\n",
+            i);
+
+      return mpl->row[i]->eqn->nl;
 }
 
 /*----------------------------------------------------------------------

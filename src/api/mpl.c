@@ -116,18 +116,21 @@ int mathprog_set_msg_lev(mpl_tran *tran, int msg_lev)
     return rc;
 }
 
-void mathprog_build_prob(mpl_tran *tran, glp_prob *prob)
+int mathprog_build_prob(mpl_tran *tran, glp_prob *prob)
 {     /* build LP/MIP problem instance from the model */
       int m, n, i, j, t, kind, type, len, *ind;
       double lb, ub, *val;
       if (tran->phase != GLP_TRAN_PHASE_GENERATE)
          xerror("mathprog_build_prob: invalid call sequence\n");
       /* erase the problem object */
-//      i = glp_get_use_col_row_names(prob);
-      /* save use_col_row_names */
       glp_erase_prob(prob);
-//      glp_set_use_col_row_names(prob, i);
-      /* restore use_col_row_names */
+      /* fail if the problem is not supported */
+      if (tran->is_nl)
+      {  xprintf("mathprog_build_prob: nonlinear expressions not suppor"
+            "ted\n");
+         tran->flag_p = 1;
+         return 1;
+      }
       /* set problem name */
       glp_set_prob_name(prob, mpl_get_prob_name(tran));
       /* build rows (constraints) */
@@ -136,8 +139,7 @@ void mathprog_build_prob(mpl_tran *tran, glp_prob *prob)
          glp_add_rows(prob, m);
       for (i = 1; i <= m; i++)
       {  /* set row name */
-//         if(prob->use_col_row_names)
-             glp_set_row_name(prob, i, mpl_get_row_name(tran, i));
+         glp_set_row_name(prob, i, mpl_get_row_name(tran, i));
          /* set row bounds */
          type = mpl_get_row_bnds(tran, i, &lb, &ub);
          switch (type)
@@ -155,8 +157,8 @@ void mathprog_build_prob(mpl_tran *tran, glp_prob *prob)
          glp_set_row_bnds(prob, i, type, lb, ub);
          /* warn about non-zero constant term */
          if (mpl_get_row_c0(tran, i) != 0.0)
-            xprintf("glp_mpl_build_prob: row %s; constant term %.12g ig"
-               "nored\n",
+            xprintf("mathprog_build_prob: row %s; constant term %.12g i"
+               "gnored\n",
                mpl_get_row_name(tran, i), mpl_get_row_c0(tran, i));
       }
       /* build columns (variables) */
@@ -165,8 +167,7 @@ void mathprog_build_prob(mpl_tran *tran, glp_prob *prob)
          glp_add_cols(prob, n);
       for (j = 1; j <= n; j++)
       {  /* set column name */
-//         if(prob->use_col_row_names)
-            glp_set_col_name(prob, j, mpl_get_col_name(tran, j));
+         glp_set_col_name(prob, j, mpl_get_col_name(tran, j));
          /* set column kind */
          kind = mpl_get_col_kind(tran, j);
          switch (kind)
@@ -227,7 +228,7 @@ void mathprog_build_prob(mpl_tran *tran, glp_prob *prob)
       /* free working arrays */
       xfree(ind);
       xfree(val);
-      return;
+      return 0;
 }
 
 int mathprog_postsolve(mpl_tran *tran, glp_prob *prob, int sol)

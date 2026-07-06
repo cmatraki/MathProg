@@ -177,6 +177,7 @@ struct csa
       int quiet;
 #ifdef WITH_NLW2
       char *nlw2_solver;
+      char *nlw2_solver_opts;
 #endif
 };
 
@@ -289,6 +290,8 @@ static void print_help(const char *my_name)
       xprintf("   --quiet           only display error messages\n");
 #ifdef WITH_NLW2
       xprintf("   --solver solver   use MP solver via nl-writer2\n");
+      xprintf("   --solver-options options\n");
+      xprintf("                     options to pass to MP solver\n");
 #endif
       xprintf("   --name probname   change problem name to probname\n");
 #if 1 /* 18/I-2018 */
@@ -661,6 +664,14 @@ static int parse_cmdline(struct csa *csa, int argc, char *argv[])
                return 1;
             }
             csa->nlw2_solver = argv[k];
+         }
+         else if (p("--solver-options"))
+         {  k++;
+            if (k == argc || argv[k][0] == '\0' || argv[k][0] == '-')
+            {  xprintf("Missing solver options\n");
+               return 1;
+            }
+            csa->nlw2_solver_opts = argv[k];
          }
 #endif
          else if (p("--name"))
@@ -1035,31 +1046,12 @@ static int solve_callback(mpl_tran *tran, int sol_type, void *udata)
     {   char s[100];
         csa->solve_callback_used_has_solution = 1;
         /* build the problem instance from the model */
+
         NLW2_NLSolver_C *nlse = glp_nlw2_mpl_build_prob (tran);
-        switch(sol_type)
-        {
-            case 1: /*A_PROBLEM_LP*/
-                sprintf (s, "tech:outlev=%d alg:relax=1", !csa->quiet);
-                break;
-            case 2: /*A_PROBLEM_MIP*/
-            case 0: /*A_PROBLEM_AUTO*/
-                 sprintf (s, "tech:outlev=%d mip:gap=%f",
-                          !csa->quiet, csa->iocp.mip_gap);
-                break;
-            case 3: /*A_PROBLEM_IP*/
-                sprintf (s, "tech:outlev=%d alg:relax=1 alg:method=ipm", !csa->quiet);
-                break;
-            default:
-                printf("Unknown solution type %d\n", sol_type);
-                return -1;
-        }
-        if (csa->smcp.tm_lim != INT_MAX)
-        {  char t[24];
-           sprintf(t, " lim:time=%d", csa->smcp.tm_lim/1000);
-           strcat(s, t);
-        }
-        if (csa->smcp.presolve == GLP_OFF) strcat(s, " pre:solve=off");
-        NLW2_RunSolver_C (nlse, csa->nlw2_solver, s);
+        if (sol_type != 0)
+           xprintf("solve statement suffix ignored\n");
+
+        NLW2_RunSolver_C (nlse, csa->nlw2_solver, csa->nlw2_solver_opts);
 
         ret = glp_nlw2_mpl_postsolve (csa->tran, nlse, sol_type);
     }
@@ -1211,6 +1203,7 @@ int __cdecl main(int argc, char *argv[])
       csa->quiet = 0;
 #ifdef WITH_NLW2
       csa->nlw2_solver = NULL;
+      csa->nlw2_solver_opts = "";
 #endif
       /* parse command-line parameters */
       ret = parse_cmdline(csa, argc, argv);

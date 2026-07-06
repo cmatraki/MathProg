@@ -1489,6 +1489,27 @@ int mpl_get_col_bnds(MPL *mpl, int j, double *_lb, double *_ub)
 }
 
 /*----------------------------------------------------------------------
+-- mpl_get_option - get value of option.
+--
+-- *Synopsis*
+--
+-- #include "glpmpl.h"
+-- const char *mpl_get_option(MPL *mpl, const char *name);
+--
+-- *Returns*
+--
+-- The routine returns a pointer to the option or NULL if undefined. */
+
+const char *mpl_get_option(MPL *mpl, const char *name)
+{     /* get option string */
+      OPT_STMT *opt;
+      for (opt = mpl->options; opt != NULL; opt = opt->next)
+         if (!strcmp(name, opt->key))
+            return opt->value;
+      return NULL;
+}
+
+/*----------------------------------------------------------------------
 -- mpl_has_solve_stmt - check if model has solve statement.
 --
 -- *Synopsis*

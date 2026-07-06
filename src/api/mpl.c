@@ -116,6 +116,11 @@ int mathprog_set_msg_lev(mpl_tran *tran, int msg_lev)
     return rc;
 }
 
+const char *mathprog_get_option(mpl_tran *tran, const char *name)
+{     /* get option string */
+      return mpl_get_option(tran, name);
+}
+
 int mathprog_build_prob(mpl_tran *tran, glp_prob *prob)
 {     /* build LP/MIP problem instance from the model */
       int m, n, i, j, t, kind, type, len, *ind;
@@ -325,7 +330,7 @@ void mathprog_free_wksp(mpl_tran *tran)
 #ifdef WITH_NLW2
 #include "api/c/nl-solver-c.h"
 
-NLW2_NLSolver_C *glp_nlw2_mpl_build_prob(mpl_tran *tran)
+NLW2_NLSolver_C *glp_nlw2_mpl_build_prob(mpl_tran *tran, int relax)
 {     /* build LP/MIP problem instance from the model */
       int m, n, i, j, t, kind, type, len, *ind;
       double lb, ub, *val;
@@ -367,7 +372,7 @@ NLW2_NLSolver_C *glp_nlw2_mpl_build_prob(mpl_tran *tran)
          var_names[j] = xcalloc(strlen(name)+1, sizeof(char));
          strcpy(var_names[j], name);
          kind = mpl_get_col_kind(tran, j+1);
-         var_type[j] = kind == MPL_NUM ? 0 : 1;
+         var_type[j] = kind == MPL_NUM || relax ? 0 : 1;
 
          /* set column bounds */
          type = mpl_get_col_bnds(tran, j+1, &lb, &ub);
@@ -471,7 +476,9 @@ NLW2_NLSolver_C *glp_nlw2_mpl_build_prob(mpl_tran *tran)
       return nlse;
 }
 
-int glp_nlw2_mpl_postsolve(mpl_tran *tran, NLW2_NLSolver_C *nlse, int sol_t)
+void glp_nlw2_mpl_cleanup(mpl_tran *tran, NLW2_NLSolver_C *nlse);
+
+int glp_nlw2_mpl_postsolve(mpl_tran *tran, NLW2_NLSolver_C *nlse, int relax)
 {     /* postsolve the model */
       int i, j, m, n, stat, ret, kind, len, t;
       double prim, dual;
@@ -502,7 +509,7 @@ int glp_nlw2_mpl_postsolve(mpl_tran *tran, NLW2_NLSolver_C *nlse, int sol_t)
       for (j = 0; j < n; j++) dval[j] = 0;
 
       int mip = 0;
-      if (sol_t == 0 || sol_t == 2)
+      if (!relax)
          for(j=0; j<n; j++)
             if (mpl_get_col_kind(tran, j+1) != MPL_NUM)
             {  mip = 1;
@@ -564,10 +571,15 @@ int glp_nlw2_mpl_postsolve(mpl_tran *tran, NLW2_NLSolver_C *nlse, int sol_t)
       xfree(ind);
       xfree(val);
       xfree(dval);
-      NLW2_DestroyNLSolver_C(nlse);
-      xfree(nlse);
+      glp_nlw2_mpl_cleanup(tran, nlse);
 
       return ret;
+}
+
+void glp_nlw2_mpl_cleanup(mpl_tran *tran, NLW2_NLSolver_C *nlse)
+{     NLW2_DestroyNLSolver_C(nlse);
+      tran->flag_p = 1;   /* in case we skipped postsolve */
+      xfree(nlse);
 }
 
 #endif

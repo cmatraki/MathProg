@@ -3000,6 +3000,10 @@ int mpl_get_col_kind(MPL *mpl, int j);
 int mpl_get_col_bnds(MPL *mpl, int j, double *lb, double *ub);
 /* obtain column bounds */
 
+#define mpl_get_option _mpl_get_option
+const char *mpl_get_option(MPL *mpl, const char *name);
+/* get value of option */
+
 #define mpl_has_solve_stmt _mpl_has_solve_stmt
 int mpl_has_solve_stmt(MPL *mpl);
 /* check if model has solve statement */

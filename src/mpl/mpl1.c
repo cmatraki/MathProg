@@ -3121,7 +3121,6 @@ OPT_STMT *option_statement(MPL *mpl)
 {
       OPT_STMT *opt;
       xassert(is_keyword(mpl, "option"));
-      warning(mpl, "option ignored");
       get_token(mpl /* option */);
       /* create an option */
       opt = alloc(OPT_STMT);

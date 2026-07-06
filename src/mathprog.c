@@ -40,8 +40,9 @@
 #ifdef WITH_NLW2
 #include "api/c/nl-solver-c.h"
 //#include "commonlib.h"
-extern NLW2_NLSolver_C *glp_nlw2_mpl_build_prob(mpl_tran *tran);
-extern int glp_nlw2_mpl_postsolve(mpl_tran *tran, NLW2_NLSolver_C *nsol, int sol);
+extern NLW2_NLSolver_C *glp_nlw2_mpl_build_prob(mpl_tran *tran, int relax);
+extern int glp_nlw2_mpl_postsolve(mpl_tran *tran, NLW2_NLSolver_C *nsol, int relax);
+extern void glp_nlw2_mpl_cleanup(mpl_tran *tran, NLW2_NLSolver_C *nsol);
 #endif
 
 #define xassert glp_assert
@@ -176,6 +177,7 @@ struct csa
       int solve_callback_used_has_solution;
       int quiet;
 #ifdef WITH_NLW2
+      int   nlw2;
       char *nlw2_solver;
       char *nlw2_solver_opts;
 #endif
@@ -289,7 +291,8 @@ static void print_help(const char *my_name)
       xprintf("   --genonly         only generate the model\n");
       xprintf("   --quiet           only display error messages\n");
 #ifdef WITH_NLW2
-      xprintf("   --solver solver   use MP solver via nl-writer2\n");
+      xprintf("   --nlw2            use MP solver via nl-writer2\n");
+      xprintf("   --solver solver   MP solver to use\n");
       xprintf("   --solver-options options\n");
       xprintf("                     options to pass to MP solver\n");
 #endif
@@ -653,6 +656,8 @@ static int parse_cmdline(struct csa *csa, int argc, char *argv[])
          else if (p("--genonly"))
             csa->genonly = 1;
 #ifdef WITH_NLW2
+         else if (p("--nlw2"))
+            csa->nlw2 = 1;
          else if (p("--solver"))
          {  k++;
             if (k == argc || argv[k][0] == '\0' || argv[k][0] == '-')
@@ -663,6 +668,7 @@ static int parse_cmdline(struct csa *csa, int argc, char *argv[])
             {  xprintf("Only one solver allowed\n");
                return 1;
             }
+            csa->nlw2 = 1;
             csa->nlw2_solver = argv[k];
          }
          else if (p("--solver-options"))
@@ -1042,18 +1048,38 @@ static int solve_callback(mpl_tran *tran, int sol_type, void *udata)
         csa->solve_callback_used = 1;
 
 #ifdef WITH_NLW2
-    if (csa->nlw2_solver)
-    {   char s[100];
+    if (csa->nlw2)
+    {   const char *solver, *solver_opts, *opt;
+        int relax = 0;
         csa->solve_callback_used_has_solution = 1;
         /* build the problem instance from the model */
 
-        NLW2_NLSolver_C *nlse = glp_nlw2_mpl_build_prob (tran);
+        opt = mathprog_get_option(tran, "relax_integrality");
+        relax = opt != NULL && atoi(opt) > 0;
+
+        NLW2_NLSolver_C *nlse = glp_nlw2_mpl_build_prob (tran, relax);
         if (sol_type != 0)
            xprintf("solve statement suffix ignored\n");
-
-        NLW2_RunSolver_C (nlse, csa->nlw2_solver, csa->nlw2_solver_opts);
-
-        ret = glp_nlw2_mpl_postsolve (csa->tran, nlse, sol_type);
+        solver = csa->nlw2_solver;
+        if (solver == NULL)
+           solver = mathprog_get_option(csa->tran, "solver");
+        solver_opts = csa->nlw2_solver_opts;
+        if (solver_opts == NULL)
+        {  char *suffix = "_options";
+           char *name = malloc(strlen(solver) + strlen(suffix) + 1);
+           strcpy(name, solver);
+           strcat(name, suffix);
+           solver_opts = mathprog_get_option(csa->tran, name);
+           free(name);
+        }
+        if (solver_opts == NULL)
+           solver_opts = "";
+        if (!NLW2_RunSolver_C (nlse, solver, solver_opts))
+        {  glp_nlw2_mpl_cleanup(tran, nlse);
+           ret = 500;
+        }
+        else
+           ret = glp_nlw2_mpl_postsolve (csa->tran, nlse, relax);
     }
     else
 #endif
@@ -1202,8 +1228,9 @@ int __cdecl main(int argc, char *argv[])
       csa->solve_callback_used_has_solution = 0;
       csa->quiet = 0;
 #ifdef WITH_NLW2
+      csa->nlw2 = 0;
       csa->nlw2_solver = NULL;
-      csa->nlw2_solver_opts = "";
+      csa->nlw2_solver_opts = NULL;
 #endif
       /* parse command-line parameters */
       ret = parse_cmdline(csa, argc, argv);

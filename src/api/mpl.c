@@ -330,7 +330,9 @@ void mathprog_free_wksp(mpl_tran *tran)
 #ifdef WITH_NLW2
 #include "api/c/nl-solver-c.h"
 
-NLW2_NLSolver_C *glp_nlw2_mpl_build_prob(mpl_tran *tran, int relax)
+typedef struct NLW2_NLSolver_C mlp_nlw2_solver;
+
+mlp_nlw2_solver *mathprog_nlw2_build_prob(mpl_tran *tran, int relax)
 {     /* build LP/MIP problem instance from the model */
       int m, n, i, j, t, kind, type, len, *ind;
       double lb, ub, *val;
@@ -476,9 +478,20 @@ NLW2_NLSolver_C *glp_nlw2_mpl_build_prob(mpl_tran *tran, int relax)
       return nlse;
 }
 
-void glp_nlw2_mpl_cleanup(mpl_tran *tran, NLW2_NLSolver_C *nlse);
+int mathprog_nlw2_run_solver(mpl_tran *tran, mlp_nlw2_solver *nlse, const char *solver, const char *options)
+{     /* run solver and cleanup on error */
+      if (!(tran->phase == GLP_TRAN_PHASE_GENERATE && !tran->flag_p))
+         xerror("mathprog_nlw2_run_solver: invalid call sequence\n");
+      if (!NLW2_RunSolver_C (nlse, solver, options))
+      {  xprintf("%s\n", NLW2_GetErrorMessage_C(nlse));
+         NLW2_DestroyNLSolver_C(nlse);
+         xfree(nlse);
+         return 0;
+      }
+      return 1;
+}
 
-int glp_nlw2_mpl_postsolve(mpl_tran *tran, NLW2_NLSolver_C *nlse, int relax)
+int mathprog_nlw2_postsolve(mpl_tran *tran, mlp_nlw2_solver *nlse, int relax)
 {     /* postsolve the model */
       int i, j, m, n, stat, ret, kind, len, t;
       double prim, dual;
@@ -486,7 +499,7 @@ int glp_nlw2_mpl_postsolve(mpl_tran *tran, NLW2_NLSolver_C *nlse, int relax)
             double *val, *dval;
             const double *var_status = NULL, *row_status = NULL;
       if (!(tran->phase == GLP_TRAN_PHASE_GENERATE && !tran->flag_p))
-         xerror("glp_nlw2_mpl_postsolve: invalid call sequence\n");
+         xerror("mathprog_nlw2_postsolve: invalid call sequence\n");
 
       m = mpl_get_num_rows(tran);
       n = mpl_get_num_cols(tran);
@@ -571,15 +584,10 @@ int glp_nlw2_mpl_postsolve(mpl_tran *tran, NLW2_NLSolver_C *nlse, int relax)
       xfree(ind);
       xfree(val);
       xfree(dval);
-      glp_nlw2_mpl_cleanup(tran, nlse);
+      NLW2_DestroyNLSolver_C(nlse);
+      xfree(nlse);
 
       return ret;
-}
-
-void glp_nlw2_mpl_cleanup(mpl_tran *tran, NLW2_NLSolver_C *nlse)
-{     NLW2_DestroyNLSolver_C(nlse);
-      tran->flag_p = 1;   /* in case we skipped postsolve */
-      xfree(nlse);
 }
 
 #endif

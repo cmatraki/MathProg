@@ -6318,8 +6318,14 @@ void execute_solve(MPL *mpl, SOLVE *solve)
             mpl->flag_p = 0;
             mpl->solve_callback_called = 1;
             ret = mpl->solve_callback(mpl, solve->type, mpl->solve_callback_udata);
+            if (ret < 0)
+            {  const char *opt = mpl_get_option(mpl, "solve_exitcode_max");
+               if (opt == NULL || atoi(opt) < -ret)
+                  error(mpl, "solver error");
+            }
             update_system_param_num(mpl, "solve_result_num", ret);
             update_system_param_sym(mpl, "solve_result", result_name(ret));
+            mpl->flag_p = 1;
         }
         mpl->current_problem = saved_prob;
         mpl->stmt = saved_stmt;

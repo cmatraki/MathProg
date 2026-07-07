@@ -38,11 +38,10 @@
 #include "mathprog.h"
 
 #ifdef WITH_NLW2
-#include "api/c/nl-solver-c.h"
-//#include "commonlib.h"
-extern NLW2_NLSolver_C *glp_nlw2_mpl_build_prob(mpl_tran *tran, int relax);
-extern int glp_nlw2_mpl_postsolve(mpl_tran *tran, NLW2_NLSolver_C *nsol, int relax);
-extern void glp_nlw2_mpl_cleanup(mpl_tran *tran, NLW2_NLSolver_C *nsol);
+typedef struct NLW2_NLSolver_C mlp_nlw2_solver;
+extern mlp_nlw2_solver *mathprog_nlw2_build_prob(mpl_tran *tran, int relax);
+extern int mathprog_nlw2_postsolve(mpl_tran *tran, mlp_nlw2_solver *nsol, int relax);
+extern int mathprog_nlw2_run_solver(mpl_tran *tran, mlp_nlw2_solver *nlse, const char *solver, const char *options);
 #endif
 
 #define xassert glp_assert
@@ -1052,17 +1051,23 @@ static int solve_callback(mpl_tran *tran, int sol_type, void *udata)
     {   const char *solver, *solver_opts, *opt;
         int relax = 0;
         csa->solve_callback_used_has_solution = 1;
-        /* build the problem instance from the model */
 
         opt = mathprog_get_option(tran, "relax_integrality");
         relax = opt != NULL && atoi(opt) > 0;
-
-        NLW2_NLSolver_C *nlse = glp_nlw2_mpl_build_prob (tran, relax);
-        if (sol_type != 0)
-           xprintf("solve statement suffix ignored\n");
+        relax |= csa->nomip;
+        if (sol_type == 1 || sol_type == 3)
+        {  /*A_PROBLEM_LP or A_PROBLEM_IP*/
+           xprintf("Need to set solver options to select simplex or int"
+              "erior point method\n");
+           relax = 1;
+        }
         solver = csa->nlw2_solver;
         if (solver == NULL)
            solver = mathprog_get_option(csa->tran, "solver");
+        if (solver == NULL)
+        {  xprintf("No solver given\n");
+           return -1;
+        }
         solver_opts = csa->nlw2_solver_opts;
         if (solver_opts == NULL)
         {  char *suffix = "_options";
@@ -1074,12 +1079,13 @@ static int solve_callback(mpl_tran *tran, int sol_type, void *udata)
         }
         if (solver_opts == NULL)
            solver_opts = "";
-        if (!NLW2_RunSolver_C (nlse, solver, solver_opts))
-        {  glp_nlw2_mpl_cleanup(tran, nlse);
-           ret = 500;
-        }
+
+        /* build the problem instance from the model */
+        mlp_nlw2_solver *nlse = mathprog_nlw2_build_prob (tran, relax);
+        if (!mathprog_nlw2_run_solver(tran, nlse, solver, solver_opts))
+           ret = -1;
         else
-           ret = glp_nlw2_mpl_postsolve (csa->tran, nlse, relax);
+           ret = mathprog_nlw2_postsolve (csa->tran, nlse, relax);
     }
     else
 #endif

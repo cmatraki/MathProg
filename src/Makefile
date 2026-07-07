@@ -29,6 +29,7 @@ mpl/mpl3.o \
 mpl/mpl4.o \
 mpl/mpl5.o \
 mpl/mpl6.o \
+mpl/mplnlw2.o \
 mpl/mplsql.o \
 ../nl-writer2/src/nl-solver.o \
 ../nl-writer2/src/nl-utils.o \

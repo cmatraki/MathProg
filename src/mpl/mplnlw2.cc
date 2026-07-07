@@ -1,19 +1,15 @@
 #ifdef WITH_NLW2
 
+#include "mp/nl-solver.h"
+
 extern "C" {
 #include "mpl.h"
 
-typedef struct NLW2_NLSolver_C mlp_nlw2_solver;
+typedef mp::NLSolver mlp_nlw2_solver;
 extern mlp_nlw2_solver *mathprog_nlw2_build_prob(mpl_tran *tran, int relax);
 extern int mathprog_nlw2_postsolve(mpl_tran *tran, mlp_nlw2_solver *nsol, int relax);
 extern int mathprog_nlw2_run_solver(mpl_tran *tran, mlp_nlw2_solver *nlse, const char *solver, const char *options);
 }
-
-
-
-#include "api/c/nl-solver-c.h"
-
-typedef struct NLW2_NLSolver_C mlp_nlw2_solver;
 
 mlp_nlw2_solver *mathprog_nlw2_build_prob(mpl_tran *tran, int relax)
 {     /* build LP/MIP problem instance from the model */
@@ -28,7 +24,7 @@ mlp_nlw2_solver *mathprog_nlw2_build_prob(mpl_tran *tran, int relax)
       double *A_value;
       NLW2_ObjSense obj_sense;
       double obj_c0;
-      int nnz;
+      size_t nnz;
       if (tran->phase != GLP_TRAN_PHASE_GENERATE)
          xerror("mpl_build_prob: invalid call sequence\n");
 
@@ -118,25 +114,22 @@ mlp_nlw2_solver *mathprog_nlw2_build_prob(mpl_tran *tran, int relax)
       name = mpl_get_prob_name(tran);
       prob_name = (char *)xcalloc(strlen(name)+1, sizeof(char));
       strcpy(prob_name, name);
-      NLW2_NLModel_C nlme = NLW2_MakeNLModel_C(prob_name);
-      NLW2_SetCols_C(&nlme, n, var_lb, var_ub, var_type);
-      NLW2_SetColNames_C(&nlme, (const char *const *)var_names);
-      NLW2_SetRows_C(&nlme, m, row_lb, row_ub,
-                     NLW2_MatrixFormatRowwise, nnz,
-                     A_start, A_index, A_value);
-      NLW2_SetRowNames_C(&nlme, (const char *const *)row_names);
+      mp::NLModel nlme(prob_name);
+      nlme.SetCols({n, var_lb, var_ub, var_type});
+      nlme.SetColNames(var_names);
+      nlme.SetRows(m, row_lb, row_ub,
+         {m, NLW2_MatrixFormatRowwise, nnz, A_start, A_index, A_value});
+      nlme.SetRowNames(row_names);
       if(obj_c)
-         NLW2_SetLinearObjective_C(&nlme, obj_sense, obj_c0, obj_c);
-      NLW2_SetObjName_C(&nlme, obj_name);
-      NLW2_NLOptionsBasic_C nlopts = NLW2_MakeNLOptionsBasic_C_Default();
+         nlme.SetLinearObjective(obj_sense, obj_c0, obj_c);
+      nlme.SetObjName(obj_name);
+      auto nlse = new mp::NLSolver;
+      auto nlopts = NLW2_MakeNLOptionsBasic_C_Default();
       nlopts.n_text_mode_ = 1;
       nlopts.want_nl_comments_ = 1;
-      NLW2_NLSolver_C *nlse = (NLW2_NLSolver_C *)xcalloc(1, sizeof(NLW2_NLSolver_C));
-      *nlse = NLW2_MakeNLSolver_C(NULL);
-      NLW2_SetNLOptions_C(nlse, nlopts);
-      NLW2_SetFileStub_C(nlse, "");
-      NLW2_LoadNLModel_C(nlse, &nlme);
-      NLW2_DestroyNLModel_C(&nlme);
+      nlse->SetNLOptions(nlopts);
+      nlse->SetFileStub("");
+      nlse->LoadModel(static_cast<const mp::NLModel&>(nlme));
 
       /* free working arrays */
       for (i = 0; i < m; i++) xfree(row_names[i]);
@@ -165,10 +158,9 @@ int mathprog_nlw2_run_solver(mpl_tran *tran, mlp_nlw2_solver *nlse, const char *
 {     /* run solver and cleanup on error */
       if (!(tran->phase == GLP_TRAN_PHASE_GENERATE && !tran->flag_p))
          xerror("mathprog_nlw2_run_solver: invalid call sequence\n");
-      if (!NLW2_RunSolver_C (nlse, solver, options))
-      {  xprintf("%s\n", NLW2_GetErrorMessage_C(nlse));
-         NLW2_DestroyNLSolver_C(nlse);
-         xfree(nlse);
+      if (!nlse->Solve(solver, options))
+      {  xprintf("%s\n", nlse->GetErrorMessage());
+         delete nlse;
          return 0;
       }
       return 1;
@@ -187,15 +179,14 @@ int mathprog_nlw2_postsolve(mpl_tran *tran, mlp_nlw2_solver *nlse, int relax)
       m = mpl_get_num_rows(tran);
       n = mpl_get_num_cols(tran);
 
-      NLW2_NLSolution_C sol = NLW2_ReadSolution_C(nlse);
+      auto sol = nlse->ReadSolution();
 
-      for (t = 0; t < sol.nsuf_; t++)
-      {
-         if (!strcmp("sstatus", sol.suffixes_[t].name_)) {
-            if(sol.suffixes_[t].kind_ == 0)
-               var_status = sol.suffixes_[t].values_;
-            else if(sol.suffixes_[t].kind_ == 1)
-               row_status = sol.suffixes_[t].values_;
+      for (const auto &suf : sol.suffixes_)
+      {  if (suf.name_ == "sstatus")
+         {  if (suf.kind_ == 0)
+               var_status = suf.values_.data();
+            else if (suf.kind_ == 1)
+               row_status = suf.values_.data();
          }
       }
 
@@ -206,19 +197,18 @@ int mathprog_nlw2_postsolve(mpl_tran *tran, mlp_nlw2_solver *nlse, int relax)
 
       int mip = 0;
       if (!relax)
-         for(j=0; j<n; j++)
+         for (j=0; j<n; j++)
             if (mpl_get_col_kind(tran, j+1) != MPL_NUM)
             {  mip = 1;
                break;
             }
 
       /* initialize var dual (the first objective is used) */
-      if (!mip && sol.y_)
+      if (!mip && !sol.y_.empty())
          for (i = 0; i < m; i++)
          {  kind = mpl_get_row_kind(tran, i+1);
             if ((kind != MPL_MIN && kind != MPL_MAX))
-            {
-               len = mpl_get_mat_row(tran, i+1, ind, val);
+            {  len = mpl_get_mat_row(tran, i+1, ind, val);
                for (t = 1; t <= len; t++)
                   dval[ind[t]-1] = val[t];
                break;
@@ -229,13 +219,13 @@ int mathprog_nlw2_postsolve(mpl_tran *tran, mlp_nlw2_solver *nlse, int relax)
       {  prim = 0;
          stat = 0;
          dual = 0;
-         if (sol.x_)
+         if (!sol.x_.empty())
          {  prim = mpl_get_row_c0(tran, i+1);
             len = mpl_get_mat_row(tran, i+1, ind, val);
             for (t = 1; t <= len; t++)
                prim += sol.x_[ind[t]-1] * val[t];
          }
-         if (sol.y_)
+         if (!sol.y_.empty())
          {  dual = sol.y_[i];
             if (!mip)
                for (t = 1; t <= len; t++)
@@ -250,7 +240,7 @@ int mathprog_nlw2_postsolve(mpl_tran *tran, mlp_nlw2_solver *nlse, int relax)
       }
 
       for (j = 0; j < n; j++)
-      {  prim = sol.x_ ? sol.x_[j] : 0;
+      {  prim = sol.x_.empty() ? 0 : sol.x_[j];
          stat = var_status != NULL ? var_status[j] : 0;
          dual = !mip ? dval[j] : 0;
          if (stat == 2 || stat == 6) stat = 0;
@@ -267,8 +257,7 @@ int mathprog_nlw2_postsolve(mpl_tran *tran, mlp_nlw2_solver *nlse, int relax)
       xfree(ind);
       xfree(val);
       xfree(dval);
-      NLW2_DestroyNLSolver_C(nlse);
-      xfree(nlse);
+      delete nlse;
 
       return ret;
 }

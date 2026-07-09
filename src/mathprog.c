@@ -38,10 +38,11 @@
 #include "mathprog.h"
 
 #ifdef WITH_NLW2
-typedef void mlp_nlw2_solver;
-extern mlp_nlw2_solver *mathprog_nlw2_build_prob(mpl_tran *tran, int relax);
-extern int mathprog_nlw2_postsolve(mpl_tran *tran, mlp_nlw2_solver *nsol, int relax);
-extern int mathprog_nlw2_run_solver(mpl_tran *tran, mlp_nlw2_solver *nlse, const char *solver, const char *options);
+void *mathprog_nlw2_build_prob(mpl_tran *tran, int relax);
+int mathprog_nlw2_run_solver(mpl_tran *tran, void *csa,
+   const char *solver, const char *options);
+int mathprog_nlw2_postsolve(mpl_tran *tran, void *csa, int relax);
+void mathprog_nlw2_cleanup(void *csa);
 #endif
 
 #define xassert glp_assert
@@ -1081,11 +1082,12 @@ static int solve_callback(mpl_tran *tran, int sol_type, void *udata)
            solver_opts = "";
 
         /* build the problem instance from the model */
-        mlp_nlw2_solver *nlse = mathprog_nlw2_build_prob (tran, relax);
+        void *nlse = mathprog_nlw2_build_prob (tran, relax);
         if (!mathprog_nlw2_run_solver(tran, nlse, solver, solver_opts))
            ret = -1;
         else
-           ret = mathprog_nlw2_postsolve (csa->tran, nlse, relax);
+           ret = mathprog_nlw2_postsolve(csa->tran, nlse, relax);
+        mathprog_nlw2_cleanup(nlse);
     }
     else
 #endif

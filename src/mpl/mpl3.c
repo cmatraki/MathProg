@@ -1393,18 +1393,26 @@ FORMULA *make_formula(MPL *mpl, LINFORM *lin, NL_EXPR *nl)
 -- This routine creates a formula, which is a constant term.
 -- A zero constant is represented by a NULL pointer. */
 
+static LINFORM *constant_linform(MPL *mpl, double coef)
+{     LINFORM *form;
+      if (coef == 0.0)
+         form = NULL;
+      else
+      {  form = dmp_get_atom(mpl->linforms, sizeof(LINFORM));
+         form->coef = coef;
+         form->var = NULL;
+         form->next = NULL;
+      }
+      return form;
+}
+
 FORMULA *constant_term(MPL *mpl, double coef)
 {     LINFORM *form;
       FORMULA *ret;
       if (coef == 0.0)
          ret = NULL;
       else
-      {  form = dmp_get_atom(mpl->linforms, sizeof(LINFORM));
-         form->coef = coef;
-         form->var = NULL;
-         form->next = NULL;
-         ret = make_formula(mpl, form, NULL);
-      }
+         ret = make_formula(mpl, constant_linform(mpl, coef), NULL);
       return ret;
 }
 
@@ -1872,6 +1880,28 @@ NL_EXPR *simplify_nl_expr(MPL *mpl, NL_EXPR *nl)
             nl->u.arg.x = tmp;
             return simplify_nl_expr(mpl, nl);
          }
+         else if (nl->u.arg.x != NULL && nl->u.arg.x->op == O_LINFORM
+            && nl->u.arg.y != NULL && nl->u.arg.y->op == O_LINFORM)
+         {  NL_EXPR *tmp;
+            nl->u.arg.x->u.lin =
+               remove_constant(mpl, nl->u.arg.x->u.lin, &cx);
+            if (cx == 0)
+            {  nl->u.arg.y->u.lin =
+               remove_constant(mpl, nl->u.arg.y->u.lin, &cy);
+               if (cy == 0)
+                  return nl;  /* nothing to do */
+               /* swap and continue */
+               tmp = nl->u.arg.y;
+               nl->u.arg.y = nl->u.arg.x;
+               nl->u.arg.x = tmp;
+               cx = cy;
+               cy = 0;
+            }
+            return formula_to_nl_expr(mpl, simplify_formula(mpl,
+               linear_comb(mpl, cx, make_formula(mpl,
+               copy_linform(mpl, nl->u.arg.y->u.lin), NULL), 1.0,
+               make_formula(mpl, NULL, nl))));
+         }
          break;
       case O_DIV:
          if (nl_expr_is_const(nl->u.arg.y, &cy))
@@ -1895,6 +1925,17 @@ NL_EXPR *simplify_nl_expr(MPL *mpl, NL_EXPR *nl)
                && nl->u.arg.x->op == O_LINFORM)
             {  delete_nl_expr(mpl, nl);
                return formula_to_nl_expr(mpl, constant_term(mpl, 1));
+            }
+            if (cy == 2.0 && nl->u.arg.x != NULL
+               && nl->u.arg.x->op == O_LINFORM)
+            {  nl->u.arg.x->u.lin =
+                  remove_constant(mpl, nl->u.arg.x->u.lin, &cx);
+               if (cx == 0) return nl;
+               return simplify_nl_expr(mpl, formula_to_nl_expr(mpl,
+                  linear_comb(mpl, 2 * cx, make_formula(mpl,
+                  copy_linform(mpl, nl->u.arg.x->u.lin), NULL), 1.0,
+                  make_formula(mpl, constant_linform(mpl, cx * cx),
+                  nl))));
             }
          }
          break;

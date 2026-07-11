@@ -33,8 +33,6 @@ mpl/mplnlw2.o \
 mpl/mplsql.o \
 ../nl-writer2/src/nl-solver.o \
 ../nl-writer2/src/nl-utils.o \
-../nl-writer2/src/nl-model-c.o \
-../nl-writer2/src/nl-solver-c.o \
 ../nl-writer2/src/nl-writer2.o
 
 

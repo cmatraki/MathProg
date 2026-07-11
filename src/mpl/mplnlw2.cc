@@ -17,20 +17,19 @@ void mathprog_nlw2_cleanup(struct csa *csa);
 struct csa
 {     /* common storage area */
       int m, n;
-      char *prob_name, *obj_name;
+      char *prob_name, **obj_names;
       char **var_names, **row_names;
       double *col_size;
-      NLW2_ObjSense obj_sense;
-      double obj_c0;
       size_t nnz;
       int solve_result;
       double *x, *y, *var_status, *row_status;
       int m_range, m_eqn, n_bin, n_int, nnz_obj;
       int *perm, *inv_perm;
       int obj_no;
-      int obj_row;
+      int *obj_row;
       int *ind;
       double *val;
+      int m_obj;
 };
 
 struct csa *mathprog_nlw2_build_prob(mpl_tran *tran, int relax)
@@ -53,8 +52,8 @@ struct csa *mathprog_nlw2_build_prob(mpl_tran *tran, int relax)
       csa->n = n;
       csa->var_names = (char **)xcalloc(n, sizeof(char *));
       csa->row_names = (char **)xcalloc(m, sizeof(char *));
+      csa->obj_names = (char **)xcalloc(m, sizeof(char *));
       csa->col_size = (double *)xcalloc(n, sizeof(double));
-      csa->obj_name = NULL;
       csa->solve_result = -1;
       csa->x = NULL;
       csa->y = NULL;
@@ -67,9 +66,9 @@ struct csa *mathprog_nlw2_build_prob(mpl_tran *tran, int relax)
       csa->nnz_obj = 0;
       csa->perm = (int *)xcalloc(n, sizeof(int));
       csa->inv_perm = (int *)xcalloc(n, sizeof(int));
-      csa->obj_sense = NLW2_ObjSenseMinimize;
-      csa->obj_row = -1;
-      csa->obj_c0 = 0;
+      csa->obj_row = (int *)xcalloc(m, sizeof(int));
+      csa->obj_no = -1;
+      csa->m_obj = 0;
 
       t = 0;
       for (j = 0; j < n; j++)
@@ -108,28 +107,21 @@ struct csa *mathprog_nlw2_build_prob(mpl_tran *tran, int relax)
          for (t = 1; t <= len; t++) {
             csa->col_size[ind[t]-1]++;
          }
-      }
-      csa->nnz = nnz;
-      /* build objective function (the first objective is used) */
-      for (i = 0; i < m; i++)
-      {  kind = mpl_get_row_kind(tran, i+1);
+         kind = mpl_get_row_kind(tran, i+1);
          if (kind == MPL_MIN || kind == MPL_MAX)
          {  /* set objective name */
             name = mpl_get_row_name(tran, i+1);
-            csa->obj_name = (char *)xcalloc(strlen(name)+1, sizeof(char));
-            strcpy(csa->obj_name, name);
-            /* set optimization direction */
-            csa->obj_sense = kind == MPL_MIN ? NLW2_ObjSenseMinimize
-               : NLW2_ObjSenseMaximize;
-            /* set constant term */
-            csa->obj_c0 = mpl_get_row_c0(tran, i+1);
-            /* set objective coefficients */
+            csa->obj_names[csa->m_obj] =
+               (char *)xcalloc(strlen(name)+1, sizeof(char));
+            strcpy(csa->obj_names[csa->m_obj], name);
             len = mpl_get_mat_row(tran, i+1, NULL, NULL);
-            csa->nnz_obj = len;
-            csa->obj_row = i;
-            break;
+            csa->nnz_obj += len;
+            csa->obj_row[csa->m_obj] = i;
+            csa->m_obj++;
          }
       }
+      csa->nnz = nnz;
+
       name = mpl_get_prob_name(tran);
       csa->prob_name = (char *)xcalloc(strlen(name)+1, sizeof(char));
       strcpy(csa->prob_name, name);
@@ -147,7 +139,7 @@ public:
    Feeder(mpl_tran *t, struct csa *c) : tran(t), csa(c)
    {  hdr.num_vars = csa->n;
       hdr.num_algebraic_cons = csa->m;
-      hdr.num_objs = csa->obj_row >= 0 ? 1 : 0;
+      hdr.num_objs = csa->m_obj;
       hdr.num_ranges = csa->m_range;
       hdr.num_eqns = csa->m_eqn;
       hdr.num_linear_binary_vars = csa->n_bin;   //binary variables
@@ -192,22 +184,25 @@ public:
    bool WantNLComments() const { return true; }
 
    const char* ObjDescription(int i)
-   {  return csa->obj_name ? csa->obj_name : "";
+   {  return csa->obj_names[i];
    }
 
-   int ObjType(int ) { return csa->obj_sense; }
+   int ObjType(int i)
+   {  int kind = mpl_get_row_kind(tran, csa->obj_row[i]+1);
+      return kind == MPL_MIN ? NLW2_ObjSenseMinimize
+         : NLW2_ObjSenseMaximize;
+   }
 
    template <class ObjGradWriter>
    void FeedObjGradient(int i, ObjGradWriter& gw)
-   {  if (csa->obj_row >= 0)
-      {  int *ind = csa->ind;
-         double *val = csa->val;
-         int len = mpl_get_mat_row(tran, csa->obj_row+1, ind, val);
-         if (len > 0)
-         {  auto sv = gw.MakeVectorWriter(len);
-            for (int j = 1; j <= len; j++)
-               sv.Write(csa->inv_perm[ind[j] - 1], val[j]);
-         }
+   {  assert(i < csa->m_obj);
+      int *ind = csa->ind;
+      double *val = csa->val;
+      int len = mpl_get_mat_row(tran, csa->obj_row[i]+1, ind, val);
+      if (len > 0)
+      {  auto sv = gw.MakeVectorWriter(len);
+         for (int j = 1; j <= len; j++)
+            sv.Write(csa->inv_perm[ind[j] - 1], val[j]);
       }
    }
 
@@ -275,8 +270,8 @@ public:
    {  if (wrt)
       {  for (int i = 0; i < csa->m; i++)
             wrt << csa->row_names[i];
-         if (csa->obj_name)
-            wrt << csa->obj_name;
+         for (int i = 0; i < csa->m_obj; i++)
+            wrt << csa->obj_names[i];
       }
    }
 
@@ -408,27 +403,28 @@ int mathprog_nlw2_postsolve(mpl_tran *tran, struct csa *csa, int relax)
             {  mip = 1;
                break;
             }
-      /* initialize var dual (the first objective is used) */
-      if (!mip && csa->y != NULL)
-         if (csa->obj_row > -1)
-         {  len = mpl_get_mat_row(tran, csa->obj_row+1, ind, val);
-            for (t = 1; t <= len; t++)
-               dval[ind[t]-1] = val[t];
-         }
+
+      /* initialize var dual */
+      if (!mip && csa->y != NULL && csa->obj_no >= 0)
+      {  assert(csa->obj_no < csa->m_obj);
+         len = mpl_get_mat_row(tran, csa->obj_row[csa->obj_no]+1, ind, val);
+         for (t = 1; t <= len; t++)
+            dval[ind[t]-1] = val[t];
+      }
 
       for (i = 0; i < m; i++)
       {  prim = 0;
          stat = 0;
          dual = 0;
+         len = mpl_get_mat_row(tran, i+1, ind, val);
          if (csa->x != NULL)
          {  prim = mpl_get_row_c0(tran, i+1);
-            len = mpl_get_mat_row(tran, i+1, ind, val);
             for (t = 1; t <= len; t++)
                prim += csa->x[ind[t]-1] * val[t];
          }
          if (csa->y != NULL)
          {  dual = csa->y[i];
-            if (!mip)
+            if (!mip && csa->obj_no >= 0)
                for (t = 1; t <= len; t++)
                   dval[ind[t]-1] -= val[t] * csa->y[i];
          }
@@ -466,10 +462,11 @@ void mathprog_nlw2_cleanup(struct csa *csa)
       xfree(csa->row_names);
       for (j = 0; j < csa->n; j++) xfree(csa->var_names[j]);
       xfree(csa->var_names);
-      if(csa->obj_name)
-         xfree(csa->obj_name);
+      for (i = 0; i < csa->m_obj; i++) xfree(csa->obj_names[i]);
+      xfree(csa->obj_names);
       xfree(csa->col_size);
       xfree(csa->prob_name);
+      xfree(csa->obj_row);
 
       if (csa->x)
          xfree(csa->x);

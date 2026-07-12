@@ -175,21 +175,23 @@ void generate_model(MPL *mpl)
 -- This routine builds lists of rows and columns for problem instance,
 -- which corresponds to the generated model. */
 
-static void mark_linform_vars(LINFORM *t)
+static void mark_linform_vars(LINFORM *t, int flags)
 {     for (; t != NULL; t = t->next)
       {  if (t->var != NULL)
-            t->var->memb->value.var->j = -1;
+         {  t->var->memb->value.var->j = -1;
+            t->var->nl_flags |= flags;
+         }
       }
 }
 
-static void mark_nl_expr_vars(NL_EXPR *nl)
+static void mark_nl_expr_vars(NL_EXPR *nl, int flags)
 {     if (nl == NULL)
          return;
       if (nl->op == O_LINFORM)
-         mark_linform_vars(nl->u.lin);
+         mark_linform_vars(nl->u.lin, flags);
       else
-      {  mark_nl_expr_vars(nl->u.arg.x);
-         mark_nl_expr_vars(nl->u.arg.y);
+      {  mark_nl_expr_vars(nl->u.arg.x, flags);
+         mark_nl_expr_vars(nl->u.arg.y, flags);
       }
 }
 
@@ -226,8 +228,10 @@ void build_problem(MPL *mpl)
                   mpl->is_nl = 1;
                /* walk through linear form and mark elemental variables,
                   which are referenced at least once */
-               mark_linform_vars(memb->value.con->eqn->lin);
-               mark_nl_expr_vars(memb->value.con->eqn->nl);
+               mark_linform_vars(memb->value.con->eqn->lin, MPL_LIN);
+               mark_nl_expr_vars(memb->value.con->eqn->nl,
+                  c->type == A_CONSTRAINT ? MPL_NLC
+                  : (MPL_NLO | MPL_NLC));
             }
          }
       }
@@ -1408,6 +1412,37 @@ int mpl_get_col_kind(MPL *mpl, int j)
       }
       return kind;
 }
+
+/*----------------------------------------------------------------------
+-- mpl_get_col_nl_flags - get nonlinear flags for column.
+--
+-- *Synopsis*
+--
+-- #include "glpmpl.h"
+-- int mpl_get_col_nl_flags(MPL *mpl, int j);
+--
+-- *Returns*
+--
+-- The routine mpl_get_col_kind returns the nonlinear flags for the j-th
+-- column, which can be either:
+--
+-- MPL_LIN - not used in nonlinear expression;
+--
+-- or one or both of:
+--
+-- MPL_NLC - used in nonlinear constraints;
+-- MPL_NLO - used in nonlinear objectives. */
+
+int mpl_get_col_nl_flags(MPL *mpl, int j)
+{     int kind;
+      if (mpl->phase != GLP_TRAN_PHASE_GENERATE)
+         xfault("mpl_get_col_nl_flags: invalid call sequence\n");
+      if (!(1 <= j && j <= mpl->n))
+         xfault("mpl_get_col_nl_flags: j = %d; column number out of range\n"
+            , j);
+      return mpl->col[j]->nl_flags;
+}
+
 
 /*----------------------------------------------------------------------
 -- mpl_get_col_bnds - obtain column bounds.

@@ -3,6 +3,7 @@
 #include "mp/nl-solver.h"
 #include "mp/nl-feeder.h"
 #include "mp/sol-handler.h"
+#include "mp/nl-opcodes.h"
 #include "mp/nl-solver.hpp"
 
 extern "C" {
@@ -30,23 +31,35 @@ struct csa
       int *ind;
       double *val;
       int m_obj;
+      int n_nl_obj, n_nl_obj_i;
+      int n_nl_con, n_nl_con_i;
+      int n_nl_both, n_nl_both_i;
+      int m_nl, m_nl_obj;
 };
 
 struct csa *mathprog_nlw2_build_prob(mpl_tran *tran, int relax)
 {     /* build LP/MIP problem instance from the model */
       struct csa *csa = new struct csa;
-      int m, n, i, j, t, kind, type, len, *ind, nnz;
+      int m, n, i, j, t, ct, kind, type, len, *ind, nnz;
       double lb, ub, *val;
       char *name;
-      int *int_idx, *bin_idx;
+      int *cnt_idx, *int_idx, *bin_idx, *nl_both_idx, *nl_both_int_idx;
+      int *nl_obj_idx, *nl_obj_int_idx, *nl_con_idx, *nl_con_int_idx;
       if (tran->phase != GLP_TRAN_PHASE_GENERATE)
          xerror("mpl_build_prob: invalid call sequence\n");
 
       m = mpl_get_num_rows(tran);
       n = mpl_get_num_cols(tran);
       csa->ind = ind = (int *)xcalloc(1+n, sizeof(int));
+      cnt_idx = (int *)xcalloc(n, sizeof(int));
       int_idx = (int *)xcalloc(n, sizeof(int));
       bin_idx = (int *)xcalloc(n, sizeof(int));
+      nl_obj_idx = (int *)xcalloc(n, sizeof(int));
+      nl_obj_int_idx = (int *)xcalloc(n, sizeof(int));
+      nl_con_idx = (int *)xcalloc(n, sizeof(int));
+      nl_con_int_idx = (int *)xcalloc(n, sizeof(int));
+      nl_both_idx = (int *)xcalloc(n, sizeof(int));
+      nl_both_int_idx = (int *)xcalloc(n, sizeof(int));
       csa->val = val = (double *)xcalloc(1+n, sizeof(double));
       csa->m = m;
       csa->n = n;
@@ -69,8 +82,16 @@ struct csa *mathprog_nlw2_build_prob(mpl_tran *tran, int relax)
       csa->obj_row = (int *)xcalloc(m, sizeof(int));
       csa->obj_no = -1;
       csa->m_obj = 0;
+      csa->n_nl_obj = 0;
+      csa->n_nl_obj_i = 0;
+      csa->n_nl_con = 0;
+      csa->n_nl_con_i = 0;
+      csa->n_nl_both = 0;
+      csa->n_nl_both_i = 0;
+      csa->m_nl = 0;
+      csa->m_nl_obj = 0;
 
-      t = 0;
+      ct = 0;
       for (j = 0; j < n; j++)
       {  name = mpl_get_col_name(tran, j+1);
          csa->var_names[j] = (char *)xcalloc(strlen(name)+1, sizeof(char));
@@ -78,16 +99,58 @@ struct csa *mathprog_nlw2_build_prob(mpl_tran *tran, int relax)
          kind = mpl_get_col_kind(tran, j+1);
          csa->col_size[j] = 0;
          /* split variables per kind for permutation array */
-         if (kind == MPL_NUM || relax)
-            csa->perm[t++] = j;
-         else if (kind == MPL_BIN)
-            bin_idx[csa->n_bin++] = j;
-         else
-            int_idx[csa->n_int++] = j;
+         switch(mpl_get_col_nl_flags(tran, j+1))
+         {  case MPL_LIN:
+               if (kind == MPL_NUM || relax)
+                  cnt_idx[ct++] = j;
+               else if (kind == MPL_BIN)
+                  bin_idx[csa->n_bin++] = j;
+               else
+                  int_idx[csa->n_int++] = j;
+               break;
+            case MPL_NLO:
+               if (kind == MPL_NUM || relax)
+                  nl_obj_idx[csa->n_nl_obj++] = j;
+               else
+                  nl_obj_int_idx[csa->n_nl_obj_i++] = j;
+               break;
+            case MPL_NLC:
+               if (kind == MPL_NUM || relax)
+                  nl_con_idx[csa->n_nl_con++] = j;
+               else
+                  nl_con_int_idx[csa->n_nl_con_i++] = j;
+               break;
+            case MPL_NLO | MPL_NLC:
+               if (kind == MPL_NUM || relax)
+                  nl_both_idx[csa->n_nl_both++] = j;
+               else
+                  nl_both_int_idx[csa->n_nl_both_i++] = j;
+               break;
+            default:
+               assert(kind != kind);
+         }
       }
-      /* the varialbles should be ordered continuous, binary, integer */
+      /* the varialbles should be ordered nl_both, nl_both_int, nl_cont,
+         nl_cont_int, nl_obj, nl_obj_int, cnt, bin, int */
+      memcpy(csa->perm, nl_both_idx, csa->n_nl_both * sizeof(int));
+      t = csa->n_nl_both;
+      memcpy(csa->perm + t, nl_both_int_idx, csa->n_nl_both_i * sizeof(int));
+      t += csa->n_nl_both_i;
+      memcpy(csa->perm + t, nl_con_idx, csa->n_nl_con * sizeof(int));
+      t += csa->n_nl_con;
+      memcpy(csa->perm + t, nl_con_int_idx, csa->n_nl_con_i * sizeof(int));
+      t += csa->n_nl_con_i;
+      memcpy(csa->perm + t, nl_obj_idx, csa->n_nl_obj * sizeof(int));
+      t += csa->n_nl_obj;
+      memcpy(csa->perm + t, nl_obj_int_idx, csa->n_nl_obj_i * sizeof(int));
+      t += csa->n_nl_obj_i;
+      memcpy(csa->perm + t, cnt_idx, ct * sizeof(int));
+      t += ct;
       memcpy(csa->perm + t, bin_idx, csa->n_bin * sizeof(int));
-      memcpy(csa->perm + t + csa->n_bin, int_idx, csa->n_int * sizeof(int));
+      t += csa->n_bin;
+      memcpy(csa->perm + t, int_idx, csa->n_int * sizeof(int));
+      t += csa->n_int;
+      assert( t == csa->n);
       /* initialize inverse permutation */
       for (j = 0; j < n; j++)
          csa->inv_perm[csa->perm[j]] = j;
@@ -107,6 +170,8 @@ struct csa *mathprog_nlw2_build_prob(mpl_tran *tran, int relax)
          for (t = 1; t <= len; t++) {
             csa->col_size[ind[t]-1]++;
          }
+         if (mpl_get_row_nl(tran, i+1))
+            csa->m_nl++;
          kind = mpl_get_row_kind(tran, i+1);
          if (kind == MPL_MIN || kind == MPL_MAX)
          {  /* set objective name */
@@ -118,6 +183,8 @@ struct csa *mathprog_nlw2_build_prob(mpl_tran *tran, int relax)
             csa->nnz_obj += len;
             csa->obj_row[csa->m_obj] = i;
             csa->m_obj++;
+            if (mpl_get_row_nl(tran, i+1))
+               csa->m_nl_obj++;
          }
       }
       csa->nnz = nnz;
@@ -127,8 +194,15 @@ struct csa *mathprog_nlw2_build_prob(mpl_tran *tran, int relax)
       strcpy(csa->prob_name, name);
 
       /* free working arrays */
+      xfree(cnt_idx);
       xfree(bin_idx);
       xfree(int_idx);
+      xfree(nl_obj_idx);
+      xfree(nl_obj_int_idx);
+      xfree(nl_con_idx);
+      xfree(nl_con_int_idx);
+      xfree(nl_both_idx);
+      xfree(nl_both_int_idx);
 
       return csa;
 }
@@ -154,24 +228,28 @@ public:
       hdr.max_con_name_len = 0;
       hdr.max_var_name_len = 0;
 
+      // support for nonlinear expressions
+      hdr.num_nl_cons = csa->m_nl;
+      hdr.num_nl_objs = csa->m_nl_obj;
+      hdr.num_nl_vars_in_cons = csa->n_nl_both + csa->n_nl_con
+         + csa->n_nl_both_i + csa->n_nl_con_i;
+      hdr.num_nl_vars_in_objs = csa->n_nl_both + csa->n_nl_obj
+         + csa->n_nl_both_i + csa->n_nl_obj_i;
+      hdr.num_nl_vars_in_both = csa->n_nl_both + csa->n_nl_both_i;
+      hdr.num_nl_integer_vars_in_both = csa->n_nl_both_i;
+      hdr.num_nl_integer_vars_in_cons = csa->n_nl_con_i;
+      hdr.num_nl_integer_vars_in_objs = csa->n_nl_obj_i;
+
       // the following are not (yet?) supported by MathProg
       hdr.num_logical_cons = 0;
-      hdr.num_nl_cons = 0;
-      hdr.num_nl_objs = 0;
       hdr.num_compl_conds = 0;
       hdr.num_nl_compl_conds = 0;
       hdr.num_compl_dbl_ineqs = 0;
       hdr.num_compl_vars_with_nz_lb = 0;
       hdr.num_nl_net_cons = 0;
       hdr.num_linear_net_cons = 0;
-      hdr.num_nl_vars_in_cons = 0;
-      hdr.num_nl_vars_in_objs = 0;
-      hdr.num_nl_vars_in_both = 0;
       hdr.num_linear_net_vars = 0;
       hdr.num_funcs = 0;
-      hdr.num_nl_integer_vars_in_both = 0;
-      hdr.num_nl_integer_vars_in_cons = 0;
-      hdr.num_nl_integer_vars_in_objs = 0;
       hdr.num_common_exprs_in_both = 0;
       hdr.num_common_exprs_in_cons = 0;
       hdr.num_common_exprs_in_objs = 0;
@@ -203,6 +281,22 @@ public:
       {  auto sv = gw.MakeVectorWriter(len);
          for (int j = 1; j <= len; j++)
             sv.Write(csa->inv_perm[ind[j] - 1], val[j]);
+      }
+   }
+
+   template <class ExprWriter>
+   void FeedObjExpression(int i, ExprWriter& ew)
+   {  assert(i >= 0 && i < csa->m_obj);
+      NL_EXPR *nl = mpl_get_row_nl(tran, csa->obj_row[i]+1);
+      double c0 = mpl_get_row_c0(tran, csa->obj_row[i]+1);
+      if (nl == NULL)
+         ew.NPut(c0);
+      else if (c0 == 0)
+         convert_nl(ew, nl);
+      else
+      {  auto ew1 = ew.OPut2( mp::nl::ADD);
+         ew1.NPut(c0);
+         convert_nl(ew1, nl);
       }
    }
 
@@ -258,6 +352,13 @@ public:
       }
    }
 
+   template <class ExprWriter>
+   void FeedConExpression(int i, ExprWriter& ew)
+   {  assert(i >= 0 && i < csa->m);
+      NL_EXPR *nl = mpl_get_row_nl(tran, i+1);
+      convert_nl(ew, nl);
+   }
+
    template <class ColSizeWriter>
    void FeedColumnSizes(ColSizeWriter& csw)
    {  if (WantColumnSizes())
@@ -284,6 +385,86 @@ public:
    }
 
 private:
+
+   template <class ExprWriter>
+   void convert_nl(ExprWriter& ew, NL_EXPR *nl)
+   {  if (nl == NULL)
+      {  ew.NPut(0.0);
+         return;
+      }
+      switch (nl->op)
+      {  case O_MUL:
+            {  auto ew1 = ew.OPut2( mp::nl::MUL);
+               convert_nl(ew1, nl->u.arg.x);
+               convert_nl(ew1, nl->u.arg.y);
+            }
+            break;
+         case O_DIV:
+            {  auto ew1 = ew.OPut2( mp::nl::DIV);
+               convert_nl(ew1, nl->u.arg.x);
+               convert_nl(ew1, nl->u.arg.y);
+            }
+            break;
+         case O_ADD:
+            {  auto ew1 = ew.OPut2( mp::nl::ADD);
+               convert_nl(ew1, nl->u.arg.x);
+               convert_nl(ew1, nl->u.arg.y);
+            }
+            break;
+         case O_SUB:
+            {  auto ew1 = ew.OPut2( mp::nl::SUB);
+               convert_nl(ew1, nl->u.arg.x);
+               convert_nl(ew1, nl->u.arg.y);
+            }
+            break;
+         case O_MINUS:
+            {  auto ew1 = ew.OPut2( mp::nl::MINUS);
+               convert_nl(ew1, nl->u.arg.x);
+            }
+            break;
+         case O_POWER:
+            {  auto ew1 = ew.OPut2( mp::nl::POW);
+               convert_nl(ew1, nl->u.arg.x);
+               convert_nl(ew1, nl->u.arg.y);
+            }
+            break;
+         case O_SQRT:
+            {  auto ew1 = ew.OPut2( mp::nl::SQRT);
+               convert_nl(ew1, nl->u.arg.x);
+            }
+            break;
+         case O_LINFORM:
+            convert_linform(ew, nl->u.lin);
+            break;
+         default:
+            assert(nl != nl);
+      }
+   }
+
+   template <class ExprWriter>
+   void convert_linform(ExprWriter& ew, LINFORM *lin)
+   {  if (lin == NULL)
+         ew.NPut(0.0);
+      else if (lin->next != NULL)
+      {  auto ew1 = ew.OPut2( mp::nl::ADD);
+         convert_linform_term(ew1, lin);
+         convert_linform(ew1, lin->next);
+      }
+      else
+         convert_linform_term(ew, lin);
+   }
+
+   template <class ExprWriter>
+   void convert_linform_term(ExprWriter& ew, LINFORM *lin)
+   {  if (lin->var == NULL)
+         ew.NPut(lin->coef);
+      else
+      {  auto ew1 = ew.OPut2( mp::nl::MUL);
+         ew1.NPut(lin->coef);
+         ew1.VPut(csa->inv_perm[lin->var->j-1]);
+      }
+   }
+
    mpl_tran *tran;
    struct csa *csa;
    mp::NLHeader hdr;
@@ -295,7 +476,7 @@ class Handler : public mp::SOLHandler
 public:
    Handler(struct csa *c, const mp::NLHeader& h) : csa(c), hdr(h) {}
 
-	mp::NLHeader Header() const { return hdr; }
+   mp::NLHeader Header() const { return hdr; }
 
    void OnSolveMessage(const char* s, int nbs)
    {  if (s!= NULL && strlen(s) > nbs)
@@ -378,6 +559,45 @@ int mathprog_nlw2_run_solver(mpl_tran *tran, struct csa *csa,
       return 1;
 }
 
+static double eval_nl_expr(NL_EXPR *nl, double *x)
+{     if (nl == NULL)
+         return 0;
+      switch (nl->op)
+      {  case O_MUL:
+            return eval_nl_expr(nl->u.arg.x, x)
+               * eval_nl_expr(nl->u.arg.y, x);
+         case O_DIV:
+            return eval_nl_expr(nl->u.arg.x, x)
+               / eval_nl_expr(nl->u.arg.y, x);
+         case O_ADD:
+            return eval_nl_expr(nl->u.arg.x, x)
+               + eval_nl_expr(nl->u.arg.y, x);
+         case O_SUB:
+            return eval_nl_expr(nl->u.arg.x, x)
+               - eval_nl_expr(nl->u.arg.y, x);
+         case O_MINUS:
+            return -eval_nl_expr(nl->u.arg.x, x);
+         case O_POWER:
+            return pow(eval_nl_expr(nl->u.arg.x, x),
+               eval_nl_expr(nl->u.arg.y, x));
+         case O_SQRT:
+            return sqrt(eval_nl_expr(nl->u.arg.x, x));
+         case O_LINFORM:
+            {  LINFORM *form = nl->u.lin;
+               double sum = 0;
+               for (; form != NULL; form = form->next)
+               {  if (form->var == NULL)
+                     sum += form->coef;
+                  else
+                     sum += form->coef * x[form->var->j-1];
+               }
+               return sum;
+            }
+         default:
+            assert(nl != nl);
+      }
+}
+
 int mathprog_nlw2_postsolve(mpl_tran *tran, struct csa *csa, int relax)
 {     /* postsolve the model */
       int i, j, m, n, stat, ret, kind, len, t;
@@ -421,6 +641,7 @@ int mathprog_nlw2_postsolve(mpl_tran *tran, struct csa *csa, int relax)
          {  prim = mpl_get_row_c0(tran, i+1);
             for (t = 1; t <= len; t++)
                prim += csa->x[ind[t]-1] * val[t];
+            prim += eval_nl_expr(mpl_get_row_nl(tran, i+1), csa->x);
          }
          if (csa->y != NULL)
          {  dual = csa->y[i];

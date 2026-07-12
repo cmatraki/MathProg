@@ -3916,6 +3916,7 @@ ELEMVAR *take_member_var      /* returns reference */
          refer->j = 0;
          refer->var = var;
          refer->memb = memb;
+         refer->nl_flags = MPL_LIN;
          /* compute lower bound */
          if (var->lbnd == NULL)
             refer->lbnd = 0.0;

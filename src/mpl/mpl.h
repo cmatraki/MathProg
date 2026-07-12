@@ -1346,6 +1346,11 @@ struct ELEMVAR
       double prim, dual;
       /* solution components provided by the solver */
 #endif
+      int nl_flags;
+      /* flags for variables in nonlinear expressions */
+#define MPL_LIN         0     /* not used in nonlinear expressions */
+#define MPL_NLC         1     /* used in nonlinear constraints */
+#define MPL_NLO         2     /* used in nonlinear objectives */
 };
 
 /**********************************************************************/
@@ -2995,6 +3000,10 @@ char *mpl_get_col_name(MPL *mpl, int j);
 #define mpl_get_col_kind _mpl_get_col_kind
 int mpl_get_col_kind(MPL *mpl, int j);
 /* determine column kind */
+
+#define mpl_get_col_nl_flags _mpl_get_col_nl_flags
+int mpl_get_col_nl_flags(MPL *mpl, int j);
+/* get nonlinear flags for column */
 
 #define mpl_get_col_bnds _mpl_get_col_bnds
 int mpl_get_col_bnds(MPL *mpl, int j, double *lb, double *ub);

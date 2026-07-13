@@ -324,6 +324,13 @@ public:
       }
    }
 
+   template <class IGWriter>
+   void FeedInitialGuesses(IGWriter& igw)
+   {  auto ig = igw.MakeVectorWriter(csa->n);
+      for (int i = 0; i < csa->n; i++)
+         ig.Write(i, tran->col[csa->perm[i]+1]->prim);
+   }
+
    template <class ConBoundsWriter>
    void FeedConBounds(ConBoundsWriter& cbw)
    {  for (int i = 0; i < csa->m_con; i++)

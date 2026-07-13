@@ -2099,6 +2099,10 @@ struct VARIABLE
          is not specified */
       /* if both the pointers lbnd and ubnd refer to the same code, the
          variable is fixed at the corresponding value */
+      CODE *assign;
+      /* pseudo-code for computing assigned value; can be NULL */
+      CODE *option;
+      /* pseudo-code for computing default value; can be NULL */
       ARRAY *array;
       /* array of members, which are assigned elemental variables */
 };

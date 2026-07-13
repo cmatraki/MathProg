@@ -3843,6 +3843,8 @@ VARIABLE *variable_statement(MPL *mpl)
       var->code_valid = mpl->last_code_valid;
       var->lbnd = NULL;
       var->ubnd = NULL;
+      var->assign = NULL;
+      var->option = NULL;
       var->array = NULL;
       get_token(mpl /* <symbolic name> */);
       /* parse optional alias */
@@ -3960,6 +3962,29 @@ bin:     {  if (binary_used)
          else if (mpl->scan_input->token == T_LT || mpl->scan_input->token == T_GT ||
                   mpl->scan_input->token == T_NE)
             error(mpl, "strict bound not allowed");
+         else if (mpl->scan_input->token == T_ASSIGN)
+         {  /* assignment expression */
+            if (!(var->assign == NULL && var->option == NULL))
+err:           error(mpl, "at most one := or default allowed");
+            get_token(mpl /* := */);
+            /* parse an expression that follows ':=' */
+            var->assign = expression_5(mpl);
+            /* the expression must be of numeric/symbolic type */
+            if (var->assign->type != A_NUMERIC)
+               error(mpl, "expression following := has invalid type");
+            xassert(var->assign->dim == 0);
+         }
+         else if (is_keyword(mpl, "default"))
+         {  /* expression for default value */
+            if (!(var->assign == NULL && var->option == NULL)) goto err;
+            get_token(mpl /* default */);
+            /* parse an expression that follows 'default' */
+            var->option = expression_5(mpl);
+            if (var->option->type != A_NUMERIC)
+               error(mpl, "expression following default has invalid typ"
+                  "e");
+            xassert(var->option->dim == 0);
+         }
          else
             error(mpl, "syntax error in variable statement");
       }
@@ -4726,6 +4751,7 @@ LET_STMT *let_statement(MPL *mpl)
       switch (let->par->op)
       {  case O_MEMNUM:
          case O_MEMSYM:
+         case O_MEMVAR:
             break;
           default:
               error(mpl, "only parameter allowed here");

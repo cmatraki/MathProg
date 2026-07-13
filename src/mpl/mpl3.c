@@ -3935,6 +3935,10 @@ ELEMVAR *take_member_var      /* returns reference */
          /* solution has not been obtained by the solver yet */
          refer->stat = 0;
          refer->prim = refer->dual = 0.0;
+         if (var->assign != NULL)
+            refer->prim = eval_numeric(mpl, var->assign);
+         else if (var->option != NULL)
+            refer->prim = eval_numeric(mpl, var->option);
 #endif
       }
       return refer;
@@ -6348,8 +6352,20 @@ static int let_func(MPL *mpl, void *info)
       MEMBER *memb;
       TUPLE *tuple;
       ARG_LIST *e;
-      if(++mpl->last_code_valid == 0) mpl->last_code_valid = 1;
-      PARAMETER *par = let->par->arg.par.par;
+      PARAMETER *par;
+      if (++mpl->last_code_valid == 0) mpl->last_code_valid = 1;
+      if (let->par->op == O_MEMVAR)
+      {  VARIABLE *var = let->par->arg.var.var;
+         ELEMVAR *el;
+         tuple = create_tuple(mpl);
+         for (e = let->par->arg.var.list; e != NULL; e = e->next)
+            tuple = expand_tuple(mpl, tuple, eval_symbolic(mpl, e->x));
+         el = eval_member_var(mpl, var, tuple);
+         el->prim = eval_numeric(mpl, let->assign);
+         delete_tuple(mpl, tuple);
+         return 0;
+      }
+      par = let->par->arg.par.par;
       if(par->type == A_SYMBOLIC)
           svalue = eval_symbolic(mpl, let->assign);
       else

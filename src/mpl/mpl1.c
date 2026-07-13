@@ -3969,7 +3969,10 @@ err:           error(mpl, "at most one := or default allowed");
             get_token(mpl /* := */);
             /* parse an expression that follows ':=' */
             var->assign = expression_5(mpl);
-            /* the expression must be of numeric/symbolic type */
+            if (var->assign->type == A_SYMBOLIC)
+               var->assign = make_unary(mpl, O_CVTNUM, var->assign,
+                  A_NUMERIC, 0);
+            /* the expression must be of numeric type */
             if (var->assign->type != A_NUMERIC)
                error(mpl, "expression following := has invalid type");
             xassert(var->assign->dim == 0);
@@ -3980,6 +3983,9 @@ err:           error(mpl, "at most one := or default allowed");
             get_token(mpl /* default */);
             /* parse an expression that follows 'default' */
             var->option = expression_5(mpl);
+            if (var->option->type == A_SYMBOLIC)
+               var->option = make_unary(mpl, O_CVTNUM, var->option,
+                  A_NUMERIC, 0);
             if (var->option->type != A_NUMERIC)
                error(mpl, "expression following default has invalid typ"
                   "e");

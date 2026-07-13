@@ -230,8 +230,7 @@ void build_problem(MPL *mpl)
                   which are referenced at least once */
                mark_linform_vars(memb->value.con->eqn->lin, MPL_LIN);
                mark_nl_expr_vars(memb->value.con->eqn->nl,
-                  c->type == A_CONSTRAINT ? MPL_NLC
-                  : (MPL_NLO | MPL_NLC));
+                  c->type == A_CONSTRAINT ? MPL_NLC : MPL_NLO);
             }
          }
       }

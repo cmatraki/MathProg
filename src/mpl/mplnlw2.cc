@@ -421,7 +421,7 @@ private:
             }
             break;
          case O_MINUS:
-            {  auto ew1 = ew.OPut2( mp::nl::MINUS);
+            {  auto ew1 = ew.OPut1( mp::nl::MINUS);
                convert_nl(ew1, nl->u.arg.x);
             }
             break;
@@ -432,7 +432,7 @@ private:
             }
             break;
          case O_SQRT:
-            {  auto ew1 = ew.OPut2( mp::nl::SQRT);
+            {  auto ew1 = ew.OPut1( mp::nl::SQRT);
                convert_nl(ew1, nl->u.arg.x);
             }
             break;

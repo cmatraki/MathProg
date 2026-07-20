@@ -2993,6 +2993,10 @@ int mpl_get_mat_row(MPL *mpl, int i, int ndx[], double val[]);
 NL_EXPR *mpl_get_row_nl(MPL *mpl, int i);
 /* get nonlinear expression for row - draft */
 
+#define mpl_get_row_nl_vars _mpl_get_row_nl_vars
+int mpl_get_row_nl_vars(MPL *mpl, int i, int ndx[]);
+/* get nonlinear variables for row - draft */
+
 #define mpl_get_row_c0 _mpl_get_row_c0
 double mpl_get_row_c0(MPL *mpl, int i);
 /* obtain constant term of free row */

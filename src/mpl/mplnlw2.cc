@@ -175,7 +175,7 @@ struct csa *mathprog_nlw2_build_prob(mpl_tran *tran, int relax)
          {  type = mpl_get_row_bnds(tran, i+1, NULL, NULL);
             if (type == MPL_FX)
                csa->m_eqn++;
-            else if (type != MPL_FR)
+            else if (type == MPL_DB)
                csa->m_range++;
             if (mpl_get_row_nl(tran, i+1))
                csa->con_row[csa->m_nl++] = i;
@@ -236,8 +236,10 @@ public:
       hdr.num_nl_objs = csa->m_nl_obj;
       hdr.num_nl_vars_in_cons = csa->n_nl_both + csa->n_nl_con
          + csa->n_nl_both_i + csa->n_nl_con_i;
-      hdr.num_nl_vars_in_objs = csa->n_nl_both + csa->n_nl_obj
-         + csa->n_nl_both_i + csa->n_nl_obj_i;
+      // despite what the docs say, num_nl_vars_in_objs includes all
+      // constraint vars
+      hdr.num_nl_vars_in_objs = hdr.num_nl_vars_in_cons + csa->n_nl_obj
+         + csa->n_nl_obj_i;
       hdr.num_nl_vars_in_both = csa->n_nl_both + csa->n_nl_both_i;
       hdr.num_nl_integer_vars_in_both = csa->n_nl_both_i;
       hdr.num_nl_integer_vars_in_cons = csa->n_nl_con_i;
@@ -282,8 +284,13 @@ public:
       int len = mpl_get_mat_row(tran, csa->obj_row[i]+1, ind, val);
       if (len > 0)
       {  auto sv = gw.MakeVectorWriter(len);
+         std::vector<std::pair<int, double>> tmp;
+         tmp.reserve(len);
          for (int j = 1; j <= len; j++)
-            sv.Write(csa->inv_perm[ind[j] - 1], val[j]);
+            tmp.emplace_back(csa->inv_perm[ind[j] - 1], val[j]);
+         std::sort(tmp.begin(), tmp.end());
+         for (auto const &p: tmp)
+            sv.Write(p.first, p.second);
       }
    }
 
@@ -318,8 +325,9 @@ public:
             if (type == MPL_FR || type == MPL_LO || ub > 1.0) ub = 1.0;
          }
          if (type == MPL_DB && fabs(lb - ub) < 1e-9 * (1.0 + fabs(lb)))
-            if (fabs(lb) <= fabs(ub)) ub = lb;
+         {  if (fabs(lb) <= fabs(ub)) ub = lb;
             else lb = ub;
+         }
          vbw.WriteLbUb(lb, ub);
       }
    }
@@ -341,14 +349,16 @@ public:
          if (type == MPL_FR || type == MPL_UP) lb = -INFINITY;
          if (type == MPL_FR || type == MPL_LO) ub = INFINITY;
          if (type == MPL_DB && fabs(lb - ub) < 1e-9 * (1.0 + fabs(lb)))
-         if (fabs(lb) <= fabs(ub)) ub = lb; else lb = ub;
+         {  if (fabs(lb) <= fabs(ub)) ub = lb;
+            else lb = ub;
+         }
          bnd.L = lb;
          bnd.U = ub;
          cbw.WriteAlgConRange(bnd);
       }
    }
 
-   const char* ConDescription(int i) { return csa->row_names[i]; }
+   const char* ConDescription(int i) { return csa->row_names[csa->con_row[i]]; }
 
    template <class ConLinearExprWriter>
    void FeedLinearConExpr(int i, ConLinearExprWriter& clw)
@@ -357,8 +367,14 @@ public:
       int len = mpl_get_mat_row(tran, csa->con_row[i]+1, ind, val);
       if (len > 0)
       {  auto sv = clw.MakeVectorWriter(len);
+         std::vector<std::pair<int, double>> tmp;
+         tmp.reserve(len);
          for (int j = 1; j <= len; j++)
-            sv.Write(csa->inv_perm[ind[j] - 1], val[j]);
+            tmp.emplace_back(csa->inv_perm[ind[j] - 1], val[j]);
+         // Some solvers crash if not in order
+         std::sort(tmp.begin(), tmp.end());
+         for (auto const &p: tmp)
+            sv.Write(p.first, p.second);
       }
    }
 
@@ -404,42 +420,42 @@ private:
       }
       switch (nl->op)
       {  case O_MUL:
-            {  auto ew1 = ew.OPut2( mp::nl::MUL);
+            {  auto ew1 = ew.OPut2(mp::nl::MUL);
                convert_nl(ew1, nl->u.arg.x);
                convert_nl(ew1, nl->u.arg.y);
             }
             break;
          case O_DIV:
-            {  auto ew1 = ew.OPut2( mp::nl::DIV);
+            {  auto ew1 = ew.OPut2(mp::nl::DIV);
                convert_nl(ew1, nl->u.arg.x);
                convert_nl(ew1, nl->u.arg.y);
             }
             break;
          case O_ADD:
-            {  auto ew1 = ew.OPut2( mp::nl::ADD);
+            {  auto ew1 = ew.OPut2(mp::nl::ADD);
                convert_nl(ew1, nl->u.arg.x);
                convert_nl(ew1, nl->u.arg.y);
             }
             break;
          case O_SUB:
-            {  auto ew1 = ew.OPut2( mp::nl::SUB);
+            {  auto ew1 = ew.OPut2(mp::nl::SUB);
                convert_nl(ew1, nl->u.arg.x);
                convert_nl(ew1, nl->u.arg.y);
             }
             break;
          case O_MINUS:
-            {  auto ew1 = ew.OPut1( mp::nl::MINUS);
+            {  auto ew1 = ew.OPut1(mp::nl::MINUS);
                convert_nl(ew1, nl->u.arg.x);
             }
             break;
          case O_POWER:
-            {  auto ew1 = ew.OPut2( mp::nl::POW);
+            {  auto ew1 = ew.OPut2(mp::nl::POW);
                convert_nl(ew1, nl->u.arg.x);
                convert_nl(ew1, nl->u.arg.y);
             }
             break;
          case O_SQRT:
-            {  auto ew1 = ew.OPut1( mp::nl::SQRT);
+            {  auto ew1 = ew.OPut1(mp::nl::SQRT);
                convert_nl(ew1, nl->u.arg.x);
             }
             break;
@@ -455,26 +471,48 @@ private:
    void convert_linform(ExprWriter& ew, LINFORM *lin)
    {  if (lin == NULL)
          ew.NPut(0.0);
-      else if (lin->next != NULL)
-      {  auto ew1 = ew.OPut2( mp::nl::ADD);
+      else if (lin->next == NULL)
+         convert_linform_term(ew, lin);
+#if 1
+      else if (lin->next->next == NULL)
+      {  auto ew1 = ew.OPut2(mp::nl::ADD);
+         convert_linform_term(ew1, lin);
+         convert_linform_term(ew1, lin->next);
+      }
+      else
+      {  int ct = 0;
+         LINFORM *t;
+         for (t = lin; t; t = t->next)
+            ct++;
+         auto ew1 = ew.OPutN(mp::nl::SUM, ct);
+         for (t = lin; t; t = t->next)
+            convert_linform_term(ew1, t);
+      }
+#else
+      else
+      {  auto ew1 = ew.OPut2(mp::nl::ADD);
          convert_linform_term(ew1, lin);
          convert_linform(ew1, lin->next);
       }
-      else
-         convert_linform_term(ew, lin);
+#endif
    }
 
    template <class ExprWriter>
    void convert_linform_term(ExprWriter& ew, LINFORM *lin)
    {  if (lin->var == NULL)
          ew.NPut(lin->coef);
+      else if (lin->coef == 1)
+         ew.VPut(csa->inv_perm[lin->var->j-1]);
+      else if (lin->coef == -1)
+      {  auto ew1 = ew.OPut1(mp::nl::MINUS);
+         ew1.VPut(csa->inv_perm[lin->var->j-1]);
+      }
       else
-      {  auto ew1 = ew.OPut2( mp::nl::MUL);
+      {  auto ew1 = ew.OPut2(mp::nl::MUL);
          ew1.NPut(lin->coef);
          ew1.VPut(csa->inv_perm[lin->var->j-1]);
       }
    }
-
    mpl_tran *tran;
    struct csa *csa;
    mp::NLHeader hdr;
@@ -607,6 +645,8 @@ static double eval_nl_expr(NL_EXPR *nl, double *x)
          default:
             assert(nl != nl);
       }
+      assert(nl != nl);
+      return 0;
 }
 
 int mathprog_nlw2_postsolve(mpl_tran *tran, struct csa *csa, int relax)

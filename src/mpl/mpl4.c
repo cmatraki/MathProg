@@ -1261,13 +1261,15 @@ static LINFORM *get_nl_expr_vars(MPL *mpl, NL_EXPR *nl, LINFORM *tmp)
 
 int mpl_get_mat_row(MPL *mpl, int i, int ndx[], double val[])
 {     LINFORM *term;
-      LINFORM *nl_vars;
+      LINFORM *nl_vars = NULL;
       int len = 0;
       if (mpl->phase != GLP_TRAN_PHASE_GENERATE)
          xfault("mpl_get_mat_row: invalid call sequence\n");
       if (!(1 <= i && i <= mpl->m))
          xfault("mpl_get_mat_row: i = %d; row number out of range\n",
             i);
+      if (mpl->row[i]->eqn == NULL) return 0;
+
       nl_vars = get_nl_expr_vars(mpl, mpl->row[i]->eqn->nl, NULL);
       for (term = mpl->row[i]->eqn->lin; term != NULL; term = term->next)
       {  xassert(term->var != NULL);
@@ -1299,7 +1301,27 @@ NL_EXPR *mpl_get_row_nl(MPL *mpl, int i)
          xfault("mpl_get_row_nl: i = %d; row number out of range\n",
             i);
 
-      return mpl->row[i]->eqn->nl;
+      return mpl->row[i]->eqn != NULL ? mpl->row[i]->eqn->nl : NULL;
+}
+
+int mpl_get_row_nl_vars(MPL *mpl, int i, int ndx[])
+{     LINFORM *term;
+      LINFORM *nl_vars;
+      int len = 0;
+      if (mpl->phase != GLP_TRAN_PHASE_GENERATE)
+         xfault("mpl_get_mat_row: invalid call sequence\n");
+      if (!(1 <= i && i <= mpl->m))
+         xfault("mpl_get_mat_row: i = %d; row number out of range\n",
+            i);
+      nl_vars = get_nl_expr_vars(mpl, mpl->row[i]->eqn->nl, NULL);
+      for (term = nl_vars; term != NULL; term = term->next)
+      {  len++;
+         xassert(len <= mpl->n);
+         if (ndx != NULL) ndx[len] = term->var->j;
+         term->var->temp = 0;
+      }
+      delete_linform(mpl, nl_vars);
+      return len;
 }
 
 /*----------------------------------------------------------------------

@@ -35,12 +35,13 @@ struct csa
       int n_nl_con, n_nl_con_i;
       int n_nl_both, n_nl_both_i;
       int m_nl, m_nl_obj;
+      int n_def;
 };
 
 struct csa *mathprog_nlw2_build_prob(mpl_tran *tran, int relax)
 {     /* build LP/MIP problem instance from the model */
       struct csa *csa = new struct csa;
-      int m, n, i, j, t, ct, kind, type, len, *ind, nnz;
+      int m, n, i, j, t, ct, kind, type, len, *ind, nnz, n_def;
       double lb, ub, *val;
       char *name;
       int *cnt_idx, *int_idx, *bin_idx, *nl_both_idx, *nl_both_int_idx;
@@ -50,6 +51,7 @@ struct csa *mathprog_nlw2_build_prob(mpl_tran *tran, int relax)
 
       m = mpl_get_num_rows(tran);
       n = mpl_get_num_cols(tran);
+      n_def = mpl_get_num_defs(tran);
       csa->ind = ind = (int *)xcalloc(1+n, sizeof(int));
       cnt_idx = (int *)xcalloc(n, sizeof(int));
       int_idx = (int *)xcalloc(n, sizeof(int));
@@ -63,7 +65,8 @@ struct csa *mathprog_nlw2_build_prob(mpl_tran *tran, int relax)
       csa->val = val = (double *)xcalloc(1+n, sizeof(double));
       csa->m = m;
       csa->n = n;
-      csa->var_names = (char **)xcalloc(n, sizeof(char *));
+      csa->n_def = n_def;
+      csa->var_names = (char **)xcalloc(n + n_def, sizeof(char *));
       csa->row_names = (char **)xcalloc(m, sizeof(char *));
       csa->col_size = (double *)xcalloc(n, sizeof(double));
       csa->solve_result = -1;
@@ -156,6 +159,12 @@ struct csa *mathprog_nlw2_build_prob(mpl_tran *tran, int relax)
       for (j = 0; j < n; j++)
          csa->inv_perm[csa->perm[j]] = j;
 
+      for (j = 0; j < n_def; j++)
+      {  name = mpl_get_col_name(tran, n+j+1);
+         csa->var_names[n+j] = (char *)xcalloc(strlen(name)+1, sizeof(char));
+         strcpy(csa->var_names[n+j], name);
+      }
+
       nnz = 0;
       cnt_idx = (int *)xrealloc(cnt_idx, m, sizeof(int));
       for (i = 0; i < m; i++)
@@ -184,7 +193,8 @@ struct csa *mathprog_nlw2_build_prob(mpl_tran *tran, int relax)
             len = mpl_get_mat_row(tran, i+1, ind, NULL);
             nnz += len;
             for (t = 1; t <= len; t++)
-               csa->col_size[ind[t]-1]++;
+               if (ind[t] <= n)
+                  csa->col_size[ind[t]-1]++;
          }
       }
       memcpy(csa->con_row + csa->m_nl, cnt_idx, csa->m_con * sizeof(int));
@@ -255,7 +265,7 @@ public:
       hdr.num_linear_net_cons = 0;
       hdr.num_linear_net_vars = 0;
       hdr.num_funcs = 0;
-      hdr.num_common_exprs_in_both = 0;
+      hdr.num_common_exprs_in_both = csa->n_def;
       hdr.num_common_exprs_in_cons = 0;
       hdr.num_common_exprs_in_objs = 0;
       hdr.num_common_exprs_in_single_cons = 0;
@@ -283,12 +293,13 @@ public:
       double *val = csa->val;
       int len = mpl_get_mat_row(tran, csa->obj_row[i]+1, ind, val);
       if (len > 0)
-      {  auto sv = gw.MakeVectorWriter(len);
-         std::vector<std::pair<int, double>> tmp;
+      {  std::vector<std::pair<int, double>> tmp;
          tmp.reserve(len);
          for (int j = 1; j <= len; j++)
-            tmp.emplace_back(csa->inv_perm[ind[j] - 1], val[j]);
+            if (ind[j] <= csa->n)
+               tmp.emplace_back(csa->inv_perm[ind[j] - 1], val[j]);
          std::sort(tmp.begin(), tmp.end());
+         auto sv = gw.MakeVectorWriter(tmp.size());
          for (auto const &p: tmp)
             sv.Write(p.first, p.second);
       }
@@ -366,13 +377,14 @@ public:
       double *val = csa->val;
       int len = mpl_get_mat_row(tran, csa->con_row[i]+1, ind, val);
       if (len > 0)
-      {  auto sv = clw.MakeVectorWriter(len);
-         std::vector<std::pair<int, double>> tmp;
+      {  std::vector<std::pair<int, double>> tmp;
          tmp.reserve(len);
          for (int j = 1; j <= len; j++)
-            tmp.emplace_back(csa->inv_perm[ind[j] - 1], val[j]);
+            if (ind[j] <= csa->n)
+               tmp.emplace_back(csa->inv_perm[ind[j] - 1], val[j]);
          // Some solvers crash if not in order
          std::sort(tmp.begin(), tmp.end());
+         auto sv = clw.MakeVectorWriter(tmp.size());
          for (auto const &p: tmp)
             sv.Write(p.first, p.second);
       }
@@ -407,6 +419,39 @@ public:
    {  if (wrt)
       {  for (int i = 0; i < csa->n; i++)
             wrt << csa->var_names[csa->perm[i]];
+      }
+   }
+
+   template <class DefVarWriterFactory>
+   void FeedDefinedVariables(int idx, DefVarWriterFactory& dvw)
+   {  if (idx != 0) return;
+      int n = tran->n;
+      ELEMVAR **col = tran->col;
+      for (int i = 0; i < csa->n_def; i++)
+      {  std::vector<std::pair<int, double>> tmp;
+         double c0 = 0;
+         for (LINFORM *form = col[n + i + 1]->def->lin; form != NULL; form = form->next)
+         {  if (form->var == NULL)
+            {  c0 = form->coef;
+               continue;
+            }
+            tmp.emplace_back(form->var->j - 1, form->coef);
+         }
+         std::sort(tmp.begin(), tmp.end());
+         auto dv = dvw.StartDefVar(n + i, tmp.size(), csa->var_names[n+i]);
+         auto linw = dv.GetLinExprWriter();
+         for (auto const &p: tmp)
+            linw.Write(p.first, p.second);
+         auto ew = dv.GetExprWriter();
+         if (col[n + i + 1]->def->nl == NULL)
+            ew.NPut(c0);
+         else if (c0 == 0)
+            convert_nl(ew, col[n + i + 1]->def->nl);
+         else
+         {  auto ew1 = ew.OPut2(mp::nl::ADD);
+            ew1.NPut(c0);
+            convert_nl(ew1, col[n + i + 1]->def->nl);
+         }
       }
    }
 
@@ -462,6 +507,9 @@ private:
          case O_LINFORM:
             convert_linform(ew, nl->u.lin);
             break;
+         case O_DEFVAR:
+            ew.VPut(nl->u.defvar->j-1);
+            break;
          default:
             assert(nl != nl);
       }
@@ -500,17 +548,21 @@ private:
    template <class ExprWriter>
    void convert_linform_term(ExprWriter& ew, LINFORM *lin)
    {  if (lin->var == NULL)
-         ew.NPut(lin->coef);
-      else if (lin->coef == 1)
-         ew.VPut(csa->inv_perm[lin->var->j-1]);
+      {  ew.NPut(lin->coef);
+         return;
+      }
+      int j = lin->var->j-1;
+      if (j < csa->n) j = csa->inv_perm[j];
+      if (lin->coef == 1)
+         ew.VPut(j);
       else if (lin->coef == -1)
       {  auto ew1 = ew.OPut1(mp::nl::MINUS);
-         ew1.VPut(csa->inv_perm[lin->var->j-1]);
+         ew1.VPut(j);
       }
       else
       {  auto ew1 = ew.OPut2(mp::nl::MUL);
          ew1.NPut(lin->coef);
-         ew1.VPut(csa->inv_perm[lin->var->j-1]);
+         ew1.VPut(j);
       }
    }
    mpl_tran *tran;
@@ -608,6 +660,17 @@ int mathprog_nlw2_run_solver(mpl_tran *tran, struct csa *csa,
       return 1;
 }
 
+static double eval_linform(LINFORM *form, double *x)
+{     double sum = 0;
+      for (; form != NULL; form = form->next)
+      {  if (form->var == NULL)
+            sum += form->coef;
+         else
+            sum += form->coef * x[form->var->j-1];
+      }
+      return sum;
+}
+
 static double eval_nl_expr(NL_EXPR *nl, double *x)
 {     if (nl == NULL)
          return 0;
@@ -632,14 +695,11 @@ static double eval_nl_expr(NL_EXPR *nl, double *x)
          case O_SQRT:
             return sqrt(eval_nl_expr(nl->u.arg.x, x));
          case O_LINFORM:
-            {  LINFORM *form = nl->u.lin;
-               double sum = 0;
-               for (; form != NULL; form = form->next)
-               {  if (form->var == NULL)
-                     sum += form->coef;
-                  else
-                     sum += form->coef * x[form->var->j-1];
-               }
+            return eval_linform(nl->u.lin, x);
+         case O_DEFVAR:
+            {  double sum;
+               sum = eval_linform(nl->u.defvar->def->lin, x);
+               sum += eval_nl_expr(nl->u.defvar->def->nl, x);
                return sum;
             }
          default:
@@ -732,7 +792,7 @@ void mathprog_nlw2_cleanup(struct csa *csa)
 {     int i, j;
       for (i = 0; i < csa->m; i++) xfree(csa->row_names[i]);
       xfree(csa->row_names);
-      for (j = 0; j < csa->n; j++) xfree(csa->var_names[j]);
+      for (j = 0; j < csa->n + csa->n_def; j++) xfree(csa->var_names[j]);
       xfree(csa->var_names);
       xfree(csa->col_size);
       xfree(csa->prob_name);

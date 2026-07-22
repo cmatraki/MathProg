@@ -1428,6 +1428,13 @@ FORMULA *single_variable
 )
 {     LINFORM *form;
       xassert(var != NULL);
+      if (var->def != NULL)
+      {  /* defined variable */
+         NL_EXPR *nl = dmp_get_atom(mpl->nlexprs, sizeof(NL_EXPR));
+         nl->op = O_DEFVAR;
+         nl->u.defvar = var;
+         return make_formula(mpl, NULL, nl);
+      }
       form = dmp_get_atom(mpl->linforms, sizeof(LINFORM));
       form->coef = 1.0;
       form->var = var;
@@ -1448,7 +1455,7 @@ NL_EXPR *make_nl_expr
       NL_EXPR *y              /* consumed; NULL for unary operation */
 )
 {     NL_EXPR *ret;
-      xassert(op != O_LINFORM);
+      xassert(op != O_LINFORM && op != O_DEFVAR);
       ret = dmp_get_atom(mpl->nlexprs, sizeof(NL_EXPR));
       ret->op = op;
       ret->u.arg.x = x;
@@ -1544,12 +1551,16 @@ NL_EXPR *copy_nl_expr
       if (nl == NULL) return NULL;
       node = dmp_get_atom(mpl->nlexprs, sizeof(NL_EXPR));
       node->op   = nl->op;
-      if (nl->op != O_LINFORM)
-      {  node->u.arg.x    = copy_nl_expr(mpl, nl->u.arg.x);
-         node->u.arg.y    = copy_nl_expr(mpl, nl->u.arg.y);
-      }
+      if (nl->op == O_LINFORM)
+         node->u.lin = copy_linform(mpl, nl->u.lin);
+      else if (nl->op == O_DEFVAR)
+         node->u.defvar = nl->u.defvar;
       else
-         node->u.lin  = copy_linform(mpl, nl->u.lin);
+      {  node->u.arg.x = copy_nl_expr(mpl, nl->u.arg.x);
+         node->u.arg.y = copy_nl_expr(mpl, nl->u.arg.y);
+      }
+
+
       return node;
 }
 
@@ -1597,12 +1608,14 @@ void delete_nl_expr
       NL_EXPR *nl             /* destroyed */
 )
 {     if (nl == NULL) return;
-      if (nl->op != O_LINFORM)
+      if (nl->op == O_LINFORM)
+         delete_linform(mpl, nl->u.lin);
+      else if (nl->op != O_DEFVAR)
       {  delete_nl_expr(mpl, nl->u.arg.x);
          delete_nl_expr(mpl, nl->u.arg.y);
       }
-      else
-         delete_linform(mpl, nl->u.lin);
+
+
       dmp_free_atom(mpl->nlexprs, nl, sizeof(NL_EXPR));
       return;
 }
@@ -3987,6 +4000,10 @@ ELEMVAR *take_member_var      /* returns reference */
          else if (var->option != NULL)
             refer->prim = eval_numeric(mpl, var->option);
 #endif
+         if (var->def != NULL)
+            refer->def = eval_formula(mpl, var->def);
+         else
+            refer->def = NULL;
       }
       return refer;
 }
@@ -4072,9 +4089,13 @@ void clean_variable(MPL *mpl, VARIABLE *var)
       clean_code(mpl, var->lbnd);
       /* clean code for computing upper bound */
       if (var->ubnd != var->lbnd) clean_code(mpl, var->ubnd);
+      /* clean defined variable expansion */
+      clean_code(mpl, var->def);
       /* delete content array */
       for (memb = var->array->head; memb != NULL; memb = memb->next)
+      {  delete_formula(mpl, memb->value.var->def);
          dmp_free_atom(mpl->elemvars, memb->value.var, sizeof(ELEMVAR));
+      }
       delete_array(mpl, var->array), var->array = NULL;
       return;
 }
@@ -7176,6 +7197,7 @@ void clear_variable(MPL *mpl, VARIABLE *var)
     /* delete content array */
     for (memb = var->array->head; memb != NULL; memb = memb->next)
     {
+        delete_formula(mpl, memb->value.var->def);
         dmp_free_atom(mpl->elemvars, memb->value.var, sizeof(ELEMVAR));
         delete_value(mpl, var->array->type, &memb->value);
     }
@@ -7621,6 +7643,10 @@ static void print_nl_expr(MPL *mpl, const NL_EXPR *nl, int paren)
             break;
          case O_LINFORM:
             print_linform(mpl, nl->u.lin, paren);
+            break;
+         case O_DEFVAR:
+            xprintf("%s%s", nl->u.defvar->var->name,
+               format_tuple(mpl, '[', nl->u.defvar->memb->tuple));
             break;
          default:
             xprintf("?(op=%d)", nl->op);

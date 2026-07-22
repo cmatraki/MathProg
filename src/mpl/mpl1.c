@@ -3844,6 +3844,7 @@ VARIABLE *variable_statement(MPL *mpl)
       var->lbnd = NULL;
       var->ubnd = NULL;
       var->assign = NULL;
+      var->def = NULL;
       var->option = NULL;
       var->array = NULL;
       get_token(mpl /* <symbolic name> */);
@@ -3952,7 +3953,19 @@ bin:     {  if (binary_used)
             if (var->lbnd->type == A_SYMBOLIC)
                var->lbnd = make_unary(mpl, O_CVTNUM, var->lbnd,
                   A_NUMERIC, 0);
-            if (var->lbnd->type != A_NUMERIC)
+            if (var->lbnd->type == A_FORMULA)
+            {  if (!(var->assign == NULL && var->option == NULL)
+                  || integer_used || binary_used
+                  || mpl->scan_input->token != T_SEMICOLON)
+                  error(mpl, "defined variables cannot have additional "
+                     "attributes");
+               var->type = A_FORMULA;
+               var->def = var->lbnd;
+               var->lbnd = NULL;
+               var->ubnd = NULL;
+               break;
+            }
+            else if (var->lbnd->type != A_NUMERIC)
                error(mpl, "expression following %s has invalid type",
                   opstr);
             xassert(var->lbnd->dim == 0);

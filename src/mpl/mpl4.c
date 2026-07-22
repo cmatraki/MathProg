@@ -189,6 +189,12 @@ static void mark_nl_expr_vars(NL_EXPR *nl, int flags)
          return;
       if (nl->op == O_LINFORM)
          mark_linform_vars(nl->u.lin, flags);
+      else if (nl->op == O_DEFVAR)
+      {  xassert(nl->u.defvar->def != NULL);
+         nl->u.defvar->memb->value.var->j = -2;
+         mark_linform_vars(nl->u.defvar->def->lin, flags);
+         mark_nl_expr_vars(nl->u.defvar->def->nl, flags);
+      }
       else
       {  mark_nl_expr_vars(nl->u.arg.x, flags);
          mark_nl_expr_vars(nl->u.arg.y, flags);
@@ -239,8 +245,11 @@ void build_problem(MPL *mpl)
       {  if (stmt->type == A_VARIABLE)
          {  v = stmt->u.var;
             for (memb = v->array->head; memb != NULL; memb = memb->next)
-               if (memb->value.var->j != 0) memb->value.var->j =
+            {  if (memb->value.var->j == -1) memb->value.var->j =
                   ++mpl->n;
+               if (memb->value.var->j == -2) memb->value.var->j =
+                  -(++mpl->n_def + 2);
+            }
          }
       }
       /* build list of rows */
@@ -261,22 +270,26 @@ void build_problem(MPL *mpl)
       for (i = 1; i <= mpl->m; i++) xassert(mpl->row[i] != NULL);
 #endif
       /* build list of columns */
-      mpl->col = xcalloc(1+mpl->n, sizeof(ELEMVAR *));
-      for (j = 1; j <= mpl->n; j++) mpl->col[j] = NULL;
+      mpl->col = xcalloc(1+mpl->n+mpl->n_def, sizeof(ELEMVAR *));
+      for (j = 1; j <= mpl->n + mpl->n_def; j++) mpl->col[j] = NULL;
       for (stmt = stmt_list; stmt != NULL; stmt = stmt->next)
       {  if (stmt->type == A_VARIABLE)
          {  v = stmt->u.var;
             for (memb = v->array->head; memb != NULL; memb = memb->next)
             {  j = memb->value.var->j;
                if (j == 0) continue;
-               xassert(1 <= j && j <= mpl->n);
+               if (j < 0)
+               {  j = mpl->n - j - 2;
+                  memb->value.var->j = j;
+               }
+               xassert(1 <= j && j <= mpl->n + mpl->n_def);
                xassert(mpl->col[j] == NULL);
                mpl->col[j] = memb->value.var;
             }
          }
       }
 #ifndef XASSERT_DISABLED
-      for (j = 1; j <= mpl->n; j++) xassert(mpl->col[j] != NULL);
+      for (j = 1; j <= mpl->n+mpl->n_def; j++) xassert(mpl->col[j] != NULL);
 #endif
       return;
 }
@@ -727,6 +740,7 @@ MPL *mpl_initialize(void)
 #endif
       mpl->m = 0;
       mpl->n = 0;
+      mpl->n_def = 0;
       mpl->row = NULL;
       mpl->col = NULL;
       /* input/output segment */
@@ -1057,6 +1071,25 @@ int mpl_get_num_cols(MPL *mpl)
 }
 
 /*----------------------------------------------------------------------
+-- mpl_get_num_defs - determine number of defined variables.
+--
+-- *Synopsis*
+--
+-- #include "glpmpl.h"
+-- int mpl_get_num_defs(MPL *mpl);
+--
+-- *Returns*
+--
+-- The routine mpl_get_num_defs returns total number of defined
+-- variables in the problem. */
+
+int mpl_get_num_defs(MPL *mpl)
+{     if (mpl->phase != GLP_TRAN_PHASE_GENERATE)
+         xfault("mpl_get_num_def: invalid call sequence\n");
+      return mpl->n_def;
+}
+
+/*----------------------------------------------------------------------
 -- mpl_get_row_name - obtain row name.
 --
 -- *Synopsis*
@@ -1236,12 +1269,9 @@ int mpl_get_row_bnds(MPL *mpl, int i, double *_lb, double *_ub)
 -- The routine mpl_get_mat_row returns len, which is length of i-th row
 -- of the constraint matrix (i.e. number of non-zero coefficients). */
 
-static LINFORM *get_nl_expr_vars(MPL *mpl, NL_EXPR *nl, LINFORM *tmp)
-{  if (nl == NULL) return tmp;
-   if (nl->op == O_LINFORM)
-   {  LINFORM *term;
-
-      for (term = nl->u.lin; term != NULL; term = term->next)
+static LINFORM *get_linform_vars(MPL *mpl, LINFORM *form, LINFORM *tmp)
+{     LINFORM *term;
+      for (term = form; term != NULL; term = term->next)
       {  if (term->var == NULL) continue;
          if (term->var != NULL && term->var->temp == 0)
          {  LINFORM *new = dmp_get_atom(mpl->linforms, sizeof(LINFORM));
@@ -1253,10 +1283,20 @@ static LINFORM *get_nl_expr_vars(MPL *mpl, NL_EXPR *nl, LINFORM *tmp)
          }
       }
       return tmp;
-   }
-   tmp = get_nl_expr_vars(mpl, nl->u.arg.x, tmp);
-   tmp = get_nl_expr_vars(mpl, nl->u.arg.y, tmp);
-   return tmp;
+}
+
+static LINFORM *get_nl_expr_vars(MPL *mpl, NL_EXPR *nl, LINFORM *tmp)
+{     if (nl == NULL) return tmp;
+      if (nl->op == O_LINFORM)
+         return get_linform_vars(mpl, nl->u.lin, tmp);
+      else if (nl->op == O_DEFVAR)
+      {  tmp = get_linform_vars(mpl, nl->u.defvar->def->lin, tmp);
+         tmp = get_nl_expr_vars(mpl, nl->u.defvar->def->nl, tmp);
+         return tmp;
+      }
+      tmp = get_nl_expr_vars(mpl, nl->u.arg.x, tmp);
+      tmp = get_nl_expr_vars(mpl, nl->u.arg.y, tmp);
+      return tmp;
 }
 
 int mpl_get_mat_row(MPL *mpl, int i, int ndx[], double val[])
@@ -1374,7 +1414,7 @@ char *mpl_get_col_name(MPL *mpl, int j)
       int len;
       if (mpl->phase != GLP_TRAN_PHASE_GENERATE)
          xfault("mpl_get_col_name: invalid call sequence\n");
-      if (!(1 <= j && j <= mpl->n))
+      if (!(1 <= j && j <= mpl->n + mpl->n_def))
          xfault("mpl_get_col_name: j = %d; column number out of range\n"
             , j);
       strcpy(name, mpl->col[j]->var->name);

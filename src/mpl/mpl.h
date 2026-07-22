@@ -367,6 +367,8 @@ struct mpl_tran
       /* number of rows in the problem, m >= 0 */
       int n;
       /* number of columns in the problem, n >= 0 */
+      int n_def;
+      /* number of defined variables in the problem, n_def >= 0 */
       ELEMCON **row; /* ELEMCON *row[1+m]; */
       /* row[0] is not used;
          row[i] is elemental constraint or objective, which corresponds
@@ -1348,6 +1350,8 @@ struct ELEMVAR
 #endif
       int nl_flags;
       /* flags for variables in nonlinear expressions */
+      FORMULA *def;
+      /* defined variable expansion */
 #define MPL_LIN         0     /* not used in nonlinear expressions */
 #define MPL_NLC         1     /* used in nonlinear constraints */
 #define MPL_NLO         2     /* used in nonlinear objectives */
@@ -1386,6 +1390,7 @@ struct NL_EXPR
 #define O_POWER         346   /* exponentiation (raise to power) */
       /* only for NL_EXPR */
 #define O_LINFORM       501   /* LINFORM */
+#define O_DEFVAR        502   /* defined variable */
       union u
       {  struct
          {  NL_EXPR *x;
@@ -1395,6 +1400,8 @@ struct NL_EXPR
          } arg;
          LINFORM *lin;
          /* used with O_LINFORM (owned) */
+         ELEMVAR *defvar;
+         /* used with O_DEFVAR (not owned) */
       } u;
 };
 
@@ -2099,6 +2106,8 @@ struct VARIABLE
          is not specified */
       /* if both the pointers lbnd and ubnd refer to the same code, the
          variable is fixed at the corresponding value */
+      CODE *def;
+      /* pseudo-code for expanding defined variable; can be NULL */
       CODE *assign;
       /* pseudo-code for computing assigned value; can be NULL */
       CODE *option;
@@ -2972,6 +2981,10 @@ int mpl_get_num_rows(MPL *mpl);
 #define mpl_get_num_cols _mpl_get_num_cols
 int mpl_get_num_cols(MPL *mpl);
 /* determine number of columns */
+
+#define mpl_get_num_defs _mpl_mpl_get_num_defs
+int mpl_get_num_defs(MPL *mpl);
+/* determine number of defined variables */
 
 #define mpl_get_row_name _mpl_get_row_name
 char *mpl_get_row_name(MPL *mpl, int i);

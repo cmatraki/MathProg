@@ -1,5 +1,7 @@
 #ifdef WITH_NLW2
 
+#include <unordered_set>
+
 #include "mp/nl-solver.h"
 #include "mp/nl-feeder.h"
 #include "mp/sol-handler.h"
@@ -36,7 +38,22 @@ struct csa
       int n_nl_both, n_nl_both_i;
       int m_nl, m_nl_obj;
       int n_def;
+      int *defvar_order;
 };
+
+static void find_def_var_used(NL_EXPR *nl, std::unordered_set<int> &used)
+{
+   if (nl == NULL) return;
+   if (nl->op == O_LINFORM) return;
+   if (nl->op != O_DEFVAR)
+   {  find_def_var_used(nl->u.arg.x, used);
+      find_def_var_used(nl->u.arg.y, used);
+      return;
+   }
+   used.insert(nl->u.defvar->j-1);
+   return;
+}
+
 
 struct csa *mathprog_nlw2_build_prob(mpl_tran *tran, int relax)
 {     /* build LP/MIP problem instance from the model */
@@ -94,6 +111,7 @@ struct csa *mathprog_nlw2_build_prob(mpl_tran *tran, int relax)
       csa->n_nl_both_i = 0;
       csa->m_nl = 0;
       csa->m_nl_obj = 0;
+      csa->defvar_order = NULL;
 
       ct = 0;
       for (j = 0; j < n; j++)
@@ -205,6 +223,35 @@ struct csa *mathprog_nlw2_build_prob(mpl_tran *tran, int relax)
       name = mpl_get_prob_name(tran);
       csa->prob_name = (char *)xcalloc(strlen(name)+1, sizeof(char));
       strcpy(csa->prob_name, name);
+
+      if (n_def > 0)
+      {  /* order defined variables to avoid forward references */
+         csa->defvar_order = (int *)xcalloc(n_def, sizeof(int));
+         std::vector<std::pair<int, std::unordered_set<int>>> defvar_usage;
+         for (j = 0; j < n_def; j++)
+         {  defvar_usage.emplace_back(n+j, std::unordered_set<int>{});
+            find_def_var_used(tran->col[n+j+1]->def->nl,
+               defvar_usage.back().second);
+         }
+         ct=0;
+         while (!defvar_usage.empty())
+         {  bool flag = false;
+            for (auto it = defvar_usage.begin(); it != defvar_usage.end();)
+            {  if (it->second.empty())
+               {  int val = it->first;
+                  it = defvar_usage.erase(it);
+                  csa->defvar_order[ct++] = val;
+                  for (auto &t : defvar_usage)
+                     t.second.erase(val);
+                  flag = true;
+               }
+               else
+                  it++;
+            }
+            if (!flag) xerror("can't resolve defined variables order\n");
+         }
+         assert(ct == n_def);
+      }
 
       /* free working arrays */
       xfree(cnt_idx);
@@ -428,29 +475,30 @@ public:
       int n = tran->n;
       ELEMVAR **col = tran->col;
       for (int i = 0; i < csa->n_def; i++)
-      {  std::vector<std::pair<int, double>> tmp;
+      {  int j = csa->defvar_order[i];
+         std::vector<std::pair<int, double>> tmp;
          double c0 = 0;
-         for (LINFORM *form = col[n + i + 1]->def->lin; form != NULL; form = form->next)
+         for (LINFORM *form = col[j+1]->def->lin; form != NULL; form = form->next)
          {  if (form->var == NULL)
             {  c0 = form->coef;
                continue;
             }
-            tmp.emplace_back(form->var->j - 1, form->coef);
+            tmp.emplace_back(form->var->j-1, form->coef);
          }
          std::sort(tmp.begin(), tmp.end());
-         auto dv = dvw.StartDefVar(n + i, tmp.size(), csa->var_names[n+i]);
+         auto dv = dvw.StartDefVar(j, tmp.size(), csa->var_names[j]);
          auto linw = dv.GetLinExprWriter();
          for (auto const &p: tmp)
             linw.Write(p.first, p.second);
          auto ew = dv.GetExprWriter();
-         if (col[n + i + 1]->def->nl == NULL)
+         if (col[j+1]->def->nl == NULL)
             ew.NPut(c0);
          else if (c0 == 0)
-            convert_nl(ew, col[n + i + 1]->def->nl);
+            convert_nl(ew, col[j+1]->def->nl);
          else
          {  auto ew1 = ew.OPut2(mp::nl::ADD);
             ew1.NPut(c0);
-            convert_nl(ew1, col[n + i + 1]->def->nl);
+            convert_nl(ew1, col[j+1]->def->nl);
          }
       }
    }
@@ -811,6 +859,8 @@ void mathprog_nlw2_cleanup(struct csa *csa)
       xfree(csa->inv_perm);
       xfree(csa->ind);
       xfree(csa->val);
+      if (csa->defvar_order)
+         xfree(csa->defvar_order);
 
       delete csa;
 }

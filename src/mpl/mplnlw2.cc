@@ -483,7 +483,7 @@ public:
             {  c0 = form->coef;
                continue;
             }
-            tmp.emplace_back(form->var->j-1, form->coef);
+            tmp.emplace_back(csa->inv_perm[form->var->j-1], form->coef);
          }
          std::sort(tmp.begin(), tmp.end());
          auto dv = dvw.StartDefVar(j, tmp.size(), csa->var_names[j]);

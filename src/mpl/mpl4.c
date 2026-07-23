@@ -230,6 +230,7 @@ void build_problem(MPL *mpl)
             for (memb = c->array->head; memb != NULL; memb = memb->next)
             {  xassert(memb->value.con->i == 0);
                memb->value.con->i = ++mpl->m;
+               if (memb->value.con->eqn == NULL) continue;
                if (memb->value.con->eqn->nl != NULL)
                   mpl->is_nl = 1;
                /* walk through linear form and mark elemental variables,
@@ -758,6 +759,7 @@ MPL *mpl_initialize(void)
       mpl->show_delta = 0;
       mpl->add_missing_param_values = 0;
       mpl->msg_lev = GLP_MSG_ON;
+      mpl->is_nl = 0;
       return mpl;
 }
 
@@ -1346,14 +1348,15 @@ NL_EXPR *mpl_get_row_nl(MPL *mpl, int i)
 
 int mpl_get_row_nl_vars(MPL *mpl, int i, int ndx[])
 {     LINFORM *term;
-      LINFORM *nl_vars;
+      LINFORM *nl_vars = NULL;
       int len = 0;
       if (mpl->phase != GLP_TRAN_PHASE_GENERATE)
          xfault("mpl_get_mat_row: invalid call sequence\n");
       if (!(1 <= i && i <= mpl->m))
          xfault("mpl_get_mat_row: i = %d; row number out of range\n",
             i);
-      nl_vars = get_nl_expr_vars(mpl, mpl->row[i]->eqn->nl, NULL);
+      if (mpl->row[i]->eqn != NULL) nl_vars =
+         get_nl_expr_vars(mpl, mpl->row[i]->eqn->nl, NULL);
       for (term = nl_vars; term != NULL; term = term->next)
       {  len++;
          xassert(len <= mpl->n);

@@ -4142,59 +4142,66 @@ ELEMCON *take_member_con      /* returns reference */
          /* compute lower and upper bounds */
          if (con->lbnd == NULL && con->ubnd == NULL)
          {  /* objective has no bounds */
-            double temp;
+            double temp = 0;
             xassert(con->type == A_MINIMIZE || con->type == A_MAXIMIZE);
             /* carry the constant term to the right-hand side */
-            refer->eqn->lin = remove_constant(mpl, refer->eqn->lin, &temp);
+            if (refer->eqn) refer->eqn->lin =
+               remove_constant(mpl, refer->eqn->lin, &temp);
             refer->lbnd = refer->ubnd = - temp;
          }
          else if (con->lbnd != NULL && con->ubnd == NULL)
          {  /* constraint a * x + b >= c * y + d is transformed to the
                standard form a * x - c * y >= d - b */
-            double temp;
+            double temp = 0;
             xassert(con->type == A_CONSTRAINT);
             refer->eqn = linear_comb(mpl,
                +1.0, refer->eqn,
                -1.0, eval_formula(mpl, con->lbnd));
-            refer->eqn->lin = remove_constant(mpl, refer->eqn->lin, &temp);
+            if (refer->eqn) refer->eqn->lin =
+               remove_constant(mpl, refer->eqn->lin, &temp);
             refer->lbnd = - temp;
             refer->ubnd = 0.0;
          }
          else if (con->lbnd == NULL && con->ubnd != NULL)
          {  /* constraint a * x + b <= c * y + d is transformed to the
                standard form a * x - c * y <= d - b */
-            double temp;
+            double temp = 0;
             xassert(con->type == A_CONSTRAINT);
             refer->eqn = linear_comb(mpl,
                +1.0, refer->eqn,
                -1.0, eval_formula(mpl, con->ubnd));
-            refer->eqn->lin = remove_constant(mpl, refer->eqn->lin, &temp);
+            if (refer->eqn) refer->eqn->lin =
+               remove_constant(mpl, refer->eqn->lin, &temp);
             refer->lbnd = 0.0;
             refer->ubnd = - temp;
          }
          else if (con->lbnd == con->ubnd)
          {  /* constraint a * x + b = c * y + d is transformed to the
                standard form a * x - c * y = d - b */
-            double temp;
+            double temp = 0;
             xassert(con->type == A_CONSTRAINT);
             refer->eqn = linear_comb(mpl,
                +1.0, refer->eqn,
                -1.0, eval_formula(mpl, con->lbnd));
-            refer->eqn->lin = remove_constant(mpl, refer->eqn->lin, &temp);
+            if (refer->eqn) refer->eqn->lin =
+               remove_constant(mpl, refer->eqn->lin, &temp);
             refer->lbnd = refer->ubnd = - temp;
          }
          else
          {  /* ranged constraint c <= a * x + b <= d is transformed to
                the standard form c - b <= a * x <= d - b */
-            double temp, temp1, temp2;
+            double temp = 0, temp1 = 0, temp2 = 0;
             xassert(con->type == A_CONSTRAINT);
-            refer->eqn->lin = remove_constant(mpl, refer->eqn->lin, &temp);
+            if (refer->eqn) refer->eqn->lin =
+               remove_constant(mpl, refer->eqn->lin, &temp);
             FORMULA *ftmp = eval_formula(mpl, con->lbnd);
-            ftmp->lin = remove_constant(mpl, ftmp->lin, &temp1);
+            if (ftmp) ftmp->lin =
+               remove_constant(mpl, ftmp->lin, &temp1);
             xassert(ftmp->lin == NULL && ftmp->nl == NULL);
             delete_formula(mpl, ftmp);
             ftmp = eval_formula(mpl, con->ubnd);
-            ftmp->lin = remove_constant(mpl, ftmp->lin, &temp2);
+            if (ftmp) ftmp->lin =
+               remove_constant(mpl, ftmp->lin, &temp2);
             xassert(ftmp->lin == NULL && ftmp->nl == NULL);
             delete_formula(mpl, ftmp);
             refer->lbnd = fp_sub(mpl, temp1, temp);

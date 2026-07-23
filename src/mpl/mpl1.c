@@ -3143,7 +3143,11 @@ OPT_STMT *option_statement(MPL *mpl)
           default:
               error(mpl, "option value as literal string or number expected");
       }
-
+      /* cache some important option values */
+      if (!strcmp("linelim", opt->key))
+         mpl->linelim = atoi(opt->value);
+      if (!strcmp("substout", opt->key))
+         mpl->substout = atoi(opt->value);
       /* the option statement has been completely parsed */
       if (mpl->scan_input->token != T_SEMICOLON)
          error(mpl, "semicolon missing where expected");

@@ -379,6 +379,12 @@ struct mpl_tran
          of the problem, 1 <= j <= n */
       int is_nl;
       /* problem contains nonlinear expressions */
+      int last_var_new;
+      /* whether the last variable encountered is new */
+      int linelim;
+      /* linelim option cached value */
+      int substout;
+      /* substout option cached value */
       /*--------------------------------------------------------------*/
       /* input/output segment */
       glp_file *out_fp;

@@ -228,7 +228,8 @@ void build_problem(MPL *mpl)
       {  if (stmt->type == A_CONSTRAINT)
          {  c = stmt->u.con;
             for (memb = c->array->head; memb != NULL; memb = memb->next)
-            {  xassert(memb->value.con->i == 0);
+            {  if (memb->value.con == NULL) continue;
+               xassert(memb->value.con->i == 0);
                memb->value.con->i = ++mpl->m;
                if (memb->value.con->eqn == NULL) continue;
                if (memb->value.con->eqn->nl != NULL)
@@ -260,7 +261,8 @@ void build_problem(MPL *mpl)
       {  if (stmt->type == A_CONSTRAINT)
          {  c = stmt->u.con;
             for (memb = c->array->head; memb != NULL; memb = memb->next)
-            {  i = memb->value.con->i;
+            {  if (memb->value.con == NULL) continue;
+               i = memb->value.con->i;
                xassert(1 <= i && i <= mpl->m);
                xassert(mpl->row[i] == NULL);
                mpl->row[i] = memb->value.con;
@@ -321,7 +323,7 @@ void clean_build_problem(MPL *mpl, int skipResetColsRows)
          else if (stmt->type == A_CONSTRAINT)
          {  c = stmt->u.con;
             for (memb = c->array->head; memb != NULL; memb = memb->next)
-            {
+            {  if (memb->value.con == NULL) continue;
                memb->value.con->i = 0;
             }
          }
@@ -760,6 +762,10 @@ MPL *mpl_initialize(void)
       mpl->add_missing_param_values = 0;
       mpl->msg_lev = GLP_MSG_ON;
       mpl->is_nl = 0;
+      mpl->last_var_new = 0;
+      /* default values for the cached options */
+      mpl->linelim = 1;
+      mpl->substout = 0;
       return mpl;
 }
 

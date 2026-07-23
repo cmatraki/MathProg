@@ -3965,6 +3965,7 @@ ELEMVAR *take_member_var      /* returns reference */
       if (memb != NULL)
       {  /* member exists, so just take the reference */
          refer = memb->value.var;
+         mpl->last_var_new = 0;
       }
       else
       {  /* member is referenced for the first time and therefore does
@@ -4004,6 +4005,7 @@ ELEMVAR *take_member_var      /* returns reference */
             refer->def = eval_formula(mpl, var->def);
          else
             refer->def = NULL;
+         mpl->last_var_new = 1;
       }
       return refer;
 }
@@ -4113,6 +4115,34 @@ void clean_variable(MPL *mpl, VARIABLE *var)
 --
 -- NOTE: This routine must not be called out of domain scope. */
 
+static NL_EXPR *expand_nl_defvar(MPL *mpl, NL_EXPR *nl)
+{     if (nl == NULL) return NULL;
+      if (nl->op == O_LINFORM) return nl;
+      if (nl->op != O_DEFVAR)
+      {  nl->u.arg.x = expand_nl_defvar(mpl, nl->u.arg.x);
+         nl->u.arg.y = expand_nl_defvar(mpl, nl->u.arg.y);
+         return simplify_nl_expr(mpl, nl);
+      }
+      if (nl->u.defvar->def->nl != NULL)
+      {  nl->u.defvar->def->nl =
+            expand_nl_defvar(mpl, nl->u.defvar->def->nl);
+         nl->u.defvar->def = simplify_formula(mpl, nl->u.defvar->def);
+      }
+      if (nl->u.defvar->def->nl == NULL)
+      {  LINFORM *form = copy_linform(mpl, nl->u.defvar->def->lin);
+         nl->u.defvar = NULL;
+         nl->op = O_LINFORM;
+         nl->u.lin = form;
+      }
+      return nl;
+}
+
+static FORMULA *expand_defvar(MPL *mpl, FORMULA *form)
+{     if (form == NULL) return NULL;
+      form->nl = expand_nl_defvar(mpl, form->nl);
+      return simplify_formula(mpl, form);
+}
+
 ELEMCON *take_member_con      /* returns reference */
 (     MPL *mpl,
       CONSTRAINT *con,        /* not changed */
@@ -4177,9 +4207,27 @@ ELEMCON *take_member_con      /* returns reference */
          }
          else if (con->lbnd == con->ubnd)
          {  /* constraint a * x + b = c * y + d is transformed to the
-               standard form a * x - c * y = d - b */
+               standard form a * x - c * y = d - b or to defined var */
             double temp = 0;
             xassert(con->type == A_CONSTRAINT);
+            if(mpl->substout && mpl->last_var_new && refer->eqn != NULL
+               && refer->eqn->nl == NULL && refer->eqn->lin != NULL
+               && refer->eqn->lin->next == NULL
+               && refer->eqn->lin->var != NULL)
+            {  /* left hand side is a single new variable */
+               VARIABLE *var = refer->eqn->lin->var->var;
+               if (var->type == A_NUMERIC && var->def == NULL
+                  && var->assign == NULL && var->option == NULL)
+               {  /* transform to defined variable */
+                  xassert(refer->eqn->lin->var->def == NULL);
+                  refer->eqn->lin->var->def =
+                     eval_formula(mpl, con->lbnd);
+                  delete_formula(mpl, refer->eqn);
+                  dmp_free_atom(mpl->elemcons, refer, sizeof(ELEMCON));
+                  memb->value.con = NULL;
+                  return NULL;
+               }
+            }
             refer->eqn = linear_comb(mpl,
                +1.0, refer->eqn,
                -1.0, eval_formula(mpl, con->lbnd));
@@ -4206,6 +4254,16 @@ ELEMCON *take_member_con      /* returns reference */
             delete_formula(mpl, ftmp);
             refer->lbnd = fp_sub(mpl, temp1, temp);
             refer->ubnd = fp_sub(mpl, temp2, temp);
+         }
+         if (mpl->linelim == 1)
+         {  double temp = 0;
+            refer->eqn = expand_defvar(mpl, refer->eqn);
+            if (refer->eqn) refer->eqn->lin =
+               remove_constant(mpl, refer->eqn->lin, &temp);
+            if (con->lbnd != NULL || con->ubnd == NULL)
+               refer->lbnd = fp_sub(mpl, refer->lbnd, temp);
+            if (con->ubnd != NULL || con->lbnd == NULL)
+               refer->ubnd = fp_sub(mpl, refer->ubnd, temp);
          }
 #if 1 /* 15/V-2010 */
          /* solution has not been obtained by the solver yet */
@@ -4301,7 +4359,8 @@ void clean_constraint(MPL *mpl, CONSTRAINT *con)
       if (con->ubnd != con->lbnd) clean_code(mpl, con->ubnd);
       /* delete content array */
       for (memb = con->array->head; memb != NULL; memb = memb->next)
-      {  delete_formula(mpl, memb->value.con->eqn);
+      {  if (memb->value.con == NULL) continue;
+         delete_formula(mpl, memb->value.con->eqn);
          dmp_free_atom(mpl->elemcons, memb->value.con, sizeof(ELEMCON));
       }
       delete_array(mpl, con->array), con->array = NULL;

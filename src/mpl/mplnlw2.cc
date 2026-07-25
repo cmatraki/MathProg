@@ -552,6 +552,52 @@ private:
                convert_nl(ew1, nl->u.arg.x);
             }
             break;
+         case O_ABS:
+            {  auto ew1 = ew.OPut1(mp::nl::ABS);
+               convert_nl(ew1, nl->u.arg.x);
+            }
+            break;
+         case O_COS:
+            {  auto ew1 = ew.OPut1(mp::nl::COS);
+               convert_nl(ew1, nl->u.arg.x);
+            }
+            break;
+         case O_SIN:
+            {  auto ew1 = ew.OPut1(mp::nl::SIN);
+               convert_nl(ew1, nl->u.arg.x);
+            }
+            break;
+         case O_TAN:
+            {  auto ew1 = ew.OPut1(mp::nl::TAN);
+               convert_nl(ew1, nl->u.arg.x);
+            }
+            break;
+         case O_ATAN:
+            {  auto ew1 = ew.OPut1(mp::nl::ATAN);
+               convert_nl(ew1, nl->u.arg.x);
+            }
+            break;
+          case O_ATAN2:
+            {  auto ew1 = ew.OPut2(mp::nl::ATAN2);
+               convert_nl(ew1, nl->u.arg.x);
+               convert_nl(ew1, nl->u.arg.y);
+            }
+            break;
+         case O_EXP:
+            {  auto ew1 = ew.OPut1(mp::nl::EXP);
+               convert_nl(ew1, nl->u.arg.x);
+            }
+            break;
+         case O_LOG:
+            {  auto ew1 = ew.OPut1(mp::nl::LOG);
+               convert_nl(ew1, nl->u.arg.x);
+            }
+            break;
+         case O_LOG10:
+            {  auto ew1 = ew.OPut1(mp::nl::LOG10);
+               convert_nl(ew1, nl->u.arg.x);
+            }
+            break;
          case O_LINFORM:
             convert_linform(ew, nl->u.lin);
             break;
@@ -742,6 +788,25 @@ static double eval_nl_expr(NL_EXPR *nl, double *x)
                eval_nl_expr(nl->u.arg.y, x));
          case O_SQRT:
             return sqrt(eval_nl_expr(nl->u.arg.x, x));
+         case O_ABS:
+            return fabs(eval_nl_expr(nl->u.arg.x, x));
+         case O_COS:
+            return cos(eval_nl_expr(nl->u.arg.x, x));
+         case O_SIN:
+            return sin(eval_nl_expr(nl->u.arg.x, x));
+         case O_TAN:
+            return tan(eval_nl_expr(nl->u.arg.x, x));
+         case O_ATAN:
+            return atan(eval_nl_expr(nl->u.arg.x, x));
+         case O_ATAN2:
+            return atan2(eval_nl_expr(nl->u.arg.x, x),
+               eval_nl_expr(nl->u.arg.y, x));
+         case O_EXP:
+            return exp(eval_nl_expr(nl->u.arg.x, x));
+         case O_LOG:
+            return log(eval_nl_expr(nl->u.arg.x, x));
+         case O_LOG10:
+            return log10(eval_nl_expr(nl->u.arg.x, x));
          case O_LINFORM:
             return eval_linform(nl->u.lin, x);
          case O_DEFVAR:

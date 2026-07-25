@@ -1327,7 +1327,10 @@ CODE *function_reference(MPL *mpl)
       else if (op == O_ATAN || op == O_ROUND || op == O_TRUNC)
       {  /* atan, round, and trunc need one or two arguments */
          /* parse the first argument */
-         arg.arg.x = numeric_argument(mpl, func);
+         if (op == O_ATAN)
+            arg.arg.x = expression_argument(mpl, func);
+         else
+            arg.arg.x = numeric_argument(mpl, func);
          /* parse the second argument, if specified */
          if (mpl->scan_input->token == T_COMMA)
          {  switch (op)
@@ -1337,7 +1340,10 @@ CODE *function_reference(MPL *mpl)
                default: xassert(op != op);
             }
             get_token(mpl /* , */);
-            arg.arg.y = numeric_argument(mpl, func);
+            if (op == O_ATAN2)
+               arg.arg.y = expression_argument(mpl, func);
+            else
+               arg.arg.y = numeric_argument(mpl, func);
          }
          /* check a token that follows the last argument */
          if (mpl->scan_input->token == T_COMMA)
@@ -1425,7 +1431,8 @@ CODE *function_reference(MPL *mpl)
             arg.arg.x = elemset_argument(mpl, func);
          else if (op == O_LENGTH)
             arg.arg.x = symbolic_argument(mpl, func);
-         else if (op == O_SQRT)
+         else if (op == O_SQRT || op == O_ABS || op == O_COS || op == O_SIN
+            || op == O_TAN || op == O_EXP || op == O_LOG || op == O_LOG10)
             arg.arg.x = expression_argument(mpl, func);
          else
             arg.arg.x = numeric_argument(mpl, func);
@@ -1440,8 +1447,13 @@ CODE *function_reference(MPL *mpl)
       /* make pseudo-code to call the built-in function */
       if (op == O_SUBSTR || op == O_SUBSTR3 || op == O_TIME2STR || op == O_VERSION)
          code = make_code(mpl, op, &arg, A_SYMBOLIC, 0);
-      else if (op == O_SQRT)
+      else if (op == O_SQRT || op == O_ABS || op == O_COS || op == O_SIN
+            || op == O_TAN || op == O_ATAN || op == O_EXP || op == O_LOG
+            || op == O_LOG10)
          code = make_code(mpl, op, &arg, arg.arg.x->type, 0);
+      else if (op == O_ATAN2 && (arg.arg.x->type == A_FORMULA
+         || arg.arg.y->type == A_FORMULA))
+         code = make_code(mpl, op, &arg, A_FORMULA, 0);
       else
          code = make_code(mpl, op, &arg, A_NUMERIC, 0);
       /* the reference ends with the right parenthesis */
@@ -2424,9 +2436,10 @@ CODE *expression_1(MPL *mpl)
             y = expression_1(mpl);
          if (y->type == A_SYMBOLIC)
             y = make_unary(mpl, O_CVTNUM, y, A_NUMERIC, 0);
-         if (y->type != A_NUMERIC)
+         if (y->type != A_NUMERIC && y->type != A_FORMULA)
             error_following(mpl, opstr);
-         x = make_binary(mpl, O_POWER, x, y, x->type, 0);
+         x = make_binary(mpl, O_POWER, x, y, x->type == A_FORMULA
+            || y->type == A_FORMULA ? A_FORMULA : A_NUMERIC, 0);
       }
       return x;
 }

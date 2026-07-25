@@ -5824,32 +5824,37 @@ FORMULA *eval_formula(MPL *mpl, CODE *code)
             }
             break;
          case O_POWER:
-            if (code->arg.arg.y->type == A_NUMERIC)
-            {  double ex = eval_numeric(mpl, code->arg.arg.y);
-               FORMULA *fx = eval_formula(mpl, code->arg.arg.x);
-               FORMULA *fy = constant_term(mpl, ex);
+         case O_ATAN2:
+            /* binary operator */
+            {  FORMULA *fx, *fy;
+               if (code->arg.arg.x->type == A_NUMERIC)
+                  fx = constant_term(mpl, eval_numeric(mpl, code->arg.arg.x));
+               else
+                  fx = eval_formula(mpl, code->arg.arg.x);
+               if (code->arg.arg.y->type == A_NUMERIC)
+                  fy = constant_term(mpl, eval_numeric(mpl, code->arg.arg.y));
+               else
+                  fy = eval_formula(mpl, code->arg.arg.y);
                value = make_formula(mpl, NULL, make_nl_expr(mpl,
-                  O_POWER, formula_to_nl_expr(mpl, fx),
-                  formula_to_nl_expr(mpl, fy)));
-            }
-            else
-            {  FORMULA *fx = eval_formula(mpl, code->arg.arg.x);
-               FORMULA *fy = eval_formula(mpl, code->arg.arg.y);
-               value = make_formula(mpl, NULL, make_nl_expr(mpl,
-                  O_POWER, formula_to_nl_expr(mpl, fx),
+                  code->op, formula_to_nl_expr(mpl, fx),
                   formula_to_nl_expr(mpl, fy)));
             }
             break;
          case O_SQRT:
-            /* square root */
-            if (code->arg.arg.x->type == A_FORMULA)
+         case O_ABS:
+         case O_COS:
+         case O_SIN:
+         case O_TAN:
+         case O_ATAN:
+         case O_EXP:
+         case O_LOG:
+         case O_LOG10:
+            /* unary operator */
+            xassert (code->arg.arg.x->type == A_FORMULA);
             {  FORMULA *fx = eval_formula(mpl, code->arg.arg.x);
                value = make_formula(mpl, NULL, make_nl_expr(mpl,
-                  O_SQRT, formula_to_nl_expr(mpl, fx), NULL));
+                  code->op, formula_to_nl_expr(mpl, fx), NULL));
             }
-            else
-               value = constant_term(mpl, eval_numeric(mpl,
-                  code->arg.arg.x));
             break;
          default:
             xassert(code != code);
@@ -7660,6 +7665,21 @@ static void print_linform(MPL *mpl, const LINFORM *form, int paren)
       if (paren) xprintf(")");
 }
 
+static void print_func_name(int op)
+{     switch (op)
+      {  case O_SQRT: xprintf("sqrt"); return;
+         case O_ABS: xprintf("abs"); return;
+         case O_COS: xprintf("cos"); return;
+         case O_SIN: xprintf("sin"); return;
+         case O_TAN: xprintf("tan"); return;
+         case O_ATAN: xprintf("atan"); return;
+         case O_EXP: xprintf("exp"); return;
+         case O_LOG: xprintf("log"); return;
+         case O_LOG10: xprintf("log10"); return;
+         default: xprintf("unk"); return;
+      }
+}
+
 static void print_nl_expr(MPL *mpl, const NL_EXPR *nl, int paren)
 {     if (nl == NULL)
       {  xprintf("0");
@@ -7702,8 +7722,24 @@ static void print_nl_expr(MPL *mpl, const NL_EXPR *nl, int paren)
             xprintf(" ^ ");
             print_nl_expr(mpl, nl->u.arg.y, 1);
             break;
+         case O_ATAN2:
+            xprintf("atan2(");
+            print_nl_expr(mpl, nl->u.arg.x, 0);
+            xprintf(", ");
+            print_nl_expr(mpl, nl->u.arg.y, 0);
+            xprintf(")");
+            break;
          case O_SQRT:
-            xprintf("sqrt(");
+         case O_ABS:
+         case O_COS:
+         case O_SIN:
+         case O_TAN:
+         case O_ATAN:
+         case O_EXP:
+         case O_LOG:
+         case O_LOG10:
+            print_func_name(nl->op);
+            xprintf("(");
             print_nl_expr(mpl, nl->u.arg.x, 0);
             xprintf(")");
             break;

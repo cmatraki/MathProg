@@ -1388,15 +1388,24 @@ struct NL_EXPR
       /* subset of CODE operations */
 #define O_NUMBER        301   /* take floating-point number */
 #define O_MINUS         322   /* unary minus */
+#define O_ABS           324   /* absolute value */
+#define O_EXP           327   /* base-e exponential */
+#define O_LOG           328   /* natural logarithm */
+#define O_LOG10         329   /* common (decimal) logarithm */
 #define O_SQRT          330   /* square root */
+#define O_SIN           331   /* trigonometric sine */
+#define O_COS           332   /* trigonometric cosine */
+#define O_TAN           333   /* trigonometric tangent */
+#define O_ATAN          334   /* trigonometric arctangent */
 #define O_ADD           339   /* addition */
 #define O_SUB           340   /* subtraction */
 #define O_MUL           342   /* multiplication */
 #define O_DIV           343   /* division */
 #define O_POWER         346   /* exponentiation (raise to power) */
+#define O_ATAN2         347   /* trigonometric arctangent */
       /* only for NL_EXPR */
-#define O_LINFORM       501   /* LINFORM */
-#define O_DEFVAR        502   /* defined variable */
+#define O_LINFORM       501   /* linear form (owned) */
+#define O_DEFVAR        502   /* defined variable (not owned) */
       union u
       {  struct
          {  NL_EXPR *x;

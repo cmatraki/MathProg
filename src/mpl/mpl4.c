@@ -223,6 +223,26 @@ void build_problem(MPL *mpl)
          }
       }
 #endif
+      /* prepare model */
+      if (mpl->solve_callback && mpl->current_problem)
+      {  STATEMENT *saved_stmt;
+         saved_stmt = mpl->stmt;
+         for (stmt = stmt_list; stmt != NULL; stmt = stmt->next)
+         {  execute_statement(mpl, stmt);
+            if (stmt->type == A_CONSTRAINT)
+            {  mpl->stmt = stmt;
+               if (mpl->show_delta || mpl->msg_lev >= GLP_MSG_ON)
+                  xprintf("Generating %s...%s", stmt->u.con->name,
+                     mpl->show_delta ? "" : "\n");
+               eval_whole_con(mpl, stmt->u.con);
+               if (mpl->show_delta)
+               {  xprintf(", %d elements\n", stmt->u.con->array->size);
+                  glp_show_mem_usage();
+               }
+            }
+         }
+         mpl->stmt = saved_stmt;
+      }
       /* assign row numbers to elemental constraints and objectives */
       for (stmt = stmt_list; stmt != NULL; stmt = stmt->next)
       {  if (stmt->type == A_CONSTRAINT)

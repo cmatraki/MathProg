@@ -6450,23 +6450,6 @@ void execute_solve(MPL *mpl, SOLVE *solve)
         if(prob && prob->list)
         {
             saved_prob = mpl->current_problem;
-
-            for (elm = prob->list; elm != NULL; elm = elm->next)
-            {
-                execute_statement(mpl, elm);
-                if(elm->type == A_CONSTRAINT)
-                {
-                    mpl->stmt = elm;
-                    if (mpl->show_delta || mpl->msg_lev >= GLP_MSG_ON)
-                        xprintf("Generating %s...%s", elm->u.con->name,
-                            mpl->show_delta ? "" : "\n");
-                    eval_whole_con(mpl, elm->u.con);
-                    if(mpl->show_delta) {
-                        xprintf(", %d elements\n", elm->u.con->array->size);
-                        glp_show_mem_usage();
-                    }
-                }
-            }
             clean_build_problem(mpl, 0);
             build_problem(mpl);
             mpl->flag_p = 0;

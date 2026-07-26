@@ -489,7 +489,9 @@ static int parse_cmdline(struct csa *csa, int argc, char *argv[])
       int k;
 #define p(str) (strcmp(argv[k], str) == 0)
       for (k = 1; k < argc; k++)
-      {  if (p("--mps"))
+      {
+#if 0
+         if (p("--mps"))
             csa->format = FMT_MPS_DECK;
          else if (p("--freemps"))
             csa->format = FMT_MPS_FILE;
@@ -497,7 +499,9 @@ static int parse_cmdline(struct csa *csa, int argc, char *argv[])
             csa->format = FMT_LP;
          else if (p("--glp"))
             csa->format = FMT_GLP;
-         else if (p("--math") || p("-m") || p("--model"))
+         else
+#endif
+         if (p("--math") || p("-m") || p("--model"))
             csa->format = FMT_MATHPROG;
          else if (p("-d") || p("--data"))
          {  k++;
@@ -537,6 +541,7 @@ static int parse_cmdline(struct csa *csa, int argc, char *argv[])
                return 1;
             }
          }
+#if 0
          else if (p("--mincost"))
             csa->format = FMT_MIN_COST;
          else if (p("--maxflow"))
@@ -630,6 +635,7 @@ static int parse_cmdline(struct csa *csa, int argc, char *argv[])
             else
                csa->smcp.tm_lim = csa->iocp.tm_lim = INT_MAX;
          }
+#endif
          else if (p("--memlim"))
          {  int mem_lim;
             k++;
@@ -703,6 +709,7 @@ static int parse_cmdline(struct csa *csa, int argc, char *argv[])
             glp_set_use_col_row_names(csa->prob, 0);
          }
 #endif
+#if 0
          else if (p("--wmps"))
          {  k++;
             if (k == argc || argv[k][0] == '\0' || argv[k][0] == '-')
@@ -795,6 +802,7 @@ static int parse_cmdline(struct csa *csa, int argc, char *argv[])
             csa->out_cnf = argv[k];
          }
 #endif
+#endif
          else if (p("--log"))
          {  k++;
             if (k == argc || argv[k][0] == '\0' || argv[k][0] == '-')
@@ -815,6 +823,7 @@ static int parse_cmdline(struct csa *csa, int argc, char *argv[])
          {  print_version(0);
             return -1;
          }
+#if 0
 #if 0 /* 08/III-2014 */
          else if (p("--luf"))
             csa->bfcp.type = GLP_BF_FT;
@@ -904,8 +913,10 @@ static int parse_cmdline(struct csa *csa, int argc, char *argv[])
             csa->iptcp.ord_alg = GLP_ORD_AMD;
          else if (p("--symamd"))
             csa->iptcp.ord_alg = GLP_ORD_SYMAMD;
+#endif
          else if (p("--nomip"))
             csa->nomip = 1;
+#if 0
          else if (p("--first"))
             csa->iocp.br_tech = GLP_BR_FFV;
          else if (p("--last"))
@@ -1015,6 +1026,7 @@ static int parse_cmdline(struct csa *csa, int argc, char *argv[])
             }
             csa->iocp.save_sol = argv[k];
          }
+#endif
 #endif
          else if (argv[k][0] == '-' ||
                  (argv[k][0] == '-' && argv[k][1] == '-'))
@@ -1240,6 +1252,7 @@ int __cdecl main(int argc, char *argv[])
       csa->nlw2_solver = NULL;
       csa->nlw2_solver_opts = NULL;
 #endif
+      csa->format = FMT_MATHPROG;
       /* parse command-line parameters */
       ret = parse_cmdline(csa, argc, argv);
       if (ret < 0)
@@ -1371,8 +1384,10 @@ err2:    {  xprintf("MathProg model processing error\n");
          if (mathprog_generate(csa->tran, csa->out_dpy)) goto err2;
          if (csa->genonly || (csa->solve_callback_used &&
                  csa->solve_callback_used_has_solution == 0)) goto done;
+#if 0
          /* build the problem instance from the model */
          mathprog_build_prob(csa->tran, csa->prob);
+#endif
       }
       else if (csa->format == FMT_MIN_COST)
       {  csa->graph = glp_create_graph(sizeof(v_data), sizeof(a_data));
@@ -1514,6 +1529,8 @@ err2:    {  xprintf("MathProg model processing error\n");
       /* if only problem data check is required, skip computations */
       if (csa->check)
       {
+         /* build the problem instance from the model */
+         mathprog_build_prob(csa->tran, csa->prob);
 #if 1 /* 29/III-2016 */
          /* report problem characteristics */
          int j, cnt = 0;
@@ -1539,7 +1556,7 @@ err2:    {  xprintf("MathProg model processing error\n");
          ret = EXIT_SUCCESS;
          goto done;
       }
-
+#if 0
       /*--------------------------------------------------------------*/
       /* determine the solution type */
       if (!csa->nomip &&
@@ -1781,6 +1798,9 @@ ranges:        {  ret = glp_print_ranges(csa->prob, 0, NULL, 0,
       /*--------------------------------------------------------------*/
       /* all seems to be ok */
       ret = EXIT_SUCCESS;
+#else
+      ret = solve_callback(csa->tran, 0, csa);
+#endif
       /*--------------------------------------------------------------*/
 done: /* delete the LP/MIP problem object */
       if (csa->prob != NULL)

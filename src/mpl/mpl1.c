@@ -36,6 +36,7 @@
 
 void enter_context(MPL *mpl)
 {     char *image, *s;
+      if (mpl->flag_d < 0) return;     /* already in context queue */
       if (mpl->scan_input->token == T_EOF)
          image = "_|_";
       else if (mpl->scan_input->token == T_STRING)
@@ -152,6 +153,10 @@ void get_token(MPL *mpl)
          mpl->scan_input->value = mpl->scan_input->f_value;
          goto done;
       }
+      if (mpl->flag_d < 0)
+      {  /* reparse text from data section as if in model section */
+         goto reparse;
+      }
 loop: /* nothing has been scanned so far */
       mpl->scan_input->token = 0;
       mpl->scan_input->imlen = 0;
@@ -170,9 +175,9 @@ loop: /* nothing has been scanned so far */
          goto loop;
       }
       else if (!mpl->flag_d && (isalpha(mpl->scan_input->c) || mpl->scan_input->c == '_'))
-      {  /* symbolic name or reserved keyword */
+      {  while (isalnum(mpl->scan_input->c) || mpl->scan_input->c == '_') append_char(mpl);
+reparse: /* symbolic name or reserved keyword */
          mpl->scan_input->token = T_NAME;
-         while (isalnum(mpl->scan_input->c) || mpl->scan_input->c == '_') append_char(mpl);
          if (strcmp(mpl->scan_input->image, "and") == 0)
             mpl->scan_input->token = T_AND;
          else if (strcmp(mpl->scan_input->image, "by") == 0)

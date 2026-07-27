@@ -1228,6 +1228,16 @@ void data_section(MPL *mpl, int in_mod_file)
               get_token(mpl /* ; */);
               return;
          }
+         else if (in_mod_file && (isalpha(mpl->scan_input->image[0])
+            || mpl->scan_input->image[0] == '_'))
+         {  /* unknown text, switch to model section and reparse */
+            mpl->phase = GLP_TRAN_PHASE_MODEL;
+            mpl->flag_d = -1;
+            /* reparse the token */
+            get_token(mpl);
+            mpl->flag_d = 0;
+            return;
+         }
          else
             error(mpl, "syntax error in data section");
       }

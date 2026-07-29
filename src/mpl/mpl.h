@@ -1403,6 +1403,10 @@ struct NL_EXPR
 #define O_DIV           343   /* division */
 #define O_POWER         346   /* exponentiation (raise to power) */
 #define O_ATAN2         347   /* trigonometric arctangent */
+#define O_MIN           376   /* minimal value (n-ary) */
+#define O_MAX           377   /* maximal value (n-ary) */
+      /* used as n-ary operator in NL_EXPR */
+#define O_SUM           378   /* summation */
       /* only for NL_EXPR */
 #define O_LINFORM       501   /* linear form (owned) */
 #define O_DEFVAR        502   /* defined variable (not owned) */
@@ -1412,11 +1416,20 @@ struct NL_EXPR
             /* first operand (owned) */
             NL_EXPR *y;
             /* second operand (owned); NULL for unary operators */
+            NL_EXPR *z;
+            /* third operand (owned); NULL except for ternary
+               operators - currently unused */
          } arg;
          LINFORM *lin;
          /* used with O_LINFORM (owned) */
          ELEMVAR *defvar;
          /* used with O_DEFVAR (not owned) */
+         struct
+         {  int n;
+            /* number of elements */
+            NL_EXPR **data;
+            /* array of nonlinear expressions (owned) */
+         } vec;
       } u;
 };
 
@@ -1537,6 +1550,12 @@ NL_EXPR *simplify_nl_expr
       NL_EXPR *form           /* destroyed */
 );
 /* simplifies nonlinear expression */
+
+#define is_nary_nl_expr_op _mpl_is_nary_nl_expr_op
+int is_nary_nl_expr_op
+(     int op
+);
+/* check for n-ary opcode */
 
 /**********************************************************************/
 /* * *                   ELEMENTAL CONSTRAINTS                    * * */

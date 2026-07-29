@@ -45,9 +45,15 @@ static void find_def_var_used(NL_EXPR *nl, std::unordered_set<int> &used)
 {
    if (nl == NULL) return;
    if (nl->op == O_LINFORM) return;
+   if (is_nary_nl_expr_op(nl->op))
+   {  for (int i = 0; i < nl->u.vec.n; i++)
+         find_def_var_used(nl->u.vec.data[i], used);
+      return;
+   }
    if (nl->op != O_DEFVAR)
    {  find_def_var_used(nl->u.arg.x, used);
       find_def_var_used(nl->u.arg.y, used);
+      find_def_var_used(nl->u.arg.z, used);
       return;
    }
    used.insert(nl->u.defvar->j-1);
@@ -505,6 +511,32 @@ public:
 
 private:
 
+   const mp::nl::Opcode& get_opcode(int op)
+   {  switch (op)
+      {  case O_MUL: return mp::nl::MUL;
+         case O_DIV: return mp::nl::DIV;
+         case O_ADD: return mp::nl::ADD;
+         case O_SUB: return mp::nl::SUB;
+         case O_MINUS: return mp::nl::MINUS;
+         case O_POWER: return mp::nl::POW;
+         case O_SQRT: return mp::nl::SQRT;
+         case O_ABS: return mp::nl::ABS;
+         case O_COS: return mp::nl::COS;
+         case O_SIN: return mp::nl::SIN;
+         case O_TAN: return mp::nl::TAN;
+         case O_ATAN: return mp::nl::ATAN;
+         case O_ATAN2: return mp::nl::ATAN2;
+         case O_EXP: return mp::nl::EXP;
+         case O_LOG: return mp::nl::LOG;
+         case O_LOG10: return mp::nl::LOG10;
+         case O_SUM: return mp::nl::SUM;
+         case O_MIN: return mp::nl::MIN;
+         case O_MAX: return mp::nl::MAX;
+         default:
+            assert(op != op);
+      }
+   }
+
    template <class ExprWriter>
    void convert_nl(ExprWriter& ew, NL_EXPR *nl)
    {  if (nl == NULL)
@@ -513,88 +545,27 @@ private:
       }
       switch (nl->op)
       {  case O_MUL:
-            {  auto ew1 = ew.OPut2(mp::nl::MUL);
-               convert_nl(ew1, nl->u.arg.x);
-               convert_nl(ew1, nl->u.arg.y);
-            }
-            break;
          case O_DIV:
-            {  auto ew1 = ew.OPut2(mp::nl::DIV);
-               convert_nl(ew1, nl->u.arg.x);
-               convert_nl(ew1, nl->u.arg.y);
-            }
-            break;
          case O_ADD:
-            {  auto ew1 = ew.OPut2(mp::nl::ADD);
-               convert_nl(ew1, nl->u.arg.x);
-               convert_nl(ew1, nl->u.arg.y);
-            }
-            break;
          case O_SUB:
-            {  auto ew1 = ew.OPut2(mp::nl::SUB);
+         case O_POWER:
+         case O_ATAN2:
+            {  auto ew1 = ew.OPut2(get_opcode(nl->op));
                convert_nl(ew1, nl->u.arg.x);
                convert_nl(ew1, nl->u.arg.y);
             }
             break;
          case O_MINUS:
-            {  auto ew1 = ew.OPut1(mp::nl::MINUS);
-               convert_nl(ew1, nl->u.arg.x);
-            }
-            break;
-         case O_POWER:
-            {  auto ew1 = ew.OPut2(mp::nl::POW);
-               convert_nl(ew1, nl->u.arg.x);
-               convert_nl(ew1, nl->u.arg.y);
-            }
-            break;
          case O_SQRT:
-            {  auto ew1 = ew.OPut1(mp::nl::SQRT);
-               convert_nl(ew1, nl->u.arg.x);
-            }
-            break;
          case O_ABS:
-            {  auto ew1 = ew.OPut1(mp::nl::ABS);
-               convert_nl(ew1, nl->u.arg.x);
-            }
-            break;
          case O_COS:
-            {  auto ew1 = ew.OPut1(mp::nl::COS);
-               convert_nl(ew1, nl->u.arg.x);
-            }
-            break;
          case O_SIN:
-            {  auto ew1 = ew.OPut1(mp::nl::SIN);
-               convert_nl(ew1, nl->u.arg.x);
-            }
-            break;
          case O_TAN:
-            {  auto ew1 = ew.OPut1(mp::nl::TAN);
-               convert_nl(ew1, nl->u.arg.x);
-            }
-            break;
          case O_ATAN:
-            {  auto ew1 = ew.OPut1(mp::nl::ATAN);
-               convert_nl(ew1, nl->u.arg.x);
-            }
-            break;
-          case O_ATAN2:
-            {  auto ew1 = ew.OPut2(mp::nl::ATAN2);
-               convert_nl(ew1, nl->u.arg.x);
-               convert_nl(ew1, nl->u.arg.y);
-            }
-            break;
          case O_EXP:
-            {  auto ew1 = ew.OPut1(mp::nl::EXP);
-               convert_nl(ew1, nl->u.arg.x);
-            }
-            break;
          case O_LOG:
-            {  auto ew1 = ew.OPut1(mp::nl::LOG);
-               convert_nl(ew1, nl->u.arg.x);
-            }
-            break;
          case O_LOG10:
-            {  auto ew1 = ew.OPut1(mp::nl::LOG10);
+            {  auto ew1 = ew.OPut1(get_opcode(nl->op));
                convert_nl(ew1, nl->u.arg.x);
             }
             break;
@@ -603,6 +574,14 @@ private:
             break;
          case O_DEFVAR:
             ew.VPut(nl->u.defvar->j-1);
+            break;
+         case O_SUM:
+         case O_MIN:
+         case O_MAX:
+            {  auto ew1 = ew.OPutN(get_opcode(nl->op), nl->u.vec.n);
+               for (int i = 0; i < nl->u.vec.n; i++)
+                  convert_nl(ew1, nl->u.vec.data[i]);
+            }
             break;
          default:
             assert(nl != nl);
@@ -814,6 +793,24 @@ static double eval_nl_expr(NL_EXPR *nl, double *x)
                sum = eval_linform(nl->u.defvar->def->lin, x);
                sum += eval_nl_expr(nl->u.defvar->def->nl, x);
                return sum;
+            }
+         case O_SUM:
+            {  double sum = 0;
+               for (int i = 0; i < nl->u.vec.n; i++)
+                  sum += eval_nl_expr(nl->u.vec.data[i], x);
+               return sum;
+            }
+         case O_MIN:
+            {  double min = std::numeric_limits<double>::infinity();
+               for (int i = 0; i < nl->u.vec.n; i++)
+                  min = std::min(min, eval_nl_expr(nl->u.vec.data[i], x));
+               return min;
+            }
+         case O_MAX:
+            {  double max = -std::numeric_limits<double>::infinity();
+               for (int i = 0; i < nl->u.vec.n; i++)
+                  max = std::max(max, eval_nl_expr(nl->u.vec.data[i], x));
+               return max;
             }
          default:
             assert(nl != nl);

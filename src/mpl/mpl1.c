@@ -1291,7 +1291,7 @@ CODE *function_reference(MPL *mpl)
          for (;;)
          {  /* parse argument and append it to the operands list */
             arg.list = expand_arg_list(mpl, arg.list,
-               numeric_argument(mpl, func));
+               expression_argument(mpl, func));
             /* check a token that follows the argument */
             if (mpl->scan_input->token == T_COMMA)
                get_token(mpl /* , */);
@@ -1459,6 +1459,16 @@ CODE *function_reference(MPL *mpl)
       else if (op == O_ATAN2 && (arg.arg.x->type == A_FORMULA
          || arg.arg.y->type == A_FORMULA))
          code = make_code(mpl, op, &arg, A_FORMULA, 0);
+      else if (op == O_MIN || op == O_MAX)
+      {  ARG_LIST *temp;
+         int type = A_NUMERIC;
+         for (temp = arg.list; temp->next != NULL; temp = temp->next)
+            if (temp->x->type == A_FORMULA)
+            {  type = A_FORMULA;
+               break;
+            }
+         code = make_code(mpl, op, &arg, type, 0);
+      }
       else
          code = make_code(mpl, op, &arg, A_NUMERIC, 0);
       /* the reference ends with the right parenthesis */
@@ -2041,10 +2051,9 @@ CODE *iterated_expression(MPL *mpl)
             if (arg.loop.x->type == A_SYMBOLIC)
                arg.loop.x = make_unary(mpl, O_CVTNUM, arg.loop.x,
                   A_NUMERIC, 0);
-            /* now the integrand must be of numeric type or linear form
-               (the latter is only allowed for the sum operator) */
-            if (!(arg.loop.x->type == A_NUMERIC ||
-                  op == O_SUM && arg.loop.x->type == A_FORMULA))
+            /* the integrand must be of numeric type or linear form */
+            if (!(arg.loop.x->type == A_NUMERIC || arg.loop.x->type ==
+               A_FORMULA))
 err:           error(mpl, "integrand following %s{...} has invalid type"
                   , opstr);
             xassert(arg.loop.x->dim == 0);

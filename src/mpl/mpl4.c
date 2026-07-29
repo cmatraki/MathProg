@@ -189,6 +189,11 @@ static void mark_nl_expr_vars(NL_EXPR *nl, int flags)
          return;
       if (nl->op == O_LINFORM)
          mark_linform_vars(nl->u.lin, flags);
+      else if (is_nary_nl_expr_op(nl->op))
+      {  int i;
+         for (i = 0; i < nl->u.vec.n; i++)
+            mark_nl_expr_vars(nl->u.vec.data[i], flags);
+      }
       else if (nl->op == O_DEFVAR)
       {  xassert(nl->u.defvar->def != NULL);
          nl->u.defvar->memb->value.var->j = -2;
@@ -1317,13 +1322,20 @@ static LINFORM *get_nl_expr_vars(MPL *mpl, NL_EXPR *nl, LINFORM *tmp)
 {     if (nl == NULL) return tmp;
       if (nl->op == O_LINFORM)
          return get_linform_vars(mpl, nl->u.lin, tmp);
-      else if (nl->op == O_DEFVAR)
+      if (nl->op == O_DEFVAR)
       {  tmp = get_linform_vars(mpl, nl->u.defvar->def->lin, tmp);
          tmp = get_nl_expr_vars(mpl, nl->u.defvar->def->nl, tmp);
          return tmp;
       }
+      if (is_nary_nl_expr_op(nl->op))
+      {  int i;
+         for (i = 0; i < nl->u.vec.n; i++)
+            tmp = get_nl_expr_vars(mpl, nl->u.vec.data[i], tmp);
+         return tmp;
+      }
       tmp = get_nl_expr_vars(mpl, nl->u.arg.x, tmp);
       tmp = get_nl_expr_vars(mpl, nl->u.arg.y, tmp);
+      tmp = get_nl_expr_vars(mpl, nl->u.arg.z, tmp);
       return tmp;
 }
 

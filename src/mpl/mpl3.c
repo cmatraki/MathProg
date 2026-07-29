@@ -1443,6 +1443,16 @@ FORMULA *single_variable
 }
 
 /*----------------------------------------------------------------------
+-- is_nary_nl_expr - check for n-ary opcode.
+--
+-- This routine returns true if the operation takes a variable number of
+-- arguments. */
+
+int is_nary_nl_expr_op(int op)
+{     return (op == O_MIN || op == O_MAX || op == O_SUM);
+}
+
+/*----------------------------------------------------------------------
 -- make_nl_expr - create nonlinear expression.
 --
 -- This routine creates a nonlinear expression with one or two nonlinear
@@ -1455,11 +1465,12 @@ NL_EXPR *make_nl_expr
       NL_EXPR *y              /* consumed; NULL for unary operation */
 )
 {     NL_EXPR *ret;
-      xassert(op != O_LINFORM && op != O_DEFVAR);
+      xassert(op != O_LINFORM && !is_nary_nl_expr_op(op));
       ret = dmp_get_atom(mpl->nlexprs, sizeof(NL_EXPR));
       ret->op = op;
       ret->u.arg.x = x;
       ret->u.arg.y = y;
+      ret->u.arg.z = NULL;
       return ret;
 }
 
@@ -1550,17 +1561,23 @@ NL_EXPR *copy_nl_expr
 {     NL_EXPR *node;
       if (nl == NULL) return NULL;
       node = dmp_get_atom(mpl->nlexprs, sizeof(NL_EXPR));
-      node->op   = nl->op;
+      node->op = nl->op;
       if (nl->op == O_LINFORM)
          node->u.lin = copy_linform(mpl, nl->u.lin);
       else if (nl->op == O_DEFVAR)
          node->u.defvar = nl->u.defvar;
+      else if (is_nary_nl_expr_op(nl->op))
+      {  int i, n = nl->u.vec.n;
+         node->u.vec.n = n;
+         node->u.vec.data = xcalloc(n, sizeof(NL_EXPR *));
+         for (i = 0; i < n; i++)
+            node->u.vec.data[i] = copy_nl_expr(mpl, nl->u.vec.data[i]);
+      }
       else
       {  node->u.arg.x = copy_nl_expr(mpl, nl->u.arg.x);
          node->u.arg.y = copy_nl_expr(mpl, nl->u.arg.y);
+         node->u.arg.z = copy_nl_expr(mpl, nl->u.arg.z);
       }
-
-
       return node;
 }
 
@@ -1610,12 +1627,18 @@ void delete_nl_expr
 {     if (nl == NULL) return;
       if (nl->op == O_LINFORM)
          delete_linform(mpl, nl->u.lin);
+      else if (is_nary_nl_expr_op(nl->op))
+      {  int i, n;
+         n = nl->u.vec.n;
+         for (i = 0; i < n; i++)
+            delete_nl_expr(mpl, nl->u.vec.data[i]);
+         xfree(nl->u.vec.data);
+      }
       else if (nl->op != O_DEFVAR)
       {  delete_nl_expr(mpl, nl->u.arg.x);
          delete_nl_expr(mpl, nl->u.arg.y);
+         delete_nl_expr(mpl, nl->u.arg.z);
       }
-
-
       dmp_free_atom(mpl->nlexprs, nl, sizeof(NL_EXPR));
       return;
 }
@@ -1818,11 +1841,94 @@ static LINFORM *invert_linform
       return form;
 }
 
+/* also used in eval_formula */
+struct nl_expr_list
+{     NL_EXPR *nl;
+      struct nl_expr_list *next;
+};
+
+/* also used in eval_formula */
+static NL_EXPR *list_to_nl_expr(MPL *mpl, int op, struct nl_expr_list *list)
+{     int n;
+      struct nl_expr_list *p;
+      NL_EXPR *nl;
+      xassert(is_nary_nl_expr_op(op));
+      for (n = 0, p = list; p != NULL; p = p->next) n++;
+      if (n == 0) return NULL;
+      else if (n == 1) {
+        nl = list->nl;
+        xfree(list);
+        return nl;
+      }
+      nl = dmp_get_atom(mpl->nlexprs, sizeof(NL_EXPR));
+      nl->op = op;
+      nl->u.vec.n = n;
+      nl->u.vec.data = xcalloc(n, sizeof(NL_EXPR *));
+      p = list;
+      while (p != 0)
+      {  /* start from the back as the list is in reverse order */
+         struct nl_expr_list *t = p->next;
+         nl->u.vec.data[--n] = p->nl;
+         xfree(p);
+         p = t;
+      }
+      return nl;
+}
+
+static NL_EXPR *simplify_sum_nl_expr(MPL *mpl, NL_EXPR *nl)
+{     LINFORM *lin = NULL, *tail = NULL, *term;
+      struct nl_expr_list *list = NULL;
+      int i;
+      xassert(nl != NULL && nl->op == O_SUM);
+      for (i = 0; i < nl->u.vec.n; i++)
+      {  /* simplify_formula will extract any linear terms */
+         FORMULA *form = simplify_formula(mpl, make_formula(mpl, NULL,
+            nl->u.vec.data[i]));
+         nl->u.vec.data[i] = NULL;
+         if (form == NULL)
+            continue;
+         if (form->nl != NULL)
+         {  /* add any remaining nl part to head of the linked list */
+            struct nl_expr_list *p;
+            p = xmalloc(sizeof(struct nl_expr_list));
+            p->nl = form->nl;
+            p->next = list;
+            list = p;
+            form->nl = NULL;
+         }
+         /* the routine linear_comb needs to look through all terms
+            of both linear forms to reduce identical terms, so using
+            it here is not a good idea (for example, evaluation of
+            sum{i in 1..n} x[i] required quadratic time); the better
+            idea is to gather all terms of the integrand in one list
+            and reduce identical terms only once after all terms of
+            the resultant linear form have been evaluated */
+         term = form->lin;
+         if (lin == NULL)
+         {  xassert(tail == NULL);
+            lin = term;
+         }
+         else
+         {  xassert(tail != NULL);
+            tail->next = form->lin;
+         }
+         form->lin = NULL;
+         delete_formula(mpl, form);
+         for (; term != NULL; term = term->next)
+            if(!term->next) tail = term;
+      }
+      delete_nl_expr(mpl, nl);
+      return formula_to_nl_expr(mpl, make_formula(mpl,
+         reduce_terms(mpl, lin), list_to_nl_expr(mpl, O_SUM, list)));
+}
+
 NL_EXPR *simplify_nl_expr(MPL *mpl, NL_EXPR *nl)
 {  double cx, cy;
    if (nl == NULL) return NULL;
    switch (nl->op)
-   {  case O_ADD:
+   {  case O_SUM:
+         return simplify_sum_nl_expr(mpl, nl);
+      case O_ADD:
          if (nl_expr_is_const(nl->u.arg.x, &cx) && cx == 0.0)
          {  NL_EXPR *y = nl->u.arg.y;
             nl->u.arg.y = NULL;
@@ -4118,9 +4224,16 @@ void clean_variable(MPL *mpl, VARIABLE *var)
 static NL_EXPR *expand_nl_defvar(MPL *mpl, NL_EXPR *nl)
 {     if (nl == NULL) return NULL;
       if (nl->op == O_LINFORM) return nl;
+      if (is_nary_nl_expr_op(nl->op))
+      {  int i;
+         for (i = 0; i < nl->u.vec.n; i++)
+            nl->u.vec.data[i] = expand_nl_defvar(mpl, nl->u.vec.data[i]);
+         return simplify_nl_expr(mpl, nl);;
+      }
       if (nl->op != O_DEFVAR)
       {  nl->u.arg.x = expand_nl_defvar(mpl, nl->u.arg.x);
          nl->u.arg.y = expand_nl_defvar(mpl, nl->u.arg.y);
+         nl->u.arg.z = expand_nl_defvar(mpl, nl->u.arg.z);
          return simplify_nl_expr(mpl, nl);
       }
       if (nl->u.defvar->def->nl != NULL)
@@ -5607,10 +5720,8 @@ struct iter_form_info
 {     /* working info used by the routine iter_form_func */
       CODE *code;
       /* pseudo-code for iterated operation to be performed */
-      FORMULA *value;
-      /* resultant value */
-      LINFORM *tail;
-      /* pointer to the last term */
+      struct nl_expr_list *list;
+      /* list of all terms packed in nonlinear expressions */
 };
 
 static int iter_form_func(MPL *mpl, void *_info)
@@ -5619,62 +5730,48 @@ static int iter_form_func(MPL *mpl, void *_info)
       struct iter_form_info *info = _info;
       switch (info->code->op)
       {  case O_SUM:
-            /* summation over domain */
-#if 0
-            info->value =
-               linear_comb(mpl,
-                  +1.0, info->value,
-                  +1.0, eval_formula(mpl, info->code->arg.loop.x));
-#else
-            /* the routine linear_comb needs to look through all terms
-               of both linear forms to reduce identical terms, so using
-               it here is not a good idea (for example, evaluation of
-               sum{i in 1..n} x[i] required quadratic time); the better
-               idea is to gather all terms of the integrand in one list
-               and reduce identical terms only once after all terms of
-               the resultant linear form have been evaluated */
+         case O_PROD:
+         case O_MAX:
+         case O_MAXIMUM:
             {  FORMULA *form;
-               LINFORM *term;
-               NL_EXPR *nl;
+               struct nl_expr_list *p;
                form = eval_formula(mpl, info->code->arg.loop.x);
                if (form == NULL)
                   break;
-               if (info->value != NULL)
-               {  nl = info->value->nl;
-                  info->value->nl = NULL;
-               }
-               else nl = NULL;
-               if (form->nl != NULL)
-               {  if (nl == NULL) nl = form->nl;
-                  else nl = make_nl_expr(mpl, O_ADD, nl, form->nl);
-                  form->nl = NULL;
-               }
-               term = form->lin;
-               if (info->value == NULL || info->value->lin == NULL)
-               {  xassert(info->tail == NULL);
-                  /* The accumulator is empty; take ownership of this
-                     FORMULA (replacing the NULL/empty placeholder). */
-                  if (info->value) delete_formula(mpl, info->value);
-                  info->value = form;
-               }
-               else
-               {  xassert(info->tail != NULL);
-                  /* Splice the linear terms from form into the accumulator's
-                     tail, null out form->lin, then free the empty shell. */
-                  info->tail->next = form->lin;
-                  form->lin = NULL;
-                  delete_formula(mpl, form);
-               }
-               info->value->nl = nl;
-               for (; term != NULL; term = term->next)
-                  if(!term->next) info->tail = term;
+               /* pack the formula in the linked list, simplify_nl_expr
+                  will take care of it later for sum, nothing more to do
+                  for min and max */
+               p = xmalloc(sizeof(struct nl_expr_list));
+               p->nl = formula_to_nl_expr(mpl, form);
+               p->next = info->list;
+               info->list = p;
+               form->nl = NULL;
             }
-#endif
             break;
          default:
             xassert(info != info);
       }
       return 0;
+}
+
+static NL_EXPR *expand_prod(MPL *mpl, struct nl_expr_list *list)
+{     NL_EXPR *nl;
+      xassert(list != NULL);
+      /* iteratively reduce the list by succesively multiplying pairs */
+      while (list->next != NULL)
+      {  struct nl_expr_list *p, *q;
+         for (p = list; p != NULL; p = p->next)
+         {  q = p->next;
+            if (q == NULL) break;
+            p->nl = simplify_nl_expr(mpl, make_nl_expr(mpl, O_MUL,
+               q->nl, p->nl));
+            p->next = q->next;
+            xfree(q);
+         }
+      }
+      nl = list->nl;
+      xfree(list);
+      return nl;
 }
 
 FORMULA *eval_formula(MPL *mpl, CODE *code)
@@ -5810,17 +5907,48 @@ FORMULA *eval_formula(MPL *mpl, CODE *code)
                value = eval_formula(mpl, code->arg.arg.z);
             break;
          case O_SUM:
-            /* summation over domain */
+         case O_PROD:
+         case O_MINIMUM:
+         case O_MAXIMUM:
             {  struct iter_form_info _info, *info = &_info;
+               int op;
+               NL_EXPR *nl;
+               if (code->op == O_MINIMUM)
+                  op = O_MIN;
+               else if (code->op == O_MAXIMUM)
+                  op = O_MAX;
+               else
+                  op = code->op;
                info->code = code;
-               info->value = constant_term(mpl, 0.0);
-               info->tail = NULL;
+               info->list = NULL;
                loop_within_domain(mpl, code->arg.loop.domain, info,
                   iter_form_func);
-               value = info->value;
-               /* A zero/empty sum is represented by a NULL FORMULA. */
-               if (value != NULL)
-                  value->lin = reduce_terms(mpl, value->lin);
+               if (op == O_PROD)
+                  nl = expand_prod(mpl, info->list);
+               else
+                  nl = simplify_nl_expr(mpl, list_to_nl_expr(mpl, op,
+                     info->list));
+               value = make_formula(mpl, NULL, nl);
+            }
+            break;
+         case O_MIN:
+         case O_MAX:
+            {  struct nl_expr_list *list = NULL;
+               ARG_LIST *e;
+               for (e = code->arg.list; e != NULL; e = e->next)
+               {  struct nl_expr_list *p;
+                  p = xmalloc(sizeof(struct nl_expr_list));
+                  if (e->x->type == A_FORMULA)
+                     p->nl = formula_to_nl_expr(mpl,
+                        eval_formula(mpl, e->x));
+                  else
+                     p->nl = formula_to_nl_expr(mpl,
+                        constant_term(mpl, eval_numeric(mpl, e->x)));
+                  p->next = list;
+                  list = p;
+               }
+               value = make_formula(mpl, NULL,
+                  list_to_nl_expr(mpl, code->op, list));
             }
             break;
          case O_POWER:
@@ -7650,16 +7778,19 @@ static void print_linform(MPL *mpl, const LINFORM *form, int paren)
 
 static void print_func_name(int op)
 {     switch (op)
-      {  case O_SQRT: xprintf("sqrt"); return;
-         case O_ABS: xprintf("abs"); return;
-         case O_COS: xprintf("cos"); return;
-         case O_SIN: xprintf("sin"); return;
-         case O_TAN: xprintf("tan"); return;
-         case O_ATAN: xprintf("atan"); return;
-         case O_EXP: xprintf("exp"); return;
-         case O_LOG: xprintf("log"); return;
-         case O_LOG10: xprintf("log10"); return;
-         default: xprintf("unk"); return;
+      {  case O_SQRT: xprintf("sqrt"); break;
+         case O_ABS: xprintf("abs"); break;
+         case O_COS: xprintf("cos"); break;
+         case O_SIN: xprintf("sin"); break;
+         case O_TAN: xprintf("tan"); break;
+         case O_ATAN: xprintf("atan"); break;
+         case O_EXP: xprintf("exp"); break;
+         case O_LOG: xprintf("log"); break;
+         case O_LOG10: xprintf("log10"); break;
+         case O_MIN: xprintf("min"); break;
+         case O_MAX: xprintf("max"); break;
+         case O_SUM: xprintf("sum"); break;
+         default: xprintf("unk");
       }
 }
 
@@ -7733,6 +7864,18 @@ static void print_nl_expr(MPL *mpl, const NL_EXPR *nl, int paren)
             xprintf("%s%s", nl->u.defvar->var->name,
                format_tuple(mpl, '[', nl->u.defvar->memb->tuple));
             break;
+         case O_MIN:
+         case O_MAX:
+         case O_SUM:
+            {  int i;
+               print_func_name(nl->op);
+               xprintf("(");
+               for (i = 0; i < nl->u.vec.n; i++)
+               {  print_nl_expr(mpl, nl->u.vec.data[i], 0);
+                  if (i != nl->u.vec.n - 1) xprintf(", ");
+               }
+               xprintf(")");
+            }
          default:
             xprintf("?(op=%d)", nl->op);
             break;

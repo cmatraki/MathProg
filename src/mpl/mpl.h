@@ -263,6 +263,8 @@ struct glp_input_file_st
       /* stream assigned to the input text file */
       char *in_file;
       /* name of the input text file */
+      char *unget_buf; /* char unget_buf[MAX_LENGTH+1]; */
+      /* stack of characters from unappend_char */
 };
 
 #if 0 /* 22/I-2013 */
@@ -453,6 +455,10 @@ void get_char(MPL *mpl);
 #define append_char _mpl_append_char
 void append_char(MPL *mpl);
 /* append character to current token */
+
+#define unappend_char _mpl_unappend_char
+void unappend_char(MPL *mpl);
+/* revert last character of current token */
 
 #define get_token _mpl_get_token
 void get_token(MPL *mpl);

@@ -128,8 +128,30 @@ void append_char(MPL *mpl)
       }
       mpl->scan_input->image[mpl->scan_input->imlen++] = (char)mpl->scan_input->c;
       mpl->scan_input->image[mpl->scan_input->imlen] = '\0';
-      get_char(mpl);
+      if (mpl->scan_input->unget_buf[0] != 0)
+      {  int i = strlen(mpl->scan_input->unget_buf);
+         mpl->scan_input->c = mpl->scan_input->unget_buf[--i];
+         mpl->scan_input->unget_buf[i] = 0;
+      }
+      else
+         get_char(mpl);
       return;
+}
+
+/*----------------------------------------------------------------------
+-- unappend_char - revert last character of current token.
+--
+-- This routine reverts the last character of the current token back to
+-- a buffer for the next read. */
+
+void unappend_char(MPL *mpl)
+{     int i = strlen(mpl->scan_input->unget_buf);
+      xassert(i < MAX_LENGTH);
+      mpl->scan_input->unget_buf[i] = mpl->scan_input->c;
+      mpl->scan_input->unget_buf[i+1] = 0;
+      i = strlen(mpl->scan_input->image);
+      mpl->scan_input->c = mpl->scan_input->image[--i];
+      mpl->scan_input->image[i] = 0;
 }
 
 /*----------------------------------------------------------------------
@@ -209,16 +231,18 @@ reparse: /* symbolic name or reserved keyword */
          else if (strcmp(mpl->scan_input->image, "or") == 0)
             mpl->scan_input->token = T_OR;
          else if (strcmp(mpl->scan_input->image, "s") == 0 && mpl->scan_input->c == '.')
-         {  mpl->scan_input->token = T_SPTP;
-            append_char(mpl);
-            if (mpl->scan_input->c != 't')
-sptp:       {  enter_context(mpl);
-               error(mpl, "keyword s.t. incomplete");
+         {  append_char(mpl);
+            if (mpl->scan_input->c == 't')
+            {  append_char(mpl);
+               if (mpl->scan_input->c == '.')
+               {  append_char(mpl);
+                  mpl->scan_input->token = T_SPTP;
+                  goto sptp;
+               }
+               unappend_char(mpl);
             }
-            append_char(mpl);
-            if (mpl->scan_input->c != '.') goto sptp;
-            append_char(mpl);
-         }
+            unappend_char(mpl);
+sptp:    }
          else if (strcmp(mpl->scan_input->image, "symdiff") == 0)
             mpl->scan_input->token = T_SYMDIFF;
          else if (strcmp(mpl->scan_input->image, "then") == 0)

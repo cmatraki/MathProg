@@ -704,6 +704,8 @@ glp_input_file_st *mpl_new_scan_input(MPL *mpl)
       sin->c_ptr = 0;
       sin->in_fp = NULL;
       sin->in_file = NULL;
+      sin->unget_buf = xcalloc(MAX_LENGTH+1, sizeof(char));
+      sin->unget_buf[0] = '\0';
       return sin;
 }
 
@@ -714,6 +716,7 @@ void mpl_free_scan_input(MPL *mpl, glp_input_file_st *sin)
       xfree(mpl->scan_input->b_image);
       xfree(mpl->scan_input->f_image);
       xfree(mpl->scan_input->context);
+      xfree(mpl->scan_input->unget_buf);
       if (mpl->scan_input->in_fp != NULL) glp_close(mpl->scan_input->in_fp);
       xfree(sin);
 }

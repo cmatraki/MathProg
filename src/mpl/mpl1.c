@@ -3459,7 +3459,8 @@ SET *set_statement(MPL *mpl)
                   "mension %d rather than %d",
                   set->dimen, within->code->dim);
          }
-         else if (mpl->scan_input->token == T_ASSIGN)
+         else if (mpl->scan_input->token == T_ASSIGN
+            || mpl->scan_input->token == T_EQ)
          {  /* assignment expression */
             if (!(set->assign == NULL && set->option == NULL &&
                   set->gadget == NULL))
@@ -3704,7 +3705,7 @@ bin:     {  if (binary_used)
             get_token(mpl /* symbolic */);
          }
          else if (mpl->scan_input->token == T_LT || mpl->scan_input->token == T_LE ||
-                  mpl->scan_input->token == T_EQ || mpl->scan_input->token == T_GE ||
+                  mpl->scan_input->token == T_GE ||
                   mpl->scan_input->token == T_GT || mpl->scan_input->token == T_NE)
          {  /* restricting condition */
             CONDITION *cond, *temp;
@@ -3717,8 +3718,6 @@ bin:     {  if (binary_used)
                   cond->rho = O_LT, strcpy(opstr, mpl->scan_input->image); break;
                case T_LE:
                   cond->rho = O_LE, strcpy(opstr, mpl->scan_input->image); break;
-               case T_EQ:
-                  cond->rho = O_EQ, strcpy(opstr, mpl->scan_input->image); break;
                case T_GE:
                   cond->rho = O_GE, strcpy(opstr, mpl->scan_input->image); break;
                case T_GT:
@@ -3790,7 +3789,8 @@ bin:     {  if (binary_used)
                error(mpl, "set expression following in must have dimens"
                   "ion 1 rather than %d", in->code->dim);
          }
-         else if (mpl->scan_input->token == T_ASSIGN)
+         else if (mpl->scan_input->token == T_ASSIGN
+            || mpl->scan_input->token == T_EQ)
          {  /* assignment expression */
             if (!(par->assign == NULL && par->option == NULL))
 err:           error(mpl, "at most one := or default allowed");

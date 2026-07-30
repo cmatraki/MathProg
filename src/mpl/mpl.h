@@ -387,6 +387,8 @@ struct mpl_tran
       /* linelim option cached value */
       int substout;
       /* substout option cached value */
+      int allow_nan;
+      /* allow_NaN option cached value */
       /*--------------------------------------------------------------*/
       /* input/output segment */
       glp_file *out_fp;

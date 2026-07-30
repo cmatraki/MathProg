@@ -2340,7 +2340,7 @@ CODE *primary_expression(MPL *mpl)
       else if (mpl->scan_input->token == T_INFINITY)
       {  /* parse "infinity" */
          OPERANDS arg;
-         arg.num = DBL_MAX;
+         arg.num = INFINITY;
          code = make_code(mpl, O_NUMBER, &arg, A_NUMERIC, 0);
          get_token(mpl /* Infinity */);
       }
@@ -3199,6 +3199,8 @@ OPT_STMT *option_statement(MPL *mpl)
          mpl->linelim = atoi(opt->value);
       if (!strcmp("substout", opt->key))
          mpl->substout = atoi(opt->value);
+      if (!strcmp("allow_NaN", opt->key))
+         mpl->allow_nan = atoi(opt->value);
       /* the option statement has been completely parsed */
       if (mpl->scan_input->token != T_SEMICOLON)
          error(mpl, "semicolon missing where expected");

@@ -40,11 +40,7 @@
 -- This routine computes the sum x + y. */
 
 double fp_add(MPL *mpl, double x, double y)
-{     if (x > 0.0 && y > 0.0 && x > + 0.999 * DBL_MAX - y ||
-          x < 0.0 && y < 0.0 && x < - 0.999 * DBL_MAX - y)
-         error(mpl, "%.*g + %.*g; floating-point overflow",
-            DBL_DIG, x, DBL_DIG, y);
-      return x + y;
+{     return x + y;
 }
 
 /*----------------------------------------------------------------------
@@ -53,11 +49,7 @@ double fp_add(MPL *mpl, double x, double y)
 -- This routine computes the difference x - y. */
 
 double fp_sub(MPL *mpl, double x, double y)
-{     if (x > 0.0 && y < 0.0 && x > + 0.999 * DBL_MAX + y ||
-          x < 0.0 && y > 0.0 && x < - 0.999 * DBL_MAX + y)
-         error(mpl, "%.*g - %.*g; floating-point overflow",
-            DBL_DIG, x, DBL_DIG, y);
-      return x - y;
+{     return x - y;
 }
 
 /*----------------------------------------------------------------------
@@ -67,9 +59,6 @@ double fp_sub(MPL *mpl, double x, double y)
 
 double fp_less(MPL *mpl, double x, double y)
 {     if (x < y) return 0.0;
-      if (x > 0.0 && y < 0.0 && x > + 0.999 * DBL_MAX + y)
-         error(mpl, "%.*g less %.*g; floating-point overflow",
-            DBL_DIG, x, DBL_DIG, y);
       return x - y;
 }
 
@@ -79,10 +68,7 @@ double fp_less(MPL *mpl, double x, double y)
 -- This routine computes the product x * y. */
 
 double fp_mul(MPL *mpl, double x, double y)
-{     if (fabs(y) > 1.0 && fabs(x) > (0.999 * DBL_MAX) / fabs(y))
-         error(mpl, "%.*g * %.*g; floating-point overflow",
-            DBL_DIG, x, DBL_DIG, y);
-      return x * y;
+{     return x * y;
 }
 
 /*----------------------------------------------------------------------
@@ -91,11 +77,8 @@ double fp_mul(MPL *mpl, double x, double y)
 -- This routine computes the quotient x / y. */
 
 double fp_div(MPL *mpl, double x, double y)
-{     if (fabs(y) < DBL_MIN)
+{     if (mpl->allow_nan == 0 && fabs(y) < DBL_MIN)
          error(mpl, "%.*g / %.*g; floating-point zero divide",
-            DBL_DIG, x, DBL_DIG, y);
-      if (fabs(y) < 1.0 && fabs(x) > (0.999 * DBL_MAX) * fabs(y))
-         error(mpl, "%.*g / %.*g; floating-point overflow",
             DBL_DIG, x, DBL_DIG, y);
       return x / y;
 }
@@ -106,11 +89,8 @@ double fp_div(MPL *mpl, double x, double y)
 -- This routine computes the quotient of exact division x div y. */
 
 double fp_idiv(MPL *mpl, double x, double y)
-{     if (fabs(y) < DBL_MIN)
+{     if (mpl->allow_nan == 0 && fabs(y) < DBL_MIN)
          error(mpl, "%.*g div %.*g; floating-point zero divide",
-            DBL_DIG, x, DBL_DIG, y);
-      if (fabs(y) < 1.0 && fabs(x) > (0.999 * DBL_MAX) * fabs(y))
-         error(mpl, "%.*g div %.*g; floating-point overflow",
             DBL_DIG, x, DBL_DIG, y);
       x /= y;
       return x > 0.0 ? floor(x) : x < 0.0 ? ceil(x) : 0.0;
@@ -134,12 +114,6 @@ double fp_mod(MPL *mpl, double x, double y)
          r = x;
       else
       {  r = fmod(x, y);
-         /*
-         r = fmod(fabs(x), fabs(y));
-           if (r != 0.0)
-         {  if (x < 0.0) r = - r;
-            if (x > 0.0 && y < 0.0 || x < 0.0 && y > 0.0) r += y;
-         }*/
       }
       return r;
 }
@@ -150,25 +124,10 @@ double fp_mod(MPL *mpl, double x, double y)
 -- This routine computes the exponentiation x ** y. */
 
 double fp_power(MPL *mpl, double x, double y)
-{     double r;
-      if (x == 0.0 && y <= 0.0 || x < 0.0 && y != floor(y))
+{     if (x == 0.0 && y <= 0.0 || x < 0.0 && y != floor(y))
          error(mpl, "%.*g ** %.*g; result undefined",
             DBL_DIG, x, DBL_DIG, y);
-      if (x == 0.0) goto eval;
-      if (fabs(x) > 1.0 && y > +1.0 &&
-            +log(fabs(x)) > (0.999 * log(DBL_MAX)) / y ||
-          fabs(x) < 1.0 && y < -1.0 &&
-            +log(fabs(x)) < (0.999 * log(DBL_MAX)) / y)
-         error(mpl, "%.*g ** %.*g; floating-point overflow",
-            DBL_DIG, x, DBL_DIG, y);
-      if (fabs(x) > 1.0 && y < -1.0 &&
-            -log(fabs(x)) < (0.999 * log(DBL_MAX)) / y ||
-          fabs(x) < 1.0 && y > +1.0 &&
-            -log(fabs(x)) > (0.999 * log(DBL_MAX)) / y)
-         r = 0.0;
-      else
-eval:    r = pow(x, y);
-      return r;
+      return pow(x, y);;
 }
 
 /*----------------------------------------------------------------------
@@ -177,9 +136,7 @@ eval:    r = pow(x, y);
 -- This routine computes the base-e exponential e ** x. */
 
 double fp_exp(MPL *mpl, double x)
-{     if (x > 0.999 * log(DBL_MAX))
-         error(mpl, "exp(%.*g); floating-point overflow", DBL_DIG, x);
-      return exp(x);
+{     return exp(x);
 }
 
 /*----------------------------------------------------------------------
@@ -188,7 +145,7 @@ double fp_exp(MPL *mpl, double x)
 -- This routine computes the natural logarithm log x. */
 
 double fp_log(MPL *mpl, double x)
-{     if (x <= 0.0)
+{     if (mpl->allow_nan == 0 && x <= 0.0)
          error(mpl, "log(%.*g); non-positive argument", DBL_DIG, x);
       return log(x);
 }
@@ -199,7 +156,7 @@ double fp_log(MPL *mpl, double x)
 -- This routine computes the common (decimal) logarithm lg x. */
 
 double fp_log10(MPL *mpl, double x)
-{     if (x <= 0.0)
+{     if (mpl->allow_nan == 0 && x <= 0.0)
          error(mpl, "log10(%.*g); non-positive argument", DBL_DIG, x);
       return log10(x);
 }
@@ -210,7 +167,7 @@ double fp_log10(MPL *mpl, double x)
 -- This routine computes the square root x ** 0.5. */
 
 double fp_sqrt(MPL *mpl, double x)
-{     if (x < 0.0)
+{     if (mpl->allow_nan == 0 && x < 0.0)
          error(mpl, "sqrt(%.*g); negative argument", DBL_DIG, x);
       return sqrt(x);
 }
@@ -221,9 +178,7 @@ double fp_sqrt(MPL *mpl, double x)
 -- This routine computes the trigonometric sine sin(x). */
 
 double fp_sin(MPL *mpl, double x)
-{     if (!(-1e6 <= x && x <= +1e6))
-         error(mpl, "sin(%.*g); argument too large", DBL_DIG, x);
-      return sin(x);
+{     return sin(x);
 }
 
 /*----------------------------------------------------------------------
@@ -232,9 +187,7 @@ double fp_sin(MPL *mpl, double x)
 -- This routine computes the trigonometric cosine cos(x). */
 
 double fp_cos(MPL *mpl, double x)
-{     if (!(-1e6 <= x && x <= +1e6))
-         error(mpl, "cos(%.*g); argument too large", DBL_DIG, x);
-      return cos(x);
+{     return cos(x);
 }
 
 /*----------------------------------------------------------------------
@@ -243,9 +196,7 @@ double fp_cos(MPL *mpl, double x)
 -- This routine computes the trigonometric tangent tan(x). */
 
 double fp_tan(MPL *mpl, double x)
-{     if (!(-1e6 <= x && x <= +1e6))
-         error(mpl, "tan(%.*g); argument too large", DBL_DIG, x);
-      return tan(x);
+{     return tan(x);
 }
 
 /*----------------------------------------------------------------------
@@ -4585,13 +4536,13 @@ double eval_numeric(MPL *mpl, CODE *code)
                switch (code->arg.var.suff)
                {  case DOT_LB:
                      if (var->var->lbnd == NULL)
-                        value = -DBL_MAX;
+                        value = -INFINITY;
                      else
                         value = var->lbnd;
                      break;
                   case DOT_UB:
                      if (var->var->ubnd == NULL)
-                        value = +DBL_MAX;
+                        value = +INFINITY;
                      else
                         value = var->ubnd;
                      break;
@@ -4625,13 +4576,13 @@ double eval_numeric(MPL *mpl, CODE *code)
                switch (code->arg.con.suff)
                {  case DOT_LB:
                      if (con->con->lbnd == NULL)
-                        value = -DBL_MAX;
+                        value = -INFINITY;
                      else
                         value = con->lbnd;
                      break;
                   case DOT_UB:
                      if (con->con->ubnd == NULL)
-                        value = +DBL_MAX;
+                        value = +INFINITY;
                      else
                         value = con->ubnd;
                      break;
@@ -4878,7 +4829,7 @@ double eval_numeric(MPL *mpl, CODE *code)
             /* minimal value (n-ary) */
             {  ARG_LIST *e;
                double temp;
-               value = +DBL_MAX;
+               value = +INFINITY;
                for (e = code->arg.list; e != NULL; e = e->next)
                {  temp = eval_numeric(mpl, e->x);
                   if (value > temp) value = temp;
@@ -4889,7 +4840,7 @@ double eval_numeric(MPL *mpl, CODE *code)
             /* maximal value (n-ary) */
             {  ARG_LIST *e;
                double temp;
-               value = -DBL_MAX;
+               value = -INFINITY;
                for (e = code->arg.list; e != NULL; e = e->next)
                {  temp = eval_numeric(mpl, e->x);
                   if (value < temp) value = temp;
@@ -4920,11 +4871,9 @@ double eval_numeric(MPL *mpl, CODE *code)
             /* minimum over domain */
             {  struct iter_num_info _info, *info = &_info;
                info->code = code;
-               info->value = +DBL_MAX;
+               info->value = +INFINITY;
                loop_within_domain(mpl, code->arg.loop.domain, info,
                   iter_num_func);
-               if (info->value == +DBL_MAX)
-                  error(mpl, "min{} over empty set; result undefined");
                value = info->value;
             }
             break;
@@ -4932,11 +4881,9 @@ double eval_numeric(MPL *mpl, CODE *code)
             /* maximum over domain */
             {  struct iter_num_info _info, *info = &_info;
                info->code = code;
-               info->value = -DBL_MAX;
+               info->value = -INFINITY;
                loop_within_domain(mpl, code->arg.loop.domain, info,
                   iter_num_func);
-               if (info->value == -DBL_MAX)
-                  error(mpl, "max{} over empty set; result undefined");
                value = info->value;
             }
             break;
@@ -6764,12 +6711,12 @@ static void display_var(MPL *mpl, VARIABLE *var, MEMBER *memb,
       else if (suff == DOT_LB)
          write_text(mpl, "%s%s.lb = %.*g\n", var->name,
             format_tuple(mpl, '[', memb->tuple), DBL_DIG,
-            memb->value.var->var->lbnd == NULL ? -DBL_MAX :
+            memb->value.var->var->lbnd == NULL ? -INFINITY :
             memb->value.var->lbnd);
       else if (suff == DOT_UB)
          write_text(mpl, "%s%s.ub = %.*g\n", var->name,
             format_tuple(mpl, '[', memb->tuple), DBL_DIG,
-            memb->value.var->var->ubnd == NULL ? +DBL_MAX :
+            memb->value.var->var->ubnd == NULL ? +INFINITY :
             memb->value.var->ubnd);
       else if (suff == DOT_STATUS)
          write_text(mpl, "%s%s.status = %d\n", var->name, format_tuple
@@ -6795,12 +6742,12 @@ static void display_con(MPL *mpl, CONSTRAINT *con, MEMBER *memb,
       else if (suff == DOT_LB)
          write_text(mpl, "%s%s.lb = %.*g\n", con->name,
             format_tuple(mpl, '[', memb->tuple), DBL_DIG,
-            memb->value.con->con->lbnd == NULL ? -DBL_MAX :
+            memb->value.con->con->lbnd == NULL ? -INFINITY :
             memb->value.con->lbnd);
       else if (suff == DOT_UB)
          write_text(mpl, "%s%s.ub = %.*g\n", con->name,
             format_tuple(mpl, '[', memb->tuple), DBL_DIG,
-            memb->value.con->con->ubnd == NULL ? +DBL_MAX :
+            memb->value.con->con->ubnd == NULL ? +INFINITY :
             memb->value.con->ubnd);
       else if (suff == DOT_STATUS)
          write_text(mpl, "%s%s.status = %d\n", con->name, format_tuple

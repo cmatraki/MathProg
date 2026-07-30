@@ -794,6 +794,7 @@ MPL *mpl_initialize(void)
       /* default values for the cached options */
       mpl->linelim = 1;
       mpl->substout = 0;
+      mpl->allow_nan = 0;
       return mpl;
 }
 
@@ -1258,13 +1259,13 @@ int mpl_get_row_bnds(MPL *mpl, int i, double *_lb, double *_ub)
       else
          type = MPL_FX, lb = ub = con->lbnd;
 #else
-      lb = (con->con->lbnd == NULL ? -DBL_MAX : con->lbnd);
-      ub = (con->con->ubnd == NULL ? +DBL_MAX : con->ubnd);
-      if (lb == -DBL_MAX && ub == +DBL_MAX)
+      lb = (con->con->lbnd == NULL ? -INFINITY : con->lbnd);
+      ub = (con->con->ubnd == NULL ? +INFINITY : con->ubnd);
+      if (lb == -INFINITY && ub == +INFINITY)
          type = MPL_FR, lb = ub = 0.0;
-      else if (ub == +DBL_MAX)
+      else if (ub == +INFINITY)
          type = MPL_LO, ub = 0.0;
-      else if (lb == -DBL_MAX)
+      else if (lb == -INFINITY)
          type = MPL_UP, lb = 0.0;
       else if (con->con->lbnd != con->con->ubnd)
          type = MPL_DB;
@@ -1610,13 +1611,13 @@ int mpl_get_col_bnds(MPL *mpl, int j, double *_lb, double *_ub)
       else
          type = MPL_FX, lb = ub = var->lbnd;
 #else
-      lb = (var->var->lbnd == NULL ? -DBL_MAX : var->lbnd);
-      ub = (var->var->ubnd == NULL ? +DBL_MAX : var->ubnd);
-      if (lb == -DBL_MAX && ub == +DBL_MAX)
+      lb = (var->var->lbnd == NULL ? -INFINITY : var->lbnd);
+      ub = (var->var->ubnd == NULL ? +INFINITY : var->ubnd);
+      if (lb == -INFINITY && ub == +INFINITY)
          type = MPL_FR, lb = ub = 0.0;
-      else if (ub == +DBL_MAX)
+      else if (ub == +INFINITY)
          type = MPL_LO, ub = 0.0;
-      else if (lb == -DBL_MAX)
+      else if (lb == -INFINITY)
          type = MPL_UP, lb = 0.0;
       else if (var->var->lbnd != var->var->ubnd)
          type = MPL_DB;

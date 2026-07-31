@@ -5065,6 +5065,93 @@ PRINTF *printf_statement(MPL *mpl)
       return prt;
 }
 
+/*----------------------------------------------------------------------
+-- print_statement - parse print statement.
+--
+-- This routine parses print statement using the syntax:
+--
+-- <print statement> ::= <print clause> ;
+-- <print statement> ::= <print clause> > <file name> ;
+-- <print statement> ::= <print clause> >> <file name> ;
+-- <print clause> ::= print <domain> : <print list>
+-- <print clause> ::= print <domain> <print list>
+-- <domain> ::= <empty>
+-- <domain> ::= <indexing expression>
+-- <format> ::= <expression 5>
+-- <print list> ::= <empty>
+-- <print list> ::= <print list> , <print entry>
+-- <print entry> ::= <expression 9>
+-- <file name> ::= <expression 5> */
+
+PRINTF *print_statement(MPL *mpl)
+{     PRINTF *prt;
+      PRINTF1 *entry, *last_entry;
+      xassert(is_keyword(mpl, "print"));
+      /* create printf descriptor */
+      prt = alloc(PRINTF);
+      prt->domain = NULL;
+      prt->fmt = NULL;
+      prt->list = last_entry = NULL;
+      get_token(mpl /* printf */);
+      /* parse optional indxing expression */
+      if (mpl->scan_input->token == T_LBRACE)
+      {  prt->domain = indexing_expression(mpl);
+      }
+      /* skip optional colon */
+      if (mpl->scan_input->token == T_COLON) get_token(mpl /* : */);
+      /* NULL for format string to distinguish from printf */
+      prt->fmt = NULL;
+      /* parse print list */
+      for (;;)
+      {  /* create new printf entry */
+         entry = alloc(PRINTF1);
+         entry->code = NULL;
+         entry->next = NULL;
+         /* and append it to the printf list */
+         if (prt->list == NULL)
+            prt->list = entry;
+         else
+            last_entry->next = entry;
+         last_entry = entry;
+         /* parse print entry */
+         entry->code = expression_9(mpl);
+         if (!(entry->code->type == A_NUMERIC ||
+               entry->code->type == A_SYMBOLIC ||
+               entry->code->type == A_LOGICAL))
+            error(mpl, "only numeric, symbolic, or logical expression a"
+               "llowed");
+         /* check a token that follows the entry parsed */
+         if (mpl->scan_input->token == T_COMMA)
+            get_token(mpl /* , */);
+         else
+            break;
+      }
+      /* close the domain scope */
+      if (prt->domain != NULL) close_scope(mpl, prt->domain);
+#if 1 /* 14/VII-2006 */
+      /* parse optional redirection */
+      prt->fname = NULL, prt->app = 0;
+      if (mpl->scan_input->token == T_GT || mpl->scan_input->token == T_APPEND)
+      {  prt->app = (mpl->scan_input->token == T_APPEND);
+         get_token(mpl /* > or >> */);
+         /* parse expression for file name string */
+         prt->fname = expression_5(mpl);
+         /* convert it to symbolic type, if necessary */
+         if (prt->fname->type == A_NUMERIC)
+            prt->fname = make_unary(mpl, O_CVTSYM, prt->fname,
+               A_SYMBOLIC, 0);
+         /* check that now the expression is of symbolic type */
+         if (prt->fname->type != A_SYMBOLIC)
+            error(mpl, "file name expression has invalid type");
+      }
+#endif
+      /* the print statement has been completely parsed */
+      if (mpl->scan_input->token != T_SEMICOLON)
+         error(mpl, "syntax error in print statement");
+      get_token(mpl /* ; */);
+      return prt;
+}
+
 static STATEMENT *parse_compound_statement(MPL *mpl)
 {
     STATEMENT *list, *stmt, *last_stmt;
@@ -5353,6 +5440,10 @@ STATEMENT *simple_statement(MPL *mpl, int spec)
       else if (is_keyword(mpl, "printf"))
       {  stmt->type = A_PRINTF;
          stmt->u.prt = printf_statement(mpl);
+      }
+      else if (is_keyword(mpl, "print"))
+      {  stmt->type = A_PRINTF;
+         stmt->u.prt = print_statement(mpl);
       }
       else if (is_keyword(mpl, "for"))
       {  stmt->type = A_FOR;

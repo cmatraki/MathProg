@@ -795,6 +795,7 @@ MPL *mpl_initialize(void)
       mpl->linelim = 1;
       mpl->substout = 0;
       mpl->allow_nan = 0;
+      mpl->print_separator = " ";
       return mpl;
 }
 

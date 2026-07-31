@@ -383,12 +383,16 @@ struct mpl_tran
       /* problem contains nonlinear expressions */
       int last_var_new;
       /* whether the last variable encountered is new */
+      /*--------------------------------------------------------------*/
+      /* cached options segment */
       int linelim;
       /* linelim option cached value */
       int substout;
       /* substout option cached value */
       int allow_nan;
       /* allow_NaN option cached value */
+      char *print_separator;
+      /* print_separator option cached value */
       /*--------------------------------------------------------------*/
       /* input/output segment */
       glp_file *out_fp;

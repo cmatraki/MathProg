@@ -7237,6 +7237,57 @@ static int printf_func(MPL *mpl, void *info)
       return 0;
 }
 
+struct print_info
+{     /* working info used by the routine print_func */
+      PRINTF *prt;
+      /* the structure to use */
+      int need_sep;
+      /* whether we need to print a separator */
+};
+
+static int print_func(MPL *mpl, void *_info)
+{     /* this is auxiliary routine to work within domain scope */
+      struct print_info *info = _info;
+      PRINTF *prt = (PRINTF *)info->prt;
+      PRINTF1 *entry;
+      SYMBOL sym;
+      double dvalue;
+      char svalue[MAX_LENGTH+1];
+      /* scan list */
+      for (entry = prt->list; entry != NULL; entry = entry->next)
+      {  if (info->need_sep)
+            print_text(mpl, "%s", mpl->print_separator);
+         switch (entry->code->type)
+         {  case A_NUMERIC:
+               dvalue = eval_numeric(mpl, entry->code);
+               print_text(mpl, "%g", dvalue);
+               break;
+            case A_SYMBOLIC:
+               sym = eval_symbolic(mpl, entry->code);
+               if (nanbox_is_double(sym.sym))
+               {  dvalue = nanbox_to_double(sym.sym);
+                  print_text(mpl, "%g", dvalue);
+               }
+               else
+               {  fetch_string(mpl, nanbox_to_pointer(sym.sym), svalue);
+                  print_text(mpl, "%s", svalue);
+               }
+               delete_symbol(mpl, sym);
+               break;
+            case A_LOGICAL:
+               if (eval_logical(mpl, entry->code))
+                  print_char(mpl, 'T');
+               else
+                  print_char(mpl, 'F');
+               break;
+            default:
+               xassert(entry != entry);
+         }
+         info->need_sep = 1;
+      }
+      return 0;
+}
+
 #if 0 /* 14/VII-2006 */
 void execute_printf(MPL *mpl, PRINTF *prt)
 {     loop_within_domain(mpl, prt->domain, prt, printf_func);
@@ -7277,7 +7328,15 @@ void execute_printf(MPL *mpl, PRINTF *prt)
             strcpy(mpl->prt_file, fname);
          }
       }
-      loop_within_domain(mpl, prt->domain, prt, printf_func);
+      if (prt->fmt != NULL)
+         loop_within_domain(mpl, prt->domain, prt, printf_func);
+      else
+      {  struct print_info _info, *info = &_info;
+         info->prt = prt;
+         info->need_sep = 0;
+         loop_within_domain(mpl, prt->domain, info, print_func);
+         print_char(mpl, '\n');
+      }
       if (mpl->prt_fp != NULL)
       {
 #if 0 /* FIXME */
@@ -7547,6 +7606,8 @@ void execute_option(MPL *mpl, OPT_STMT *opt)
          mpl->substout = atoi(opt->value);
       if (!strcmp("allow_NaN", opt->key))
          mpl->allow_nan = atoi(opt->value);
+      if (!strcmp("print_separator", opt->key))
+         mpl->print_separator = opt->value;
 }
 
 /*----------------------------------------------------------------------

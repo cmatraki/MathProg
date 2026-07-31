@@ -7531,6 +7531,25 @@ void clean_if(MPL *mpl, IF_STMT *if_stmt)
 }
 
 /*----------------------------------------------------------------------
+-- execute_option - execute specified option statement.
+--
+-- This routine executes specified option statement. */
+
+void execute_option(MPL *mpl, OPT_STMT *opt)
+{     /* add option to head of options list */
+      xassert(opt->next == NULL);
+      opt->next = mpl->options;
+      mpl->options = opt;
+      /* cache some important option values */
+      if (!strcmp("linelim", opt->key))
+         mpl->linelim = atoi(opt->value);
+      if (!strcmp("substout", opt->key))
+         mpl->substout = atoi(opt->value);
+      if (!strcmp("allow_NaN", opt->key))
+         mpl->allow_nan = atoi(opt->value);
+}
+
+/*----------------------------------------------------------------------
 -- execute_statement - execute specified model statement.
 --
 -- This routine executes specified model statement. */
@@ -7633,7 +7652,8 @@ void execute_statement(MPL *mpl, STATEMENT *stmt)
          case A_IF: /* if then else */
             execute_if(mpl, stmt->u.if_stmt);
             break;
-         case A_OPTION: /* option is ignored for now */
+         case A_OPTION:
+            execute_option(mpl, stmt->u.opt);
             break;
          default:
             xassert(stmt != stmt);

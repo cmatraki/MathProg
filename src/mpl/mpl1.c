@@ -3175,6 +3175,7 @@ OPT_STMT *option_statement(MPL *mpl)
       get_token(mpl /* option */);
       /* create an option */
       opt = alloc(OPT_STMT);
+      opt->next = NULL;
       /* parse option name */
       if (mpl->scan_input->token != T_NAME)
          error(mpl, "name missing where expected");
@@ -3194,19 +3195,10 @@ OPT_STMT *option_statement(MPL *mpl)
           default:
               error(mpl, "option value as literal string or number expected");
       }
-      /* cache some important option values */
-      if (!strcmp("linelim", opt->key))
-         mpl->linelim = atoi(opt->value);
-      if (!strcmp("substout", opt->key))
-         mpl->substout = atoi(opt->value);
-      if (!strcmp("allow_NaN", opt->key))
-         mpl->allow_nan = atoi(opt->value);
       /* the option statement has been completely parsed */
       if (mpl->scan_input->token != T_SEMICOLON)
          error(mpl, "semicolon missing where expected");
       get_token(mpl /* ; */);
-      opt->next = mpl->options;
-      mpl->options = opt;
       return opt;
 }
 

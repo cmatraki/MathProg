@@ -1379,7 +1379,7 @@ FORMULA *single_variable
 )
 {     LINFORM *form;
       xassert(var != NULL);
-      if (var->def != NULL)
+      if (var->var->type == A_FORMULA)
       {  /* defined variable */
          NL_EXPR *nl = dmp_get_atom(mpl->nlexprs, sizeof(NL_EXPR));
          nl->op = O_DEFVAR;
@@ -4186,6 +4186,10 @@ static NL_EXPR *expand_nl_defvar(MPL *mpl, NL_EXPR *nl)
          nl->u.arg.y = expand_nl_defvar(mpl, nl->u.arg.y);
          nl->u.arg.z = expand_nl_defvar(mpl, nl->u.arg.z);
          return simplify_nl_expr(mpl, nl);
+      }
+      if (nl->u.defvar->def == NULL)
+      {  delete_nl_expr(mpl, nl);
+         return NULL;
       }
       if (nl->u.defvar->def->nl != NULL)
       {  nl->u.defvar->def->nl =

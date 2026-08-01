@@ -195,10 +195,11 @@ static void mark_nl_expr_vars(NL_EXPR *nl, int flags)
             mark_nl_expr_vars(nl->u.vec.data[i], flags);
       }
       else if (nl->op == O_DEFVAR)
-      {  xassert(nl->u.defvar->def != NULL);
-         nl->u.defvar->memb->value.var->j = -2;
-         mark_linform_vars(nl->u.defvar->def->lin, flags);
-         mark_nl_expr_vars(nl->u.defvar->def->nl, flags);
+      {  nl->u.defvar->memb->value.var->j = -2;
+         if (nl->u.defvar->def != NULL)
+         {  mark_linform_vars(nl->u.defvar->def->lin, flags);
+            mark_nl_expr_vars(nl->u.defvar->def->nl, flags);
+         }
       }
       else
       {  mark_nl_expr_vars(nl->u.arg.x, flags);
@@ -272,10 +273,10 @@ void build_problem(MPL *mpl)
       {  if (stmt->type == A_VARIABLE)
          {  v = stmt->u.var;
             for (memb = v->array->head; memb != NULL; memb = memb->next)
-            {  if (memb->value.var->j == -1) memb->value.var->j =
-                  ++mpl->n;
-               if (memb->value.var->j == -2) memb->value.var->j =
-                  -(++mpl->n_def + 2);
+            {  if (memb->value.var->j == -1)
+                  memb->value.var->j = ++mpl->n;
+               if (memb->value.var->j == -2)
+                  memb->value.var->j = -(++mpl->n_def + 2);
             }
          }
       }
@@ -1328,8 +1329,10 @@ static LINFORM *get_nl_expr_vars(MPL *mpl, NL_EXPR *nl, LINFORM *tmp)
       if (nl->op == O_LINFORM)
          return get_linform_vars(mpl, nl->u.lin, tmp);
       if (nl->op == O_DEFVAR)
-      {  tmp = get_linform_vars(mpl, nl->u.defvar->def->lin, tmp);
-         tmp = get_nl_expr_vars(mpl, nl->u.defvar->def->nl, tmp);
+      {  if (nl->u.defvar->def != NULL)
+         {  tmp = get_linform_vars(mpl, nl->u.defvar->def->lin, tmp);
+            tmp = get_nl_expr_vars(mpl, nl->u.defvar->def->nl, tmp);
+         }
          return tmp;
       }
       if (is_nary_nl_expr_op(nl->op))

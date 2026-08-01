@@ -497,7 +497,7 @@ public:
          for (auto const &p: tmp)
             linw.Write(p.first, p.second);
          auto ew = dv.GetExprWriter();
-         if (col[j+1]->def->nl == NULL)
+         if (col[j+1]->def == NULL || col[j+1]->def->nl == NULL)
             ew.NPut(c0);
          else if (c0 == 0)
             convert_nl(ew, col[j+1]->def->nl);
@@ -790,6 +790,7 @@ static double eval_nl_expr(NL_EXPR *nl, double *x)
             return eval_linform(nl->u.lin, x);
          case O_DEFVAR:
             {  double sum;
+               if (nl->u.defvar->def == NULL) return 0;
                sum = eval_linform(nl->u.defvar->def->lin, x);
                sum += eval_nl_expr(nl->u.defvar->def->nl, x);
                return sum;

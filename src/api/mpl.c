@@ -129,13 +129,6 @@ int mathprog_build_prob(mpl_tran *tran, glp_prob *prob)
          xerror("mathprog_build_prob: invalid call sequence\n");
       /* erase the problem object */
       glp_erase_prob(prob);
-      /* fail if the problem is not supported */
-      if (tran->is_nl)
-      {  xprintf("mathprog_build_prob: nonlinear expressions not suppor"
-            "ted\n");
-         tran->flag_p = 1;
-         return 1;
-      }
       /* set problem name */
       glp_set_prob_name(prob, mpl_get_prob_name(tran));
       /* build rows (constraints) */
@@ -143,7 +136,14 @@ int mathprog_build_prob(mpl_tran *tran, glp_prob *prob)
       if (m > 0)
          glp_add_rows(prob, m);
       for (i = 1; i <= m; i++)
-      {  /* set row name */
+      {  /* check for nonlinearities */
+         if (mpl_get_row_nl(tran, i) != NULL)
+         {  xprintf("mathprog_build_prob: nonlinear expressions not sup"
+               "ported (%s)\n", mpl_get_row_name(tran, i));
+            tran->flag_p = 1;
+            return 1;
+         }
+         /* set row name */
          glp_set_row_name(prob, i, mpl_get_row_name(tran, i));
          /* set row bounds */
          type = mpl_get_row_bnds(tran, i, &lb, &ub);

@@ -217,7 +217,6 @@ void build_problem(MPL *mpl)
       xassert(mpl->n == 0);
       xassert(mpl->row == NULL);
       xassert(mpl->col == NULL);
-      xassert(mpl->is_nl == 0);
       stmt_list = mpl->current_problem ? mpl->current_problem->list : mpl->model;
 #ifndef XASSERT_DISABLED
       /* check that all elemental variables has zero column numbers */
@@ -258,8 +257,6 @@ void build_problem(MPL *mpl)
                xassert(memb->value.con->i == 0);
                memb->value.con->i = ++mpl->m;
                if (memb->value.con->eqn == NULL) continue;
-               if (memb->value.con->eqn->nl != NULL)
-                  mpl->is_nl = 1;
                /* walk through linear form and mark elemental variables,
                   which are referenced at least once */
                mark_linform_vars(memb->value.con->eqn->lin, MPL_LIN);
@@ -363,7 +360,6 @@ void clean_build_problem(MPL *mpl, int skipResetColsRows)
       mpl->n = 0;
       mpl->row = NULL;
       mpl->col = NULL;
-      mpl->is_nl = 0;
 }
 
 /*----------------------------------------------------------------------
@@ -790,7 +786,6 @@ MPL *mpl_initialize(void)
       mpl->show_delta = 0;
       mpl->add_missing_param_values = 0;
       mpl->msg_lev = GLP_MSG_ON;
-      mpl->is_nl = 0;
       mpl->last_var_new = 0;
       /* default values for the cached options */
       mpl->linelim = 1;

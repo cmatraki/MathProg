@@ -379,8 +379,6 @@ struct mpl_tran
       /* col[0] is not used;
          col[j] is elemental variable, which corresponds to j-th column
          of the problem, 1 <= j <= n */
-      int is_nl;
-      /* problem contains nonlinear expressions */
       int last_var_new;
       /* whether the last variable encountered is new */
       /*--------------------------------------------------------------*/

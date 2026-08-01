@@ -578,6 +578,8 @@ private:
          case O_SUM:
          case O_MIN:
          case O_MAX:
+            assert(nl->u.vec.n > 1);
+            assert(!(nl->op == O_SUM && nl->u.vec.n == 2));
             {  auto ew1 = ew.OPutN(get_opcode(nl->op), nl->u.vec.n);
                for (int i = 0; i < nl->u.vec.n; i++)
                   convert_nl(ew1, nl->u.vec.data[i]);

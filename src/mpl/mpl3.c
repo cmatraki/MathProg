@@ -1806,10 +1806,16 @@ static NL_EXPR *list_to_nl_expr(MPL *mpl, int op, struct nl_expr_list *list)
       xassert(is_nary_nl_expr_op(op));
       for (n = 0, p = list; p != NULL; p = p->next) n++;
       if (n == 0) return NULL;
-      else if (n == 1) {
-        nl = list->nl;
-        xfree(list);
-        return nl;
+      else if (n == 1)
+      {  nl = list->nl;
+         xfree(list);
+         return nl;
+      }
+      else if (n == 2 && op == O_SUM)
+      {  nl = make_nl_expr(mpl, O_ADD, list->next->nl, list->nl);
+         xfree(list->next);
+         xfree(list);
+         return nl;
       }
       nl = dmp_get_atom(mpl->nlexprs, sizeof(NL_EXPR));
       nl->op = op;

@@ -730,6 +730,7 @@ CODE *make_code(MPL *mpl, int op, OPERANDS *arg, int type, int dim)
             break;
          case O_MIN:
          case O_MAX:
+         case O_PIECEWISE:
             /* n-ary operation */
             for (e = arg->list; e != NULL; e = e->next)
             {  xassert(e->x != NULL);
@@ -770,7 +771,6 @@ CODE *make_code(MPL *mpl, int op, OPERANDS *arg, int type, int dim)
             code->arg.loop.domain = arg->loop.domain;
             code->arg.loop.x = arg->loop.x;
             break;
-         case O_PIECEWISE:
          case O_VERSION: /* nothing to do */
              break;
          default:
@@ -2137,6 +2137,7 @@ CODE *piecewise_expression(MPL *mpl)
       get_token(mpl /* << */);
       /* parse the list of piecewise parameters */
       breakpoints = slopes = in_slopes = 0;
+      arg.list = create_arg_list(mpl);
       for (;;)
       {  if (mpl->scan_input->token == T_APPEND)
          {
@@ -2155,16 +2156,26 @@ CODE *piecewise_expression(MPL *mpl)
              else ++breakpoints;
              get_token(mpl /* , */);
          }
-         arg.loop.x = expression_3(mpl);
+         code = expression_3(mpl);
+         /* convert the argument to numeric type, if necessary */
+         if (code->type == A_SYMBOLIC)
+            code = make_unary(mpl, O_CVTNUM, code, A_NUMERIC, 0);
+         /* check that now the argument is of numeric type */
+         if (code->type != A_NUMERIC)
+            error(mpl, "piecewise linear argument invalid type");
+         xassert(code->dim == 0);
+         arg.list = expand_arg_list(mpl, arg.list, code);
       }
       xassert(mpl->scan_input->token == T_APPEND);
       get_token(mpl /* >> */);
       if(!in_slopes || (slopes - breakpoints) != 1)
           error(mpl, "invalid number of breakpoints/slopes %d/%d",
                   breakpoints, slopes);
-      arg.arg.x = NULL;
-      arg.arg.y = NULL;
-      code = make_code(mpl, op, &arg, O_CVTNUM, 1);
+      code = expression_0(mpl);
+      if (code->type != A_FORMULA && code->op != O_MEMVAR)
+         error(mpl, "piecewise linear expression requires a variable");
+      arg.list = expand_arg_list(mpl, arg.list, code);
+      code = make_code(mpl, op, &arg, A_FORMULA, 0);
       return code;
 }
 

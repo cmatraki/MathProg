@@ -532,6 +532,7 @@ private:
          case O_SUM: return mp::nl::SUM;
          case O_MIN: return mp::nl::MIN;
          case O_MAX: return mp::nl::MAX;
+         case O_PIECEWISE: return mp::nl::PLTERM;
          default:
             assert(op != op);
       }
@@ -583,6 +584,19 @@ private:
             {  auto ew1 = ew.OPutN(get_opcode(nl->op), nl->u.vec.n);
                for (int i = 0; i < nl->u.vec.n; i++)
                   convert_nl(ew1, nl->u.vec.data[i]);
+            }
+            break;
+         case O_PIECEWISE:
+            {  auto ew1 = ew.OPutN(mp::nl::PLTERM, nl->u.vec.n);
+               int n = nl->u.vec.n/2;
+               assert(n > 1);
+               assert(2*n == nl->u.vec.n);
+               convert_nl(ew1, nl->u.vec.data[n-1]);     // first slope
+               for (int i = 0; i < n-1; i++)
+               {  convert_nl(ew1, nl->u.vec.data[i]);    // breakpoint
+                  convert_nl(ew1, nl->u.vec.data[n+i]);  // slope
+               }
+               convert_nl(ew1, nl->u.vec.data[2*n-1]);   // variable
             }
             break;
          default:
@@ -814,6 +828,14 @@ static double eval_nl_expr(NL_EXPR *nl, double *x)
                for (int i = 0; i < nl->u.vec.n; i++)
                   max = std::max(max, eval_nl_expr(nl->u.vec.data[i], x));
                return max;
+            }
+         case O_PIECEWISE:
+            {  int i;
+               int n = nl->u.vec.n;
+               double v = eval_nl_expr(nl->u.vec.data[n-1], x);
+               for (i = 0; i < n/2-1; i++)
+                  if (eval_nl_expr(nl->u.vec.data[i], x) >= v) break;
+               return eval_nl_expr(nl->u.vec.data[n/2+i-1], x) * v;
             }
          default:
             assert(nl != nl);

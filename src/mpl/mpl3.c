@@ -1400,7 +1400,8 @@ FORMULA *single_variable
 -- arguments. */
 
 int is_nary_nl_expr_op(int op)
-{     return (op == O_MIN || op == O_MAX || op == O_SUM);
+{     return (op == O_MIN || op == O_MAX || op == O_SUM
+         || op == O_PIECEWISE);
 }
 
 /*----------------------------------------------------------------------
@@ -5890,6 +5891,7 @@ FORMULA *eval_formula(MPL *mpl, CODE *code)
             break;
          case O_MIN:
          case O_MAX:
+         case O_PIECEWISE:
             {  struct nl_expr_list *list = NULL;
                ARG_LIST *e;
                for (e = code->arg.list; e != NULL; e = e->next)
@@ -6079,6 +6081,7 @@ void clean_code(MPL *mpl, CODE *code)
             break;
          case O_MIN:
          case O_MAX:
+         case O_PIECEWISE:
             /* n-ary operation */
             for (e = code->arg.list; e != NULL; e = e->next)
                clean_code(mpl, e->x);

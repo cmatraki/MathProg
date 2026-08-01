@@ -1417,6 +1417,7 @@ struct NL_EXPR
 #define O_ATAN2         347   /* trigonometric arctangent */
 #define O_MIN           376   /* minimal value (n-ary) */
 #define O_MAX           377   /* maximal value (n-ary) */
+#define O_PIECEWISE     386   /* piecewise linear expression */
       /* used as n-ary operator in NL_EXPR */
 #define O_SUM           378   /* summation */
       /* only for NL_EXPR */

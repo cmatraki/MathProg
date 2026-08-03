@@ -1398,6 +1398,7 @@ struct NL_EXPR
       /* subset of CODE operations */
 #define O_NUMBER        301   /* take floating-point number */
 #define O_MINUS         322   /* unary minus */
+#define O_NOT           323   /* negation (logical "not") */
 #define O_ABS           324   /* absolute value */
 #define O_EXP           327   /* base-e exponential */
 #define O_LOG           328   /* natural logarithm */
@@ -1413,6 +1414,15 @@ struct NL_EXPR
 #define O_DIV           343   /* division */
 #define O_POWER         346   /* exponentiation (raise to power) */
 #define O_ATAN2         347   /* trigonometric arctangent */
+#define O_LT            353   /* comparison on 'less than' */
+#define O_LE            354   /* comparison on 'not greater than' */
+#define O_EQ            355   /* comparison on 'equal to' */
+#define O_GE            356   /* comparison on 'not less than' */
+#define O_GT            357   /* comparison on 'greater than' */
+#define O_NE            358   /* comparison on 'not equal to' */
+#define O_AND           359   /* conjunction (logical "and") */
+#define O_OR            360   /* disjunction (logical "or") */
+#define O_FORK          374   /* if-then-else */
 #define O_MIN           376   /* minimal value (n-ary) */
 #define O_MAX           377   /* maximal value (n-ary) */
 #define O_PIECEWISE     386   /* piecewise linear expression */
@@ -1428,8 +1438,7 @@ struct NL_EXPR
             NL_EXPR *y;
             /* second operand (owned); NULL for unary operators */
             NL_EXPR *z;
-            /* third operand (owned); NULL except for ternary
-               operators - currently unused */
+            /* third operand (owned); NULL except for O_FORK */
          } arg;
          LINFORM *lin;
          /* used with O_LINFORM (owned) */

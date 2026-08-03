@@ -520,18 +520,28 @@ private:
          case O_MINUS: return mp::nl::MINUS;
          case O_POWER: return mp::nl::POW;
          case O_SQRT: return mp::nl::SQRT;
+         case O_NOT: return mp::nl::NOT;
          case O_ABS: return mp::nl::ABS;
          case O_COS: return mp::nl::COS;
          case O_SIN: return mp::nl::SIN;
          case O_TAN: return mp::nl::TAN;
          case O_ATAN: return mp::nl::ATAN;
          case O_ATAN2: return mp::nl::ATAN2;
+         case O_LT: return mp::nl::LT;
+         case O_LE: return mp::nl::LE;
+         case O_EQ: return mp::nl::EQ;
+         case O_GE: return mp::nl::GE;
+         case O_GT: return mp::nl::GT;
+         case O_NE: return mp::nl::NE;
+         case O_AND: return mp::nl::AND;
+         case O_OR: return mp::nl::OR;
          case O_EXP: return mp::nl::EXP;
          case O_LOG: return mp::nl::LOG;
          case O_LOG10: return mp::nl::LOG10;
          case O_SUM: return mp::nl::SUM;
          case O_MIN: return mp::nl::MIN;
          case O_MAX: return mp::nl::MAX;
+         case O_FORK: return mp::nl::IF;
          case O_PIECEWISE: return mp::nl::PLTERM;
          default:
             assert(op != op);
@@ -551,6 +561,14 @@ private:
          case O_SUB:
          case O_POWER:
          case O_ATAN2:
+         case O_LT:
+         case O_LE:
+         case O_EQ:
+         case O_GE:
+         case O_GT:
+         case O_NE:
+         case O_AND:
+         case O_OR:
             {  auto ew1 = ew.OPut2(get_opcode(nl->op));
                convert_nl(ew1, nl->u.arg.x);
                convert_nl(ew1, nl->u.arg.y);
@@ -558,6 +576,7 @@ private:
             break;
          case O_MINUS:
          case O_SQRT:
+         case O_NOT:
          case O_ABS:
          case O_COS:
          case O_SIN:
@@ -597,6 +616,13 @@ private:
                   convert_nl(ew1, nl->u.vec.data[n+i]);  // slope
                }
                convert_nl(ew1, nl->u.vec.data[2*n-1]);   // variable
+            }
+            break;
+         case O_FORK:
+            {  auto ew1 = ew.OPut3(get_opcode(nl->op));
+               convert_nl(ew1, nl->u.arg.x);
+               convert_nl(ew1, nl->u.arg.y);
+               convert_nl(ew1, nl->u.arg.z);
             }
             break;
          default:
@@ -761,7 +787,8 @@ static double eval_linform(LINFORM *form, double *x)
 }
 
 static double eval_nl_expr(NL_EXPR *nl, double *x)
-{     if (nl == NULL)
+{     double eps = 1e-6;
+      if (nl == NULL)
          return 0;
       switch (nl->op)
       {  case O_MUL:
@@ -783,6 +810,8 @@ static double eval_nl_expr(NL_EXPR *nl, double *x)
                eval_nl_expr(nl->u.arg.y, x));
          case O_SQRT:
             return sqrt(eval_nl_expr(nl->u.arg.x, x));
+         case O_NOT:
+            return !(fabs(eval_nl_expr(nl->u.arg.x, x)) > eps);
          case O_ABS:
             return fabs(eval_nl_expr(nl->u.arg.x, x));
          case O_COS:
@@ -796,6 +825,30 @@ static double eval_nl_expr(NL_EXPR *nl, double *x)
          case O_ATAN2:
             return atan2(eval_nl_expr(nl->u.arg.x, x),
                eval_nl_expr(nl->u.arg.y, x));
+         case O_LT:
+            return eval_nl_expr(nl->u.arg.x, x)
+               < eval_nl_expr(nl->u.arg.y, x);
+         case O_LE:
+            return eval_nl_expr(nl->u.arg.x, x)
+               <= eval_nl_expr(nl->u.arg.y, x);
+         case O_EQ:
+            return eval_nl_expr(nl->u.arg.x, x)
+               == eval_nl_expr(nl->u.arg.y, x);
+         case O_GE:
+            return eval_nl_expr(nl->u.arg.x, x)
+               >= eval_nl_expr(nl->u.arg.y, x);
+         case O_GT:
+            return eval_nl_expr(nl->u.arg.x, x)
+               > eval_nl_expr(nl->u.arg.y, x);
+         case O_NE:
+            return eval_nl_expr(nl->u.arg.x, x)
+               != eval_nl_expr(nl->u.arg.y, x);
+         case O_AND:
+            return (fabs(eval_nl_expr(nl->u.arg.x, x)) > eps)
+               & (fabs(eval_nl_expr(nl->u.arg.y, x)) > eps);
+         case O_OR:
+            return (fabs(eval_nl_expr(nl->u.arg.x, x)) > eps)
+               | (fabs(eval_nl_expr(nl->u.arg.y, x)) > eps);
          case O_EXP:
             return exp(eval_nl_expr(nl->u.arg.x, x));
          case O_LOG:
@@ -836,6 +889,12 @@ static double eval_nl_expr(NL_EXPR *nl, double *x)
                for (i = 0; i < n/2-1; i++)
                   if (eval_nl_expr(nl->u.vec.data[i], x) >= v) break;
                return eval_nl_expr(nl->u.vec.data[n/2+i-1], x) * v;
+            }
+         case O_FORK:
+            {  if (fabs(eval_nl_expr(nl->u.arg.x, x)) > eps)
+                  return eval_nl_expr(nl->u.arg.y, x);
+               else
+                  return eval_nl_expr(nl->u.arg.z, x);
             }
          default:
             assert(nl != nl);

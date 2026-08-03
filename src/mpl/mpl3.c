@@ -5857,12 +5857,24 @@ FORMULA *eval_formula(MPL *mpl, CODE *code)
             break;
          case O_FORK:
             /* if-then-else */
-            if (eval_logical(mpl, code->arg.arg.x))
-               value = eval_formula(mpl, code->arg.arg.y);
-            else if (code->arg.arg.z == NULL)
-               value = constant_term(mpl, 0.0);
+            if (code->arg.arg.x->type == A_FORMULA)
+            {  NL_EXPR *nl = make_nl_expr(mpl, O_FORK,
+                  formula_to_nl_expr(mpl, eval_formula(mpl,
+                  code->arg.arg.x)), formula_to_nl_expr(mpl,
+                  eval_formula(mpl, code->arg.arg.y)));
+               if (code->arg.arg.z != NULL) /* optional else part */
+                  nl->u.arg.z = formula_to_nl_expr(mpl,
+                  eval_formula(mpl, code->arg.arg.z));
+               value = make_formula(mpl, NULL, nl);
+            }
             else
-               value = eval_formula(mpl, code->arg.arg.z);
+            {  if (eval_logical(mpl, code->arg.arg.x))
+                  value = eval_formula(mpl, code->arg.arg.y);
+               else if (code->arg.arg.z == NULL)
+                  value = constant_term(mpl, 0.0);
+               else
+                  value = eval_formula(mpl, code->arg.arg.z);
+            }
             break;
          case O_SUM:
          case O_PROD:
@@ -5912,14 +5924,26 @@ FORMULA *eval_formula(MPL *mpl, CODE *code)
             break;
          case O_POWER:
          case O_ATAN2:
+         case O_LT:
+         case O_LE:
+         case O_EQ:
+         case O_GE:
+         case O_GT:
+         case O_NE:
+         case O_AND:
+         case O_OR:
             /* binary operator */
             {  FORMULA *fx, *fy;
                if (code->arg.arg.x->type == A_NUMERIC)
                   fx = constant_term(mpl, eval_numeric(mpl, code->arg.arg.x));
+               else if (code->arg.arg.x->type == A_LOGICAL)
+                  fx = constant_term(mpl, eval_logical(mpl, code->arg.arg.x));
                else
                   fx = eval_formula(mpl, code->arg.arg.x);
                if (code->arg.arg.y->type == A_NUMERIC)
                   fy = constant_term(mpl, eval_numeric(mpl, code->arg.arg.y));
+               else if (code->arg.arg.y->type == A_LOGICAL)
+                  fy = constant_term(mpl, eval_logical(mpl, code->arg.arg.y));
                else
                   fy = eval_formula(mpl, code->arg.arg.y);
                value = make_formula(mpl, NULL, make_nl_expr(mpl,
@@ -5928,6 +5952,7 @@ FORMULA *eval_formula(MPL *mpl, CODE *code)
             }
             break;
          case O_SQRT:
+         case O_NOT:
          case O_ABS:
          case O_COS:
          case O_SIN:

@@ -2259,7 +2259,7 @@ CODE *branched_expression(MPL *mpl)
       if (x->type == A_NUMERIC)
          x = make_unary(mpl, O_CVTLOG, x, A_LOGICAL, 0);
       /* now the expression must be of logical type */
-      if (x->type != A_LOGICAL)
+      if (x->type != A_LOGICAL && x-> type != A_FORMULA)
          error(mpl, "expression following if has invalid type");
       xassert(x->dim == 0);
       /* the keyword 'then' must follow the logical expression */
@@ -2278,6 +2278,12 @@ CODE *branched_expression(MPL *mpl)
       {  if (y->type == A_ELEMSET)
             error(mpl, "keyword else missing where expected");
          z = NULL;
+         if (x->type == A_FORMULA)
+         {  if (y->type == A_SYMBOLIC)
+               y = make_unary(mpl, O_CVTNUM, y, A_NUMERIC, 0);
+            if (y->type == A_NUMERIC)
+               y = make_unary(mpl, O_CVTLFM, y, A_FORMULA, 0);
+         }
          goto skip;
       }
       get_token(mpl /* else */);
@@ -2287,7 +2293,8 @@ CODE *branched_expression(MPL *mpl)
             z->type == A_ELEMSET || z->type == A_FORMULA))
          error(mpl, "expression following else has invalid type");
       /* convert to identical types, if necessary */
-      if (y->type == A_FORMULA || z->type == A_FORMULA)
+      if (x->type == A_FORMULA || y->type == A_FORMULA
+         || z->type == A_FORMULA)
       {  if (y->type == A_SYMBOLIC)
             y = make_unary(mpl, O_CVTNUM, y, A_NUMERIC, 0);
          if (y->type == A_NUMERIC)
@@ -2911,17 +2918,22 @@ CODE *expression_10(MPL *mpl)
          case O_GT:
          case O_GE:
 #endif
-            if (!(x->type == A_NUMERIC || x->type == A_SYMBOLIC))
+            if (!(x->type == A_NUMERIC || x->type == A_SYMBOLIC
+               || x->type == A_FORMULA))
                error_preceding(mpl, opstr);
             get_token(mpl /* <rho> */);
             y = expression_9(mpl);
-            if (!(y->type == A_NUMERIC || y->type == A_SYMBOLIC))
+            if (!(y->type == A_NUMERIC || y->type == A_SYMBOLIC
+               || y->type == A_FORMULA))
                error_following(mpl, opstr);
             if (x->type == A_NUMERIC && y->type == A_SYMBOLIC)
                x = make_unary(mpl, O_CVTSYM, x, A_SYMBOLIC, 0);
             if (x->type == A_SYMBOLIC && y->type == A_NUMERIC)
                y = make_unary(mpl, O_CVTSYM, y, A_SYMBOLIC, 0);
-            x = make_binary(mpl, op, x, y, A_LOGICAL, 0);
+            if (x->type == A_FORMULA || y->type == A_FORMULA)
+               x = make_binary(mpl, op, x, y, A_FORMULA, 0);
+            else
+               x = make_binary(mpl, op, x, y, A_LOGICAL, 0);
             break;
 #if 0 /* 02/VIII-2008 */
          case O_LT:
@@ -2996,9 +3008,9 @@ CODE *expression_11(MPL *mpl)
             x = make_unary(mpl, O_CVTNUM, x, A_NUMERIC, 0);
          if (x->type == A_NUMERIC)
             x = make_unary(mpl, O_CVTLOG, x, A_LOGICAL, 0);
-         if (x->type != A_LOGICAL)
+         if (x->type != A_LOGICAL && x->type != A_FORMULA)
             error_following(mpl, opstr);
-         x = make_unary(mpl, O_NOT, x, A_LOGICAL, 0);
+         x = make_unary(mpl, O_NOT, x, x->type, 0);
       }
       else
          x = expression_10(mpl);
@@ -3026,7 +3038,7 @@ CODE *expression_12(MPL *mpl)
                x = make_unary(mpl, O_CVTNUM, x, A_NUMERIC, 0);
             if (x->type == A_NUMERIC)
                x = make_unary(mpl, O_CVTLOG, x, A_LOGICAL, 0);
-            if (x->type != A_LOGICAL)
+            if (x->type != A_LOGICAL && x->type != A_FORMULA)
                error_preceding(mpl, opstr);
             get_token(mpl /* and | && */);
             y = expression_11(mpl);
@@ -3034,9 +3046,12 @@ CODE *expression_12(MPL *mpl)
                y = make_unary(mpl, O_CVTNUM, y, A_NUMERIC, 0);
             if (y->type == A_NUMERIC)
                y = make_unary(mpl, O_CVTLOG, y, A_LOGICAL, 0);
-            if (y->type != A_LOGICAL)
+            if (y->type != A_LOGICAL && y->type != A_FORMULA)
                error_following(mpl, opstr);
-            x = make_binary(mpl, O_AND, x, y, A_LOGICAL, 0);
+            if (x->type == A_FORMULA || y->type == A_FORMULA)
+               x = make_binary(mpl, O_AND, x, y, A_FORMULA, 0);
+            else
+               x = make_binary(mpl, O_AND, x, y, A_LOGICAL, 0);
          }
          else
             break;
@@ -3065,7 +3080,7 @@ CODE *expression_13(MPL *mpl)
                x = make_unary(mpl, O_CVTNUM, x, A_NUMERIC, 0);
             if (x->type == A_NUMERIC)
                x = make_unary(mpl, O_CVTLOG, x, A_LOGICAL, 0);
-            if (x->type != A_LOGICAL)
+            if (x->type != A_LOGICAL && x->type != A_FORMULA)
                error_preceding(mpl, opstr);
             get_token(mpl /* or | || */);
             y = expression_12(mpl);
@@ -3073,9 +3088,12 @@ CODE *expression_13(MPL *mpl)
                y = make_unary(mpl, O_CVTNUM, y, A_NUMERIC, 0);
             if (y->type == A_NUMERIC)
                y = make_unary(mpl, O_CVTLOG, y, A_LOGICAL, 0);
-            if (y->type != A_LOGICAL)
+            if (y->type != A_LOGICAL && y->type != A_FORMULA)
                error_following(mpl, opstr);
-            x = make_binary(mpl, O_OR, x, y, A_LOGICAL, 0);
+            if (x->type == A_FORMULA || y->type == A_FORMULA)
+               x = make_binary(mpl, O_OR, x, y, A_FORMULA, 0);
+            else
+               x = make_binary(mpl, O_OR, x, y, A_LOGICAL, 0);
          }
          else
             break;

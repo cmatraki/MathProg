@@ -5697,7 +5697,7 @@ static int iter_form_func(MPL *mpl, void *_info)
       switch (info->code->op)
       {  case O_SUM:
          case O_PROD:
-         case O_MAX:
+         case O_MINIMUM:
          case O_MAXIMUM:
             {  FORMULA *form;
                struct nl_expr_list *p;

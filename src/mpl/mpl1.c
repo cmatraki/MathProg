@@ -2931,6 +2931,10 @@ CODE *expression_10(MPL *mpl)
                x = make_unary(mpl, O_CVTSYM, x, A_SYMBOLIC, 0);
             if (x->type == A_SYMBOLIC && y->type == A_NUMERIC)
                y = make_unary(mpl, O_CVTSYM, y, A_SYMBOLIC, 0);
+            if (x->type == A_FORMULA && y->type == A_SYMBOLIC)
+               y = make_unary(mpl, O_CVTNUM, y, A_NUMERIC, 0);
+            if (x->type == A_SYMBOLIC && y->type == A_FORMULA)
+               x = make_unary(mpl, O_CVTNUM, x, A_NUMERIC, 0);
             if (y->type == A_FORMULA && ((op == O_GE
                && mpl->scan_input->token == T_GE) || (op == O_LE
                && mpl->scan_input->token == T_LE)))
@@ -5221,7 +5225,11 @@ PRINTF *print_statement(MPL *mpl)
       prt->fmt = NULL;
       /* parse print list */
       for (;;)
-      {  /* create new printf entry */
+      {  if (mpl->scan_input->token == T_COMMA)
+            get_token(mpl /* , */);
+         else if (mpl->scan_input->token == T_SEMICOLON)
+            break;
+         /* create new printf entry */
          entry = alloc(PRINTF1);
          entry->code = NULL;
          entry->next = NULL;
@@ -5238,11 +5246,6 @@ PRINTF *print_statement(MPL *mpl)
                entry->code->type == A_LOGICAL))
             error(mpl, "only numeric, symbolic, or logical expression a"
                "llowed");
-         /* check a token that follows the entry parsed */
-         if (mpl->scan_input->token == T_COMMA)
-            get_token(mpl /* , */);
-         else
-            break;
       }
       /* close the domain scope */
       if (prt->domain != NULL) close_scope(mpl, prt->domain);

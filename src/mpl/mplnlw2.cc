@@ -107,7 +107,7 @@ struct csa *mathprog_nlw2_build_prob(mpl_tran *tran, int relax)
       csa->nnz_obj = 0;
       csa->perm = (int *)xcalloc(n, sizeof(int));
       csa->inv_perm = (int *)xcalloc(n, sizeof(int));
-      csa->obj_row = m > 0 ? (int *)xcalloc(m, sizeof(int)) : NULL;
+      csa->obj_row = NULL;
       csa->con_row = m > 0 ? (int *)xcalloc(m, sizeof(int)) : NULL;
       csa->obj_no = -1;
       csa->m_obj = 0;
@@ -202,6 +202,8 @@ struct csa *mathprog_nlw2_build_prob(mpl_tran *tran, int relax)
          if (kind == MPL_MIN || kind == MPL_MAX)
          {  len = mpl_get_mat_row(tran, i+1, NULL, NULL);
             csa->nnz_obj += len;
+            if (csa->obj_row == NULL)
+               csa->obj_row = (int *)xcalloc(m-i, sizeof(int));
             csa->obj_row[csa->m_obj] = i;
             csa->m_obj++;
             if (mpl_get_row_nl(tran, i+1))
@@ -969,7 +971,7 @@ int mathprog_nlw2_postsolve(mpl_tran *tran, struct csa *csa, int relax)
                prim += csa->x[ind[t]-1] * val[t];
             prim += eval_nl_expr(mpl_get_row_nl(tran, i+1), csa->x);
          }
-         if (csa->y != NULL)
+         if (csa->y != NULL && i < m)
          {  dual = csa->y[i];
             if (!mip && csa->obj_no >= 0)
                for (t = 1; t <= len; t++)

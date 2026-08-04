@@ -710,6 +710,7 @@ CODE *make_code(MPL *mpl, int op, OPERANDS *arg, int type, int dim)
          case O_DOTS:
          case O_FORK:
          case O_SUBSTR3:
+         case O_DB:
             /* ternary operation */
             xassert(arg->arg.x != NULL);
             xassert(arg->arg.x->up == NULL);
@@ -2930,10 +2931,29 @@ CODE *expression_10(MPL *mpl)
                x = make_unary(mpl, O_CVTSYM, x, A_SYMBOLIC, 0);
             if (x->type == A_SYMBOLIC && y->type == A_NUMERIC)
                y = make_unary(mpl, O_CVTSYM, y, A_SYMBOLIC, 0);
-            if (x->type == A_FORMULA || y->type == A_FORMULA)
-               x = make_binary(mpl, op, x, y, A_FORMULA, 0);
+            if (y->type == A_FORMULA && ((op == O_GE
+               && mpl->scan_input->token == T_GE) || (op == O_LE
+               && mpl->scan_input->token == T_LE)))
+            {  CODE *z;
+               get_token(mpl /* <rho> */);
+               z = expression_9(mpl);
+               if (x->type == A_SYMBOLIC)
+                  x = make_unary(mpl, O_CVTNUM, x, A_NUMERIC, 0);
+               if (z->type == A_SYMBOLIC)
+                  z = make_unary(mpl, O_CVTNUM, z, A_NUMERIC, 0);
+               if (!(z->type == A_NUMERIC || z->type == A_FORMULA))
+                  error_preceding(mpl, opstr);
+               if (op == O_LE)
+                  x = make_ternary(mpl, O_DB, x, y, z, A_FORMULA, 0);
+               else
+                  x = make_ternary(mpl, O_DB, z, y, x, A_FORMULA, 0);
+            }
             else
-               x = make_binary(mpl, op, x, y, A_LOGICAL, 0);
+            {  if (x->type == A_FORMULA || y->type == A_FORMULA)
+                  x = make_binary(mpl, op, x, y, A_FORMULA, 0);
+               else
+                  x = make_binary(mpl, op, x, y, A_LOGICAL, 0);
+            }
             break;
 #if 0 /* 02/VIII-2008 */
          case O_LT:
@@ -4119,7 +4139,7 @@ err:           error(mpl, "at most one := or default allowed");
 
 CONSTRAINT *constraint_statement(MPL *mpl)
 {     CONSTRAINT *con;
-      CODE *first, *second, *third;
+      CODE *expr, *first, *second, *third;
       int rho;
       char opstr[8];
       if (mpl->flag_s)
@@ -4184,6 +4204,74 @@ CONSTRAINT *constraint_statement(MPL *mpl)
       if (mpl->scan_input->token != T_COLON)
          error(mpl, "colon missing where expected");
       get_token(mpl /* : */);
+#if 1
+      /* parse the full constraint */
+      /* commas before the relational operator are no longer allowed */
+      expr = expression_13(mpl);
+      if (expr->type != A_FORMULA) goto err;
+      /* extract the expression operands */
+      if (expr->op == O_DB)
+      {  first = expr->arg.arg.x;
+         second = expr->arg.arg.y;
+         third = expr->arg.arg.z;
+         rho = T_LE;
+         if (first->type == A_FORMULA || third->type == A_FORMULA)
+            goto logcon;
+      }
+      else if (expr->op == O_GE)
+      {  first = expr->arg.arg.x;
+         second = expr->arg.arg.y;
+         third = NULL;
+         rho = T_GE;
+      }
+      else if (expr->op == O_LE)
+      {  first = expr->arg.arg.x;
+         second = expr->arg.arg.y;
+         third = NULL;
+         rho = T_LE;
+      }
+      else if (expr->op == O_EQ)
+      {  first = expr->arg.arg.x;
+         second = expr->arg.arg.y;
+         third = NULL;
+         rho = T_EQ;
+      }
+      else
+      {  switch (expr->op)
+         {  case O_LT:
+            case O_LE:
+            case O_EQ:
+            case O_GE:
+            case O_GT:
+            case O_NE:
+            case O_AND:
+            case O_OR:
+            case O_NOT:
+            case O_DB:
+               break;
+            default:
+               error(mpl, "not valid logical constraint");
+         }
+logcon:  con->type = A_LOGCON;
+         con->code = expr;
+         goto done;
+      }
+      expr->arg.arg.x = NULL;
+      expr->arg.arg.y = NULL;
+      expr->arg.arg.z = NULL;
+      clean_code(mpl, expr);
+      first->up = NULL;
+      second->up = NULL;
+      if (third != NULL) third->up = NULL;
+      if (first->type == A_SYMBOLIC)
+         first = make_unary(mpl, O_CVTNUM, first, A_NUMERIC, 0);
+      xassert(first->dim == 0);
+      if (second->type == A_SYMBOLIC)
+         second = make_unary(mpl, O_CVTNUM, second, A_NUMERIC, 0);
+      xassert(second->dim == 0);
+      if (third != NULL)
+         xassert(third->dim == 0);
+#else
       /* parse the first expression */
       first = expression_5(mpl);
       if (first->type == A_SYMBOLIC)
@@ -4253,8 +4341,7 @@ CONSTRAINT *constraint_statement(MPL *mpl)
       {  /* the constraint is equality or single inequality */
          third = NULL;
       }
-      /* close the domain scope */
-      if (con->domain != NULL) close_scope(mpl, con->domain);
+#endif
       /* convert all expressions to linear form, if necessary */
       if (first->type != A_FORMULA)
          first = make_unary(mpl, O_CVTLFM, first, A_FORMULA, 0);
@@ -4307,6 +4394,8 @@ CONSTRAINT *constraint_statement(MPL *mpl)
                xassert(rho != rho);
          }
       }
+done: /* close the domain scope */
+      if (con->domain != NULL) close_scope(mpl, con->domain);
       /* the constraint statement has been completely parsed */
       if (mpl->scan_input->token != T_SEMICOLON)
 err:     error(mpl, "syntax error in constraint statement");

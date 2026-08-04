@@ -135,6 +135,7 @@ typedef struct NL_EXPR NL_EXPR;
 #define A_OPTION        136   /* option statement */
 #define A_NODE          137   /* node statement */
 #define A_ARC           138   /* arc statement */
+#define A_LOGCON        139   /* logical constraint */
 
 #define MAX_LENGTH 100
 /* maximal length of any symbolic value (this includes symbolic names,
@@ -367,6 +368,8 @@ struct mpl_tran
          currently executed */
       int m;
       /* number of rows in the problem, m >= 0 */
+      int m_log;
+      /* number of logical constraints in the problem, m_log >= 0 */
       int n;
       /* number of columns in the problem, n >= 0 */
       int n_def;
@@ -1438,7 +1441,7 @@ struct NL_EXPR
             NL_EXPR *y;
             /* second operand (owned); NULL for unary operators */
             NL_EXPR *z;
-            /* third operand (owned); NULL except for O_FORK */
+            /* third operand (owned); NULL except for O_FORK and O_DB */
          } arg;
          LINFORM *lin;
          /* used with O_LINFORM (owned) */
@@ -2592,6 +2595,7 @@ struct CODE
 #define O_PIECEWISE     386   /* piecewise linear expression */
 
 #define O_VERSION       387   /* version */
+#define O_DB            388   /* double bounded constraint */
 #define GMPL_VERSION_STR "GLPK/GMPL 4.65"
       
       OPERANDS arg;
@@ -3031,6 +3035,10 @@ char *mpl_get_prob_name(MPL *mpl);
 #define mpl_get_num_rows _mpl_get_num_rows
 int mpl_get_num_rows(MPL *mpl);
 /* determine number of rows */
+
+#define mpl_get_num_log _mpl_get_num_log
+int mpl_get_num_log(MPL *mpl);
+/* determine number of logical constraints */
 
 #define mpl_get_num_cols _mpl_get_num_cols
 int mpl_get_num_cols(MPL *mpl);

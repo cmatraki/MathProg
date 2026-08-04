@@ -39,6 +39,7 @@ struct csa
       int m_nl, m_nl_obj;
       int n_def;
       int *defvar_order;
+      int m_log;
 };
 
 static void find_def_var_used(NL_EXPR *nl, std::unordered_set<int> &used)
@@ -64,7 +65,7 @@ static void find_def_var_used(NL_EXPR *nl, std::unordered_set<int> &used)
 struct csa *mathprog_nlw2_build_prob(mpl_tran *tran, int relax)
 {     /* build LP/MIP problem instance from the model */
       struct csa *csa = new struct csa;
-      int m, n, i, j, t, ct, kind, type, len, *ind, nnz, n_def;
+      int m, n, i, j, t, ct, kind, type, len, *ind, nnz, n_def, m_log;
       double lb, ub, *val;
       char *name;
       int *cnt_idx, *int_idx, *bin_idx, *nl_both_idx, *nl_both_int_idx;
@@ -75,6 +76,7 @@ struct csa *mathprog_nlw2_build_prob(mpl_tran *tran, int relax)
       m = mpl_get_num_rows(tran);
       n = mpl_get_num_cols(tran);
       n_def = mpl_get_num_defs(tran);
+      m_log = mpl_get_num_log(tran);
       csa->ind = ind = (int *)xcalloc(1+n, sizeof(int));
       cnt_idx = (int *)xcalloc(n, sizeof(int));
       int_idx = (int *)xcalloc(n, sizeof(int));
@@ -87,10 +89,11 @@ struct csa *mathprog_nlw2_build_prob(mpl_tran *tran, int relax)
       nl_both_int_idx = (int *)xcalloc(n, sizeof(int));
       csa->val = val = (double *)xcalloc(1+n, sizeof(double));
       csa->m = m;
+      csa->m_log = m_log;
       csa->n = n;
       csa->n_def = n_def;
       csa->var_names = (char **)xcalloc(n + n_def, sizeof(char *));
-      csa->row_names = (char **)xcalloc(m, sizeof(char *));
+      csa->row_names = (char **)xcalloc(m + m_log, sizeof(char *));
       csa->col_size = (double *)xcalloc(n, sizeof(double));
       csa->solve_result = -1;
       csa->x = NULL;
@@ -104,8 +107,8 @@ struct csa *mathprog_nlw2_build_prob(mpl_tran *tran, int relax)
       csa->nnz_obj = 0;
       csa->perm = (int *)xcalloc(n, sizeof(int));
       csa->inv_perm = (int *)xcalloc(n, sizeof(int));
-      csa->obj_row = (int *)xcalloc(m, sizeof(int));
-      csa->con_row = (int *)xcalloc(m, sizeof(int));
+      csa->obj_row = m > 0 ? (int *)xcalloc(m, sizeof(int)) : NULL;
+      csa->con_row = m > 0 ? (int *)xcalloc(m, sizeof(int)) : NULL;
       csa->obj_no = -1;
       csa->m_obj = 0;
       csa->m_con = 0;
@@ -190,7 +193,7 @@ struct csa *mathprog_nlw2_build_prob(mpl_tran *tran, int relax)
       }
 
       nnz = 0;
-      cnt_idx = (int *)xrealloc(cnt_idx, m, sizeof(int));
+      cnt_idx = m > 0 ? (int *)xrealloc(cnt_idx, m, sizeof(int)) : cnt_idx;
       for (i = 0; i < m; i++)
       {  name = mpl_get_row_name(tran, i+1);
          csa->row_names[i] = (char *)xcalloc(strlen(name)+1, sizeof(char));
@@ -225,6 +228,12 @@ struct csa *mathprog_nlw2_build_prob(mpl_tran *tran, int relax)
       csa->m_con += csa->m_nl;
       assert(csa->m_con + csa->m_obj == csa->m);
       csa->nnz = nnz;
+
+      for (i = 0; i < m_log; i++)
+      {  name = mpl_get_row_name(tran, m+i+1);
+         csa->row_names[m+i] = (char *)xcalloc(strlen(name)+1, sizeof(char));
+         strcpy(csa->row_names[m+i], name);
+      }
 
       name = mpl_get_prob_name(tran);
       csa->prob_name = (char *)xcalloc(strlen(name)+1, sizeof(char));
@@ -308,8 +317,17 @@ public:
       hdr.num_nl_integer_vars_in_cons = csa->n_nl_con_i;
       hdr.num_nl_integer_vars_in_objs = csa->n_nl_obj_i;
 
+      // common expressions (defined variables)
+      hdr.num_common_exprs_in_both = csa->n_def;  // all grouped here
+      hdr.num_common_exprs_in_cons = 0;
+      hdr.num_common_exprs_in_objs = 0;
+      hdr.num_common_exprs_in_single_cons = 0;
+      hdr.num_common_exprs_in_single_objs = 0;
+
+      // logical constraints
+      hdr.num_logical_cons = csa->m_log;
+
       // the following are not (yet?) supported by MathProg
-      hdr.num_logical_cons = 0;
       hdr.num_compl_conds = 0;
       hdr.num_nl_compl_conds = 0;
       hdr.num_compl_dbl_ineqs = 0;
@@ -318,11 +336,6 @@ public:
       hdr.num_linear_net_cons = 0;
       hdr.num_linear_net_vars = 0;
       hdr.num_funcs = 0;
-      hdr.num_common_exprs_in_both = csa->n_def;
-      hdr.num_common_exprs_in_cons = 0;
-      hdr.num_common_exprs_in_objs = 0;
-      hdr.num_common_exprs_in_single_cons = 0;
-      hdr.num_common_exprs_in_single_objs = 0;
    }
 
    mp::NLHeader Header() { return hdr; }
@@ -422,7 +435,10 @@ public:
       }
    }
 
-   const char* ConDescription(int i) { return csa->row_names[csa->con_row[i]]; }
+   const char* ConDescription(int i)
+   {  int idx = i < csa->m_con ? csa->con_row[i] : i - csa->m_con + csa->m;
+      return csa->row_names[idx];
+   }
 
    template <class ConLinearExprWriter>
    void FeedLinearConExpr(int i, ConLinearExprWriter& clw)
@@ -445,8 +461,9 @@ public:
 
    template <class ExprWriter>
    void FeedConExpression(int i, ExprWriter& ew)
-   {  assert(i >= 0 && i < csa->m_con);
-      NL_EXPR *nl = mpl_get_row_nl(tran, csa->con_row[i]+1);
+   {  assert(i >= 0 && i < csa->m_con + csa->m_log);
+      int idx = i < csa->m_con ? csa->con_row[i] : i - csa->m_con + csa->m;
+      NL_EXPR *nl = mpl_get_row_nl(tran, idx+1);
       convert_nl(ew, nl);
    }
 
@@ -462,6 +479,8 @@ public:
    {  if (wrt)
       {  for (int i = 0; i < csa->m_con; i++)
             wrt << csa->row_names[csa->con_row[i]];
+         for (int i = 0; i < csa->m_log; i++)
+            wrt << csa->row_names[csa->m + i];
          for (int i = 0; i < csa->m_obj; i++)
             wrt << csa->row_names[csa->obj_row[i]];
       }
@@ -741,13 +760,15 @@ public:
             }
          }
          else if (kind == 1)
-         {  csa->row_status = (double *)xcalloc(csa->m, sizeof(double));
-            for (int i = 0; i < csa->m; i++)
+         {  csa->row_status = (double *)xcalloc(csa->m + csa->m_log, sizeof(double));
+            for (int i = 0; i < csa->m + csa->m_log; i++)
                csa->row_status[i] = 0;
             while (sr.Size())
             {  std::pair<int, int> val = sr.ReadNext();
-               assert(val.first < csa->m_con);
-               csa->row_status[csa->con_row[val.first]] = val.second;
+               assert(val.first < csa->m_con + csa->m_log);
+               int idx = val.first < csa->m_con ? csa->con_row[val.first]
+                  : val.first - csa->m_con + csa->m;
+               csa->row_status[idx] = val.second;
             }
          }
       }
@@ -905,15 +926,15 @@ static double eval_nl_expr(NL_EXPR *nl, double *x)
 
 int mathprog_nlw2_postsolve(mpl_tran *tran, struct csa *csa, int relax)
 {     /* postsolve the model */
-      int i, j, m, n, stat, ret, kind, len, t;
+      int i, j, m, n, stat, ret, kind, len, t, m_log;
       double prim, dual;
       int *ind;
       double *val, *dval;
-
       if (!(tran->phase == GLP_TRAN_PHASE_GENERATE && !tran->flag_p))
          xerror("mathprog_nlw2_postsolve: invalid call sequence\n");
 
       m = mpl_get_num_rows(tran);
+      m_log = mpl_get_num_log(tran);
       n = mpl_get_num_cols(tran);
 
       ind = csa->ind;
@@ -937,7 +958,7 @@ int mathprog_nlw2_postsolve(mpl_tran *tran, struct csa *csa, int relax)
             dval[ind[t]-1] = val[t];
       }
 
-      for (i = 0; i < m; i++)
+      for (i = 0; i < m + m_log; i++)
       {  prim = 0;
          stat = 0;
          dual = 0;
@@ -984,14 +1005,16 @@ int mathprog_nlw2_postsolve(mpl_tran *tran, struct csa *csa, int relax)
 
 void mathprog_nlw2_cleanup(struct csa *csa)
 {     int i, j;
-      for (i = 0; i < csa->m; i++) xfree(csa->row_names[i]);
+      for (i = 0; i < csa->m + csa->m_log; i++) xfree(csa->row_names[i]);
       xfree(csa->row_names);
       for (j = 0; j < csa->n + csa->n_def; j++) xfree(csa->var_names[j]);
       xfree(csa->var_names);
       xfree(csa->col_size);
       xfree(csa->prob_name);
-      xfree(csa->obj_row);
-      xfree(csa->con_row);
+      if (csa->obj_row)
+         xfree(csa->obj_row);
+      if (csa->con_row)
+         xfree(csa->con_row);
 
       if (csa->x)
          xfree(csa->x);

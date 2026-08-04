@@ -4245,6 +4245,13 @@ ELEMCON *take_member_con      /* returns reference */
          xassert(con->code != NULL);
          refer->eqn = eval_formula(mpl, con->code);
          /* compute lower and upper bounds */
+         if (con->type == A_LOGCON)
+         {  /* there should be no linear part */
+            if (refer->eqn != NULL && refer->eqn->lin != NULL)
+               error(mpl, "bad logical constraint");
+            refer->lbnd = refer->ubnd = -0;
+            goto done;
+         }
          if (con->lbnd == NULL && con->ubnd == NULL)
          {  /* objective has no bounds */
             double temp = 0;
@@ -4340,6 +4347,7 @@ ELEMCON *take_member_con      /* returns reference */
             if (con->ubnd != NULL || con->lbnd == NULL)
                refer->ubnd = fp_sub(mpl, refer->ubnd, temp);
          }
+done:
 #if 1 /* 15/V-2010 */
          /* solution has not been obtained by the solver yet */
          refer->stat = 0;
@@ -5968,6 +5976,25 @@ FORMULA *eval_formula(MPL *mpl, CODE *code)
                   code->op, formula_to_nl_expr(mpl, fx), NULL));
             }
             break;
+         case O_DB:
+            /* double bounded constraint */
+            {  FORMULA *fx, *fz;
+               NL_EXPR *y, *l, *r;
+               if (code->arg.arg.x->type == A_NUMERIC)
+                  fx = constant_term(mpl, eval_numeric(mpl, code->arg.arg.x));
+               else
+                  fx = eval_formula(mpl, code->arg.arg.x);
+               y = formula_to_nl_expr(mpl, eval_formula(mpl, code->arg.arg.y));
+               if (code->arg.arg.z->type == A_NUMERIC)
+                  fz = constant_term(mpl, eval_numeric(mpl, code->arg.arg.z));
+               else
+                  fz = eval_formula(mpl, code->arg.arg.z);
+               l = make_nl_expr(mpl, O_LE, formula_to_nl_expr(mpl, fx),
+                  copy_nl_expr(mpl, y));     /* y is duplicated */
+               r = make_nl_expr(mpl, O_LE, y, formula_to_nl_expr(mpl, fz));
+               value = make_formula(mpl, NULL, make_nl_expr(mpl, O_AND, l, r));
+            }
+            break;
          default:
             xassert(code != code);
       }
@@ -6099,6 +6126,7 @@ void clean_code(MPL *mpl, CODE *code)
          case O_DOTS:
          case O_FORK:
          case O_SUBSTR3:
+         case O_DB:
             /* ternary operation */
             clean_code(mpl, code->arg.arg.x);
             clean_code(mpl, code->arg.arg.y);

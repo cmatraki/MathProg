@@ -255,13 +255,17 @@ void build_problem(MPL *mpl)
             for (memb = c->array->head; memb != NULL; memb = memb->next)
             {  if (memb->value.con == NULL) continue;
                xassert(memb->value.con->i == 0);
-               memb->value.con->i = ++mpl->m;
+               if (c->type == A_LOGCON)
+                  memb->value.con->i = -(++mpl->m_log);
+               else
+                  memb->value.con->i = ++mpl->m;
                if (memb->value.con->eqn == NULL) continue;
                /* walk through linear form and mark elemental variables,
                   which are referenced at least once */
                mark_linform_vars(memb->value.con->eqn->lin, MPL_LIN);
                mark_nl_expr_vars(memb->value.con->eqn->nl,
-                  c->type == A_CONSTRAINT ? MPL_NLC : MPL_NLO);
+                  c->type == A_CONSTRAINT || c->type == A_LOGCON
+                     ? MPL_NLC : MPL_NLO);
             }
          }
       }
@@ -278,22 +282,27 @@ void build_problem(MPL *mpl)
          }
       }
       /* build list of rows */
-      mpl->row = xcalloc(1+mpl->m, sizeof(ELEMCON *));
-      for (i = 1; i <= mpl->m; i++) mpl->row[i] = NULL;
+      mpl->row = xcalloc(1+mpl->m+mpl->m_log, sizeof(ELEMCON *));
+      for (i = 1; i <= mpl->m+mpl->m_log; i++) mpl->row[i] = NULL;
       for (stmt = stmt_list; stmt != NULL; stmt = stmt->next)
       {  if (stmt->type == A_CONSTRAINT)
          {  c = stmt->u.con;
             for (memb = c->array->head; memb != NULL; memb = memb->next)
             {  if (memb->value.con == NULL) continue;
                i = memb->value.con->i;
-               xassert(1 <= i && i <= mpl->m);
+               if (i < 0)
+               {  i = mpl->m - i;
+                  memb->value.con->i = i;
+               }
+               xassert(1 <= i && i <= mpl->m + mpl->m_log);
                xassert(mpl->row[i] == NULL);
                mpl->row[i] = memb->value.con;
             }
          }
       }
 #ifndef XASSERT_DISABLED
-      for (i = 1; i <= mpl->m; i++) xassert(mpl->row[i] != NULL);
+      for (i = 1; i <= mpl->m+mpl->m_log; i++)
+         xassert(mpl->row[i] != NULL);
 #endif
       /* build list of columns */
       mpl->col = xcalloc(1+mpl->n+mpl->n_def, sizeof(ELEMVAR *));
@@ -767,6 +776,7 @@ MPL *mpl_initialize(void)
       mpl->dca = NULL;
 #endif
       mpl->m = 0;
+      mpl->m_log = 0;
       mpl->n = 0;
       mpl->n_def = 0;
       mpl->row = NULL;
@@ -1086,6 +1096,25 @@ int mpl_get_num_rows(MPL *mpl)
 }
 
 /*----------------------------------------------------------------------
+-- mpl_get_num_log - determine number of logical constraints.
+--
+-- *Synopsis*
+--
+-- #include "glpmpl.h"
+-- int mpl_get_num_log(MPL *mpl);
+--
+-- *Returns*
+--
+-- The routine mpl_get_num_log returns total number of logical
+-- constraints in the problem. */
+
+int mpl_get_num_log(MPL *mpl)
+{     if (mpl->phase != GLP_TRAN_PHASE_GENERATE)
+         xfault("mpl_get_num_rows: invalid call sequence\n");
+      return mpl->m_log;
+}
+
+/*----------------------------------------------------------------------
 -- mpl_get_num_cols - determine number of columns.
 --
 -- *Synopsis*
@@ -1141,7 +1170,7 @@ char *mpl_get_row_name(MPL *mpl, int i)
       int len;
       if (mpl->phase != GLP_TRAN_PHASE_GENERATE)
          xfault("mpl_get_row_name: invalid call sequence\n");
-      if (!(1 <= i && i <= mpl->m))
+      if (!(1 <= i && i <= mpl->m + mpl->m_log))
          xfault("mpl_get_row_name: i = %d; row number out of range\n",
             i);
       strcpy(name, mpl->row[i]->con->name);
@@ -1348,11 +1377,14 @@ int mpl_get_mat_row(MPL *mpl, int i, int ndx[], double val[])
       int len = 0;
       if (mpl->phase != GLP_TRAN_PHASE_GENERATE)
          xfault("mpl_get_mat_row: invalid call sequence\n");
-      if (!(1 <= i && i <= mpl->m))
+      if (!(1 <= i && i <= mpl->m + mpl->m_log))
          xfault("mpl_get_mat_row: i = %d; row number out of range\n",
             i);
       if (mpl->row[i]->eqn == NULL) return 0;
-
+      if (i > mpl->m)
+      {  /* logical constraints have no linear part */
+         return 0;
+      }
       nl_vars = get_nl_expr_vars(mpl, mpl->row[i]->eqn->nl, NULL);
       for (term = mpl->row[i]->eqn->lin; term != NULL; term = term->next)
       {  xassert(term->var != NULL);
@@ -1380,7 +1412,7 @@ int mpl_get_mat_row(MPL *mpl, int i, int ndx[], double val[])
 NL_EXPR *mpl_get_row_nl(MPL *mpl, int i)
 {     if (mpl->phase != GLP_TRAN_PHASE_GENERATE)
          xfault("mpl_get_row_nl: invalid call sequence\n");
-      if (!(1 <= i && i <= mpl->m))
+      if (!(1 <= i && i <= mpl->m + mpl->m_log))
          xfault("mpl_get_row_nl: i = %d; row number out of range\n",
             i);
 
@@ -1429,7 +1461,7 @@ double mpl_get_row_c0(MPL *mpl, int i)
       double c0;
       if (mpl->phase != GLP_TRAN_PHASE_GENERATE)
          xfault("mpl_get_row_c0: invalid call sequence\n");
-      if (!(1 <= i && i <= mpl->m))
+      if (!(1 <= i && i <= mpl->m + mpl->m_log))
          xfault("mpl_get_row_c0: i = %d; row number out of range\n",
             i);
       con = mpl->row[i];
@@ -1673,7 +1705,7 @@ void mpl_put_row_soln(MPL *mpl, int i, int stat, double prim,
       double dual)
 {     /* store row (constraint/objective) solution components */
       xassert(mpl->phase == GLP_TRAN_PHASE_GENERATE);
-      xassert(1 <= i && i <= mpl->m);
+      xassert(1 <= i && i <= mpl->m + mpl->m_log);
       mpl->row[i]->stat = stat;
       mpl->row[i]->prim = prim;
       mpl->row[i]->dual = dual;

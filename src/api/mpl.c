@@ -133,6 +133,12 @@ int mathprog_build_prob(mpl_tran *tran, glp_prob *prob)
       glp_set_prob_name(prob, mpl_get_prob_name(tran));
       /* build rows (constraints) */
       m = mpl_get_num_rows(tran);
+      if (mpl_get_num_log(tran) > 0)
+      {  xprintf("mathprog_build_prob: logical constraints not supporte"
+         "d (%s)\n", mpl_get_row_name(tran, m + 1));
+         tran->flag_p = 1;
+         return 1;
+      }
       if (m > 0)
          glp_add_rows(prob, m);
       for (i = 1; i <= m; i++)

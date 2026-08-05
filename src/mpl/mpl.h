@@ -1431,6 +1431,8 @@ struct NL_EXPR
 #define O_PIECEWISE     386   /* piecewise linear expression */
       /* used as n-ary operator in NL_EXPR */
 #define O_SUM           378   /* summation */
+#define O_FORALL        382   /* conjunction (A-quantification) */
+#define O_EXISTS        383   /* disjunction (E-quantification) */
       /* only for NL_EXPR */
 #define O_LINFORM       501   /* linear form (owned) */
 #define O_DEFVAR        502   /* defined variable (not owned) */

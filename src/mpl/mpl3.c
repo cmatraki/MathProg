@@ -1401,7 +1401,7 @@ FORMULA *single_variable
 
 int is_nary_nl_expr_op(int op)
 {     return (op == O_MIN || op == O_MAX || op == O_SUM
-         || op == O_PIECEWISE);
+         || op == O_PIECEWISE || op == O_FORALL || op == O_EXISTS);
 }
 
 /*----------------------------------------------------------------------
@@ -1814,9 +1814,17 @@ static NL_EXPR *list_to_nl_expr(MPL *mpl, int op, struct nl_expr_list *list)
       }
       else if (n == 2 && op == O_SUM)
       {  nl = make_nl_expr(mpl, O_ADD, list->next->nl, list->nl);
-         xfree(list->next);
+xearly:  xfree(list->next);
          xfree(list);
          return nl;
+      }
+      else if (n == 2 && op == O_FORALL)
+      {  nl = make_nl_expr(mpl, O_AND, list->next->nl, list->nl);
+         goto xearly;
+      }
+      else if (n == 2 && op == O_EXISTS)
+      {  nl = make_nl_expr(mpl, O_OR, list->next->nl, list->nl);
+         goto xearly;
       }
       nl = dmp_get_atom(mpl->nlexprs, sizeof(NL_EXPR));
       nl->op = op;
@@ -5699,6 +5707,8 @@ static int iter_form_func(MPL *mpl, void *_info)
          case O_PROD:
          case O_MINIMUM:
          case O_MAXIMUM:
+         case O_EXISTS:
+         case O_FORALL:
             {  FORMULA *form;
                struct nl_expr_list *p;
                form = eval_formula(mpl, info->code->arg.loop.x);
@@ -5888,6 +5898,8 @@ FORMULA *eval_formula(MPL *mpl, CODE *code)
          case O_PROD:
          case O_MINIMUM:
          case O_MAXIMUM:
+         case O_EXISTS:
+         case O_FORALL:
             {  struct iter_form_info _info, *info = &_info;
                int op;
                NL_EXPR *nl;

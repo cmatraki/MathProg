@@ -2096,10 +2096,11 @@ err:           error(mpl, "integrand following %s{...} has invalid type"
                arg.loop.x = make_unary(mpl, O_CVTLOG, arg.loop.x,
                   A_LOGICAL, 0);
             /* now the integrand must be of logical type */
-            if (arg.loop.x->type != A_LOGICAL) goto err;
+            if (!(arg.loop.x->type == A_LOGICAL || arg.loop.x->type ==
+               A_FORMULA)) goto err;
             xassert(arg.loop.x->dim == 0);
             /* generate pseudo-code */
-            code = make_code(mpl, op, &arg, A_LOGICAL, 0);
+            code = make_code(mpl, op, &arg, arg.loop.x->type, 0);
             break;
          case O_SETOF:
             arg.loop.x = expression_5(mpl);
@@ -4252,6 +4253,8 @@ CONSTRAINT *constraint_statement(MPL *mpl)
             case O_OR:
             case O_NOT:
             case O_DB:
+            case O_FORALL:
+            case O_EXISTS:
                break;
             default:
                error(mpl, "not valid logical constraint");

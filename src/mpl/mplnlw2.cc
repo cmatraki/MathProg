@@ -564,6 +564,8 @@ private:
          case O_MAX: return mp::nl::MAX;
          case O_FORK: return mp::nl::IF;
          case O_PIECEWISE: return mp::nl::PLTERM;
+         case O_EXISTS: return mp::nl::EXISTS;
+         case O_FORALL: return mp::nl::FORALL;
          default:
             assert(op != op);
       }
@@ -619,8 +621,11 @@ private:
          case O_SUM:
          case O_MIN:
          case O_MAX:
+         case O_EXISTS:
+         case O_FORALL:
             assert(nl->u.vec.n > 1);
-            assert(!(nl->op == O_SUM && nl->u.vec.n == 2));
+            assert(!((nl->op == O_SUM || nl->op == O_FORALL
+               || nl->op == O_EXISTS) && nl->u.vec.n == 2));
             {  auto ew1 = ew.OPutN(get_opcode(nl->op), nl->u.vec.n);
                for (int i = 0; i < nl->u.vec.n; i++)
                   convert_nl(ew1, nl->u.vec.data[i]);
@@ -904,6 +909,18 @@ static double eval_nl_expr(NL_EXPR *nl, double *x)
                for (int i = 0; i < nl->u.vec.n; i++)
                   max = std::max(max, eval_nl_expr(nl->u.vec.data[i], x));
                return max;
+            }
+         case O_EXISTS:
+            {  bool r = 0;
+               for (int i = 0; i < nl->u.vec.n; i++)
+                  r |= (fabs(eval_nl_expr(nl->u.vec.data[i], x)) > eps);
+               return r;
+            }
+         case O_FORALL:
+            {  bool r = 1;
+               for (int i = 0; i < nl->u.vec.n; i++)
+                  r &= (fabs(eval_nl_expr(nl->u.vec.data[i], x)) > eps);
+               return r;
             }
          case O_PIECEWISE:
             {  int i;

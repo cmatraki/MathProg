@@ -1429,6 +1429,7 @@ struct NL_EXPR
 #define O_MIN           376   /* minimal value (n-ary) */
 #define O_MAX           377   /* maximal value (n-ary) */
 #define O_PIECEWISE     386   /* piecewise linear expression */
+#define O_ALLDIFF       389   /* all different (n-ary) */
       /* used as n-ary operator in NL_EXPR */
 #define O_SUM           378   /* summation */
 #define O_FORALL        382   /* conjunction (A-quantification) */
@@ -2598,6 +2599,9 @@ struct CODE
 
 #define O_VERSION       387   /* version */
 #define O_DB            388   /* double bounded constraint */
+#define O_ALLDIFF       389   /* all different (n-ary) */
+#define O_ALLDIFFERENT  390   /* all different (iterated) */
+
 #define GMPL_VERSION_STR "GLPK/GMPL 4.65"
       
       OPERANDS arg;

@@ -566,6 +566,7 @@ private:
          case O_PIECEWISE: return mp::nl::PLTERM;
          case O_EXISTS: return mp::nl::EXISTS;
          case O_FORALL: return mp::nl::FORALL;
+         case O_ALLDIFF: return mp::nl::ALLDIFF;
          default:
             assert(op != op);
       }
@@ -623,6 +624,7 @@ private:
          case O_MAX:
          case O_EXISTS:
          case O_FORALL:
+         case O_ALLDIFF:
             assert(nl->u.vec.n > 1);
             assert(!((nl->op == O_SUM || nl->op == O_FORALL
                || nl->op == O_EXISTS) && nl->u.vec.n == 2));
@@ -935,6 +937,17 @@ static double eval_nl_expr(NL_EXPR *nl, double *x)
                   return eval_nl_expr(nl->u.arg.y, x);
                else
                   return eval_nl_expr(nl->u.arg.z, x);
+            }
+         case O_ALLDIFF:
+            {  std::unordered_set<double> h;
+               for (int i = 0; i < nl->u.vec.n; i++)
+               {  double  val = eval_nl_expr(nl->u.vec.data[i], x);
+                  if (h.find(val) != h.end())
+                     return 0;
+                   else
+                     h.insert(val);
+               }
+               return 1;
             }
          default:
             assert(nl != nl);

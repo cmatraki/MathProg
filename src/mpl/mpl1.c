@@ -732,6 +732,7 @@ CODE *make_code(MPL *mpl, int op, OPERANDS *arg, int type, int dim)
          case O_MIN:
          case O_MAX:
          case O_PIECEWISE:
+         case O_ALLDIFF:
             /* n-ary operation */
             for (e = arg->list; e != NULL; e = e->next)
             {  xassert(e->x != NULL);
@@ -749,6 +750,7 @@ CODE *make_code(MPL *mpl, int op, OPERANDS *arg, int type, int dim)
          case O_EXISTS:
          case O_SETOF:
          case O_BUILD:
+         case O_ALLDIFFERENT:
             /* iterated operation */
             domain = arg->loop.domain;
             xassert(domain != NULL);
@@ -1235,6 +1237,7 @@ CODE *elemset_argument(MPL *mpl, char *func)
 -- <primary expression> ::= str2time ( <arg> , <arg> )
 -- <primary expression> ::= time2str ( <arg> , <arg> )
 -- <primary expression> ::= gmtime ( )
+-- <primary expression> ::= alldiff ( <arg list> )
 -- <arg list> ::= <arg>
 -- <arg list> ::= <arg list> , <arg> */
 
@@ -1299,6 +1302,8 @@ CODE *function_reference(MPL *mpl)
          op = O_GMTIME;
       else if (strcmp(mpl->scan_input->image, "version") == 0)
          op = O_VERSION;
+      else if (strcmp(mpl->scan_input->image, "alldiff") == 0)
+         op = O_ALLDIFF;
       else
          error(mpl, "function %s unknown", mpl->scan_input->image);
       /* save symbolic name of the function */
@@ -1309,8 +1314,8 @@ CODE *function_reference(MPL *mpl)
       xassert(mpl->scan_input->token == T_LEFT);
       get_token(mpl /* ( */);
       /* parse argument list */
-      if (op == O_MIN || op == O_MAX)
-      {  /* min and max allow arbitrary number of arguments */
+      if (op == O_MIN || op == O_MAX || op == O_ALLDIFF)
+      {  /* min, max and alldiff allow arbitrary number of arguments */
          arg.list = create_arg_list(mpl);
          /* parse argument list */
          for (;;)
@@ -1484,7 +1489,7 @@ CODE *function_reference(MPL *mpl)
       else if (op == O_ATAN2 && (arg.arg.x->type == A_FORMULA
          || arg.arg.y->type == A_FORMULA))
          code = make_code(mpl, op, &arg, A_FORMULA, 0);
-      else if (op == O_MIN || op == O_MAX)
+      else if (op == O_MIN || op == O_MAX || op == O_ALLDIFF)
       {  ARG_LIST *temp;
          int type = A_NUMERIC;
          for (temp = arg.list; temp->next != NULL; temp = temp->next)
@@ -2009,6 +2014,7 @@ void close_scope(MPL *mpl, DOMAIN *domain)
 -- <iterated expression> ::= forall <indexing expression>
 --                           <expression 12>
 -- <iterated expression> ::= setof <indexing expression> <expression 5>
+-- <iterated expression> ::= alldiff <indexing expression> <expression 3>
 --
 -- Note that parsing "integrand" depends on the iterated operator. */
 
@@ -2056,6 +2062,8 @@ CODE *iterated_expression(MPL *mpl)
          op = O_EXISTS;
       else if (strcmp(mpl->scan_input->image, "setof") == 0)
          op = O_SETOF;
+      else if (strcmp(mpl->scan_input->image, "alldiff") == 0)
+         op = O_ALLDIFFERENT;
       else
          error(mpl, "operator %s unknown", mpl->scan_input->image);
       strcpy(opstr, mpl->scan_input->image);
@@ -2071,6 +2079,7 @@ CODE *iterated_expression(MPL *mpl)
          case O_PROD:
          case O_MINIMUM:
          case O_MAXIMUM:
+         case O_ALLDIFFERENT:
             arg.loop.x = expression_3(mpl);
             /* convert the integrand to numeric type, if necessary */
             if (arg.loop.x->type == A_SYMBOLIC)
@@ -4255,6 +4264,8 @@ CONSTRAINT *constraint_statement(MPL *mpl)
             case O_DB:
             case O_FORALL:
             case O_EXISTS:
+            case O_ALLDIFF:
+            case O_ALLDIFFERENT:
                break;
             default:
                error(mpl, "not valid logical constraint");

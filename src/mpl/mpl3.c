@@ -24,10 +24,10 @@
 #include "mpl.h"
 #define dmp_get_atomv dmp_get_atom
 
+#include "khash.h"
+
 #if defined(WITH_KBTREE)
 #include "kbtree.h"
-#elif defined(WITH_KHASH)
-#include "khash.h"
 #endif
 
 /**********************************************************************/
@@ -1401,7 +1401,8 @@ FORMULA *single_variable
 
 int is_nary_nl_expr_op(int op)
 {     return (op == O_MIN || op == O_MAX || op == O_SUM
-         || op == O_PIECEWISE || op == O_FORALL || op == O_EXISTS);
+         || op == O_PIECEWISE || op == O_FORALL || op == O_EXISTS
+         || op == O_ALLDIFF);
 }
 
 /*----------------------------------------------------------------------
@@ -4468,12 +4469,25 @@ void clean_constraint(MPL *mpl, CONSTRAINT *con)
 -- This routine evaluates specified pseudo-code to determine resultant
 -- numeric value, which is returned on exit. */
 
+static khint32_t double_hash_func(double _key)
+{     uint64_t key;
+      if (_key == 0) key = 0;   // catch -0
+      else memcpy(&key, &_key, sizeof(double));
+      return (key>>33)^(key)^(key<<11);
+}
+
+#define double_hash_equal(a, b) ((a) == (b))
+
+KHASH_INIT(alldiff_t, double, char, 0, double_hash_func, double_hash_equal)
+
 struct iter_num_info
 {     /* working info used by the routine iter_num_func */
       CODE *code;
       /* pseudo-code for iterated operation to be performed */
       double value;
       /* resultant value */
+      khash_t(alldiff_t) *hash;
+      /* for alldiff */
 };
 
 static int iter_num_func(MPL *mpl, void *_info)
@@ -4498,6 +4512,18 @@ static int iter_num_func(MPL *mpl, void *_info)
          case O_MAXIMUM:
             /* maximum over domain */
             if (info->value < temp) info->value = temp;
+            break;
+         case O_ALLDIFFERENT:
+            {  khint_t k;
+               int ignored;
+               k = kh_get(alldiff_t, info->hash, temp);
+               if (k != kh_end(info->hash))
+               {  info->value = 0;
+                  return 1;
+               }
+               else
+                  kh_put(alldiff_t, info->hash, temp, &ignored);
+            }
             break;
          default:
             xassert(info != info);
@@ -4914,6 +4940,38 @@ double eval_numeric(MPL *mpl, CODE *code)
                value = info->value;
             }
             break;
+         case O_ALLDIFF:
+            {  ARG_LIST *e;
+               double temp;
+               khash_t(alldiff_t) *h = kh_init(alldiff_t);
+               khint_t k;
+               int ignored;
+               value = 1;
+               for (e = code->arg.list; e != NULL; e = e->next)
+               {  temp = eval_numeric(mpl, e->x);
+                  k = kh_get(alldiff_t, h, temp);
+                  if (k != kh_end(h))
+                  {  value = 0;
+                     break;
+                  }
+                  else
+                     kh_put(alldiff_t, h, temp, &ignored);
+               }
+               kh_destroy(alldiff_t, h);
+            }
+            break;
+         case O_ALLDIFFERENT:
+            {  struct iter_num_info _info, *info = &_info;
+               info->code = code;
+               info->value = 1;
+               info->hash = kh_init(alldiff_t);
+               loop_within_domain(mpl, code->arg.loop.domain, info,
+                  iter_num_func);
+               kh_destroy(alldiff_t, info->hash);
+               value = info->value;
+            }
+            break;
+
          default:
             xassert(code != code);
       }
@@ -5709,6 +5767,7 @@ static int iter_form_func(MPL *mpl, void *_info)
          case O_MAXIMUM:
          case O_EXISTS:
          case O_FORALL:
+         case O_ALLDIFFERENT:
             {  FORMULA *form;
                struct nl_expr_list *p;
                form = eval_formula(mpl, info->code->arg.loop.x);
@@ -5900,6 +5959,7 @@ FORMULA *eval_formula(MPL *mpl, CODE *code)
          case O_MAXIMUM:
          case O_EXISTS:
          case O_FORALL:
+         case O_ALLDIFFERENT:
             {  struct iter_form_info _info, *info = &_info;
                int op;
                NL_EXPR *nl;
@@ -5907,6 +5967,8 @@ FORMULA *eval_formula(MPL *mpl, CODE *code)
                   op = O_MIN;
                else if (code->op == O_MAXIMUM)
                   op = O_MAX;
+               else if (code->op == O_ALLDIFFERENT)
+                  op = O_ALLDIFF;
                else
                   op = code->op;
                info->code = code;
@@ -5924,6 +5986,7 @@ FORMULA *eval_formula(MPL *mpl, CODE *code)
          case O_MIN:
          case O_MAX:
          case O_PIECEWISE:
+         case O_ALLDIFF:
             {  struct nl_expr_list *list = NULL;
                ARG_LIST *e;
                for (e = code->arg.list; e != NULL; e = e->next)
@@ -6147,6 +6210,7 @@ void clean_code(MPL *mpl, CODE *code)
          case O_MIN:
          case O_MAX:
          case O_PIECEWISE:
+         case O_ALLDIFF:
             /* n-ary operation */
             for (e = code->arg.list; e != NULL; e = e->next)
                clean_code(mpl, e->x);
@@ -6159,6 +6223,7 @@ void clean_code(MPL *mpl, CODE *code)
          case O_EXISTS:
          case O_SETOF:
          case O_BUILD:
+         case O_ALLDIFFERENT:
             /* iterated operation */
             clean_domain(mpl, code->arg.loop.domain);
             clean_code(mpl, code->arg.loop.x);

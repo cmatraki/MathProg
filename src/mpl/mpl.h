@@ -216,6 +216,9 @@ enum eGLP_TRAN_PHASE {
 #define T_TILDE         251   /* ~ */
 #define T_INPUT         252   /* <- */
 #define T_LAPPEND       253   /* << */
+#define T_IMPLICATION   254   /* ==> */
+#define T_IMPLIED_BY    255   /* <== */
+#define T_IFF           256   /* <==> */
 
 typedef int (*mpl_solve_callback)(MPL *mpl, int sol_type, void *udata);
 
@@ -674,6 +677,14 @@ CODE *expression_12(MPL *mpl);
 #define expression_13 _mpl_expression_13
 CODE *expression_13(MPL *mpl);
 /* parse expression of level 13 */
+
+#define expression_14 _mpl_expression_14
+CODE *expression_14(MPL *mpl);
+/* parse expression of level 14 */
+
+#define expression_15 _mpl_expression_15
+CODE *expression_15(MPL *mpl);
+/* parse expression of level 15 */
 
 #define problem_statement _mpl_problem_statement
 PROBLEM *problem_statement(MPL *mpl);
@@ -1430,6 +1441,8 @@ struct NL_EXPR
 #define O_MAX           377   /* maximal value (n-ary) */
 #define O_PIECEWISE     386   /* piecewise linear expression */
 #define O_ALLDIFF       389   /* all different (n-ary) */
+#define O_IMPLICATION   391   /* implication */
+#define O_IFF           392   /* if and only if */
       /* used as n-ary operator in NL_EXPR */
 #define O_SUM           378   /* summation */
 #define O_FORALL        382   /* conjunction (A-quantification) */
@@ -1444,7 +1457,8 @@ struct NL_EXPR
             NL_EXPR *y;
             /* second operand (owned); NULL for unary operators */
             NL_EXPR *z;
-            /* third operand (owned); NULL except for O_FORK and O_DB */
+            /* third operand (owned); NULL except for O_FORK, O_DB and
+               O_IMPLICATION*/
          } arg;
          LINFORM *lin;
          /* used with O_LINFORM (owned) */
@@ -2601,6 +2615,8 @@ struct CODE
 #define O_DB            388   /* double bounded constraint */
 #define O_ALLDIFF       389   /* all different (n-ary) */
 #define O_ALLDIFFERENT  390   /* all different (iterated) */
+#define O_IMPLICATION   391   /* implication */
+#define O_IFF           392   /* if and only if */
 
 #define GMPL_VERSION_STR "GLPK/GMPL 4.65"
       

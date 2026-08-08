@@ -567,6 +567,8 @@ private:
          case O_EXISTS: return mp::nl::EXISTS;
          case O_FORALL: return mp::nl::FORALL;
          case O_ALLDIFF: return mp::nl::ALLDIFF;
+         case O_IMPLICATION: return mp::nl::IMPLICATION;
+         case O_IFF: return mp::nl::IFF;
          default:
             assert(op != op);
       }
@@ -593,6 +595,7 @@ private:
          case O_NE:
          case O_AND:
          case O_OR:
+         case O_IFF:
             {  auto ew1 = ew.OPut2(get_opcode(nl->op));
                convert_nl(ew1, nl->u.arg.x);
                convert_nl(ew1, nl->u.arg.y);
@@ -647,6 +650,7 @@ private:
             }
             break;
          case O_FORK:
+         case O_IMPLICATION:
             {  auto ew1 = ew.OPut3(get_opcode(nl->op));
                convert_nl(ew1, nl->u.arg.x);
                convert_nl(ew1, nl->u.arg.y);
@@ -810,6 +814,9 @@ static double eval_linform(LINFORM *form, double *x)
       for (; form != NULL; form = form->next)
       {  if (form->var == NULL)
             sum += form->coef;
+         else if (form->var->var->type == A_INTEGER
+            || form->var->var->type == A_BINARY)
+            sum += form->coef * rint(x[form->var->j-1]);
          else
             sum += form->coef * x[form->var->j-1];
       }
@@ -817,8 +824,7 @@ static double eval_linform(LINFORM *form, double *x)
 }
 
 static double eval_nl_expr(NL_EXPR *nl, double *x)
-{     double eps = 1e-6;
-      if (nl == NULL)
+{     if (nl == NULL)
          return 0;
       switch (nl->op)
       {  case O_MUL:
@@ -841,7 +847,7 @@ static double eval_nl_expr(NL_EXPR *nl, double *x)
          case O_SQRT:
             return sqrt(eval_nl_expr(nl->u.arg.x, x));
          case O_NOT:
-            return !(fabs(eval_nl_expr(nl->u.arg.x, x)) > eps);
+            return !eval_nl_expr(nl->u.arg.x, x);
          case O_ABS:
             return fabs(eval_nl_expr(nl->u.arg.x, x));
          case O_COS:
@@ -874,11 +880,11 @@ static double eval_nl_expr(NL_EXPR *nl, double *x)
             return eval_nl_expr(nl->u.arg.x, x)
                != eval_nl_expr(nl->u.arg.y, x);
          case O_AND:
-            return (fabs(eval_nl_expr(nl->u.arg.x, x)) > eps)
-               & (fabs(eval_nl_expr(nl->u.arg.y, x)) > eps);
+            return !!eval_nl_expr(nl->u.arg.x, x)
+               & !!eval_nl_expr(nl->u.arg.y, x);
          case O_OR:
-            return (fabs(eval_nl_expr(nl->u.arg.x, x)) > eps)
-               | (fabs(eval_nl_expr(nl->u.arg.y, x)) > eps);
+            return !!eval_nl_expr(nl->u.arg.x, x)
+               | !!eval_nl_expr(nl->u.arg.y, x);
          case O_EXP:
             return exp(eval_nl_expr(nl->u.arg.x, x));
          case O_LOG:
@@ -915,13 +921,13 @@ static double eval_nl_expr(NL_EXPR *nl, double *x)
          case O_EXISTS:
             {  bool r = 0;
                for (int i = 0; i < nl->u.vec.n; i++)
-                  r |= (fabs(eval_nl_expr(nl->u.vec.data[i], x)) > eps);
+                  r |= !!eval_nl_expr(nl->u.vec.data[i], x);
                return r;
             }
          case O_FORALL:
             {  bool r = 1;
                for (int i = 0; i < nl->u.vec.n; i++)
-                  r &= (fabs(eval_nl_expr(nl->u.vec.data[i], x)) > eps);
+                  r &= !!eval_nl_expr(nl->u.vec.data[i], x);
                return r;
             }
          case O_PIECEWISE:
@@ -933,7 +939,8 @@ static double eval_nl_expr(NL_EXPR *nl, double *x)
                return eval_nl_expr(nl->u.vec.data[n/2+i-1], x) * v;
             }
          case O_FORK:
-            {  if (fabs(eval_nl_expr(nl->u.arg.x, x)) > eps)
+         case O_IMPLICATION:
+            {  if (eval_nl_expr(nl->u.arg.x, x))
                   return eval_nl_expr(nl->u.arg.y, x);
                else
                   return eval_nl_expr(nl->u.arg.z, x);
@@ -949,6 +956,9 @@ static double eval_nl_expr(NL_EXPR *nl, double *x)
                }
                return 1;
             }
+         case O_IFF:
+            return !(!!eval_nl_expr(nl->u.arg.x, x)
+               ^ !!eval_nl_expr(nl->u.arg.y, x));
          default:
             assert(nl != nl);
       }

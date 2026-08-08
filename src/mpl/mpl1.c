@@ -347,7 +347,13 @@ err:     {  enter_context(mpl);
       else if (mpl->scan_input->c == '<')
       {  mpl->scan_input->token = T_LT, append_char(mpl);
          if (mpl->scan_input->c == '=')
-            mpl->scan_input->token = T_LE, append_char(mpl);
+         {  mpl->scan_input->token = T_LE, append_char(mpl);
+            if (mpl->scan_input->c == '=')
+            {  mpl->scan_input->token = T_IMPLIED_BY, append_char(mpl);
+               if (mpl->scan_input->c == '>')
+                  mpl->scan_input->token = T_IFF, append_char(mpl);
+            }
+         }
          else if (mpl->scan_input->c == '>')
             mpl->scan_input->token = T_NE, append_char(mpl);
 #if 1 /* 11/II-2008 */
@@ -359,7 +365,11 @@ err:     {  enter_context(mpl);
       }
       else if (mpl->scan_input->c == '=')
       {  mpl->scan_input->token = T_EQ, append_char(mpl);
-         if (mpl->scan_input->c == '=') append_char(mpl);
+         if (mpl->scan_input->c == '=')
+         {  append_char(mpl);
+            if (mpl->scan_input->c == '>')
+               mpl->scan_input->token = T_IMPLICATION, append_char(mpl);
+         }
       }
       else if (mpl->scan_input->c == '>')
       {  mpl->scan_input->token = T_GT, append_char(mpl);
@@ -695,6 +705,7 @@ CODE *make_code(MPL *mpl, int op, OPERANDS *arg, int type, int dim)
          case O_SUBSTR:
          case O_STR2TIME:
          case O_TIME2STR:
+         case O_IFF:
             /* binary operation */
             xassert(arg->arg.x != NULL);
             xassert(arg->arg.x->up == NULL);
@@ -711,6 +722,7 @@ CODE *make_code(MPL *mpl, int op, OPERANDS *arg, int type, int dim)
          case O_FORK:
          case O_SUBSTR3:
          case O_DB:
+         case O_IMPLICATION:
             /* ternary operation */
             xassert(arg->arg.x != NULL);
             xassert(arg->arg.x->up == NULL);
@@ -1600,8 +1612,8 @@ DOMAIN_SLOT *append_slot(MPL *mpl, DOMAIN_BLOCK *block, char *name,
 -- the parentheses using the syntax:
 --
 -- <primary expression> ::= ( <expression list> )
--- <expression list> ::= <expression 13>
--- <expression list> ::= <expression 13> , <expression list>
+-- <expression list> ::= <expression 15>
+-- <expression list> ::= <expression 15> , <expression list>
 --
 -- Note that this construction may have three different meanings:
 --
@@ -1677,7 +1689,7 @@ CODE *expression_list(MPL *mpl)
          }
          else
 expr:    {  /* current component of <expression list> is expression */
-            code = expression_13(mpl);
+            code = expression_15(mpl);
             /* if the current expression is followed by comma or it is
                not the very first expression, entire <expression list>
                is n-tuple or slice, in which case the current expression
@@ -1807,7 +1819,7 @@ CODE *literal_set(MPL *mpl, CODE *code)
 -- <dummy index> ::= <symbolic name>
 -- <slice> ::= ( <expression list> )
 -- <basic expression> ::= <expression 9>
--- <logical expression> ::= <expression 13>
+-- <logical expression> ::= <expression 15>
 --
 -- This routine creates domain for <indexing expression>, where each
 -- domain block corresponds to <indexing element>, and each domain slot
@@ -1954,7 +1966,7 @@ expr:    /* parse expression that follows either the keyword 'in' (in
       /* parse <logical expression> that follows the colon */
       if (mpl->scan_input->token == T_COLON)
       {  get_token(mpl /* : */);
-         code = expression_13(mpl);
+         code = expression_15(mpl);
          /* convert the expression to logical type, if necessary */
          if (code->type == A_SYMBOLIC)
             code = make_unary(mpl, O_CVTNUM, code, A_NUMERIC, 0);
@@ -2017,6 +2029,39 @@ void close_scope(MPL *mpl, DOMAIN *domain)
 -- <iterated expression> ::= alldiff <indexing expression> <expression 3>
 --
 -- Note that parsing "integrand" depends on the iterated operator. */
+
+static CODE *var_to_logic(MPL *mpl, CODE *expr)
+{     assert(expr->op == O_MEMVAR);
+      if (expr->arg.var.var->type != A_BINARY)
+         error(mpl, "non binary variable used as logical constraint");
+      return make_unary(mpl, O_CVTLOG, expr, A_FORMULA, 0);
+}
+
+static void check_is_constraint(MPL *mpl, CODE *expr)
+{     assert(expr->type == A_FORMULA);
+      switch (expr->op)
+      {  case O_LT:
+         case O_LE:
+         case O_EQ:
+         case O_GE:
+         case O_GT:
+         case O_NE:
+         case O_AND:
+         case O_OR:
+         case O_NOT:
+         case O_DB:
+         case O_FORALL:
+         case O_EXISTS:
+         case O_ALLDIFF:
+         case O_ALLDIFFERENT:
+         case O_IMPLICATION:
+         case O_IFF:
+         case O_CVTLOG:
+            break;
+         default:
+            error(mpl, "not valid logical constraint");
+      }
+}
 
 #if 1 /* 07/IX-2008 */
 static void link_up(CODE *code)
@@ -2107,6 +2152,11 @@ err:           error(mpl, "integrand following %s{...} has invalid type"
             /* now the integrand must be of logical type */
             if (!(arg.loop.x->type == A_LOGICAL || arg.loop.x->type ==
                A_FORMULA)) goto err;
+            if (arg.loop.x->type == A_FORMULA && arg.loop.x->op ==
+               O_MEMVAR)
+               arg.loop.x = var_to_logic(mpl, arg.loop.x);
+            if (arg.loop.x->type == A_FORMULA) check_is_constraint(mpl,
+               arg.loop.x);
             xassert(arg.loop.x->dim == 0);
             /* generate pseudo-code */
             code = make_code(mpl, op, &arg, arg.loop.x->type, 0);
@@ -2256,14 +2306,14 @@ CODE *set_expression(MPL *mpl)
 -- <branched expression> ::= if <logical expression> then <expression 9>
 -- <branched expression> ::= if <logical expression> then <expression 9>
 --                           else <expression 9>
--- <logical expression> ::= <expression 13> */
+-- <logical expression> ::= <expression 15> */
 
 CODE *branched_expression(MPL *mpl)
 {     CODE *code, *x, *y, *z;
       xassert(mpl->scan_input->token == T_IF);
       get_token(mpl /* if */);
       /* parse <logical expression> that follows 'if' */
-      x = expression_13(mpl);
+      x = expression_15(mpl);
       /* convert the expression to logical type, if necessary */
       if (x->type == A_SYMBOLIC)
          x = make_unary(mpl, O_CVTNUM, x, A_NUMERIC, 0);
@@ -2272,6 +2322,9 @@ CODE *branched_expression(MPL *mpl)
       /* now the expression must be of logical type */
       if (x->type != A_LOGICAL && x-> type != A_FORMULA)
          error(mpl, "expression following if has invalid type");
+      if (x->type == A_FORMULA && x->op == O_MEMVAR)
+         x = var_to_logic(mpl, x);
+      if (x->type == A_FORMULA) check_is_constraint(mpl, x);
       xassert(x->dim == 0);
       /* the keyword 'then' must follow the logical expression */
       if (mpl->scan_input->token != T_THEN)
@@ -3044,6 +3097,9 @@ CODE *expression_11(MPL *mpl)
             x = make_unary(mpl, O_CVTLOG, x, A_LOGICAL, 0);
          if (x->type != A_LOGICAL && x->type != A_FORMULA)
             error_following(mpl, opstr);
+         if (x->type == A_FORMULA && x->op == O_MEMVAR)
+            x = var_to_logic(mpl, x);
+         if (x->type == A_FORMULA) check_is_constraint(mpl, x);
          x = make_unary(mpl, O_NOT, x, x->type, 0);
       }
       else
@@ -3074,6 +3130,9 @@ CODE *expression_12(MPL *mpl)
                x = make_unary(mpl, O_CVTLOG, x, A_LOGICAL, 0);
             if (x->type != A_LOGICAL && x->type != A_FORMULA)
                error_preceding(mpl, opstr);
+            if (x->type == A_FORMULA && x->op == O_MEMVAR)
+               x = var_to_logic(mpl, x);
+            if (x->type == A_FORMULA) check_is_constraint(mpl, x);
             get_token(mpl /* and | && */);
             y = expression_11(mpl);
             if (y->type == A_SYMBOLIC)
@@ -3082,6 +3141,9 @@ CODE *expression_12(MPL *mpl)
                y = make_unary(mpl, O_CVTLOG, y, A_LOGICAL, 0);
             if (y->type != A_LOGICAL && y->type != A_FORMULA)
                error_following(mpl, opstr);
+            if (y->type == A_FORMULA && y->op == O_MEMVAR)
+               y = var_to_logic(mpl, y);
+            if (y->type == A_FORMULA) check_is_constraint(mpl, y);
             if (x->type == A_FORMULA || y->type == A_FORMULA)
                x = make_binary(mpl, O_AND, x, y, A_FORMULA, 0);
             else
@@ -3116,6 +3178,9 @@ CODE *expression_13(MPL *mpl)
                x = make_unary(mpl, O_CVTLOG, x, A_LOGICAL, 0);
             if (x->type != A_LOGICAL && x->type != A_FORMULA)
                error_preceding(mpl, opstr);
+            if (x->type == A_FORMULA && x->op == O_MEMVAR)
+               x = var_to_logic(mpl, x);
+            if (x->type == A_FORMULA) check_is_constraint(mpl, x);
             get_token(mpl /* or | || */);
             y = expression_12(mpl);
             if (y->type == A_SYMBOLIC)
@@ -3124,10 +3189,159 @@ CODE *expression_13(MPL *mpl)
                y = make_unary(mpl, O_CVTLOG, y, A_LOGICAL, 0);
             if (y->type != A_LOGICAL && y->type != A_FORMULA)
                error_following(mpl, opstr);
+            if (y->type == A_FORMULA && y->op == O_MEMVAR)
+               y = var_to_logic(mpl, y);
+            if (y->type == A_FORMULA) check_is_constraint(mpl, y);
             if (x->type == A_FORMULA || y->type == A_FORMULA)
                x = make_binary(mpl, O_OR, x, y, A_FORMULA, 0);
             else
                x = make_binary(mpl, O_OR, x, y, A_LOGICAL, 0);
+         }
+         else
+            break;
+      }
+      return x;
+}
+
+/*----------------------------------------------------------------------
+-- expression_14 - parse expression of level 14.
+--
+-- This routine parses expression of level 14 using the syntax:
+--
+-- <expression 14> ::= <expression 13>
+-- <expression 14> ::= <expression 13> ==> <expression 14>
+-- <expression 14> ::= <expression 13> ==> <expression 14>
+--                     else <expression 14>
+-- <expression 14> ::= <expression 14> <== <expression 13>
+--
+-- Note that due to different associativity, mixing ==> and <==
+-- without parentheses is not allowed. */
+
+static CODE *expression_14_helper(MPL *mpl, int seen_implication)
+{     CODE *x, *y;
+      int seen_implied_by = 0;
+      x = expression_13(mpl);
+      for (;;)
+      {  if (mpl->scan_input->token == T_IMPLIED_BY)
+         {  if (seen_implication)
+err:           error(mpl, "can't mix <== and ==> without parentheses");
+            seen_implied_by = 1;
+            if (x->type == A_SYMBOLIC)
+               x = make_unary(mpl, O_CVTNUM, x, A_NUMERIC, 0);
+            if (x->type == A_NUMERIC)
+               x = make_unary(mpl, O_CVTLOG, x, A_LOGICAL, 0);
+            if (x->type != A_LOGICAL && x->type != A_FORMULA)
+               error_preceding(mpl, "<==");
+            if (x->type == A_FORMULA && x->op == O_MEMVAR)
+               x = var_to_logic(mpl, x);
+            if (x->type == A_FORMULA) check_is_constraint(mpl, x);
+            get_token(mpl /* <== */);
+            y = expression_13(mpl);
+            if (y->type == A_SYMBOLIC)
+               y = make_unary(mpl, O_CVTNUM, y, A_NUMERIC, 0);
+            if (y->type == A_NUMERIC)
+               y = make_unary(mpl, O_CVTLOG, y, A_LOGICAL, 0);
+            if (y->type != A_LOGICAL && y->type != A_FORMULA)
+               error_following(mpl, "<==");
+            if (y->type == A_FORMULA && y->op == O_MEMVAR)
+               y = var_to_logic(mpl, y);
+            if (y->type == A_FORMULA) check_is_constraint(mpl, y);
+            if (x->type == A_FORMULA || y->type == A_FORMULA)
+               x = make_ternary(mpl, O_IMPLICATION, y, x, NULL,
+                  A_FORMULA, 0);
+            else
+               x = make_ternary(mpl, O_IMPLICATION, y, x, NULL,
+                  A_LOGICAL, 0);
+         }
+         else
+            break;
+      }
+      if (mpl->scan_input->token == T_IMPLICATION)
+      {  CODE *z = NULL;
+         if (seen_implied_by) goto err;
+         if (x->type == A_SYMBOLIC)
+            x = make_unary(mpl, O_CVTNUM, x, A_NUMERIC, 0);
+         if (x->type == A_NUMERIC)
+            x = make_unary(mpl, O_CVTLOG, x, A_LOGICAL, 0);
+         if (x->type != A_LOGICAL && x->type != A_FORMULA)
+            error_preceding(mpl, "==>");
+         if (x->type == A_FORMULA && x->op == O_MEMVAR)
+            x = var_to_logic(mpl, x);
+         if (x->type == A_FORMULA) check_is_constraint(mpl, x);
+         get_token(mpl /* ==> */);
+         y = expression_14_helper(mpl, 1);
+         if (y->type == A_SYMBOLIC)
+            y = make_unary(mpl, O_CVTNUM, y, A_NUMERIC, 0);
+         if (y->type == A_NUMERIC)
+            y = make_unary(mpl, O_CVTLOG, y, A_LOGICAL, 0);
+         if (y->type != A_LOGICAL && y->type != A_FORMULA)
+            error_following(mpl, "==>");
+         if (y->type == A_FORMULA && y->op == O_MEMVAR)
+            y = var_to_logic(mpl, y);
+         if (y->type == A_FORMULA) check_is_constraint(mpl, y);
+         if (mpl->scan_input->token == T_ELSE)
+         {  get_token(mpl /* else */);
+            z = expression_14_helper(mpl, 0);
+            if (z->type == A_SYMBOLIC)
+               z = make_unary(mpl, O_CVTNUM, z, A_NUMERIC, 0);
+            if (z->type == A_NUMERIC)
+               z = make_unary(mpl, O_CVTLOG, z, A_LOGICAL, 0);
+            if (z->type != A_LOGICAL && z->type != A_FORMULA)
+               error_following(mpl, "else");
+         if (z->type == A_FORMULA && z->op == O_MEMVAR)
+            z = var_to_logic(mpl, z);
+         if (z->type == A_FORMULA) check_is_constraint(mpl, z);
+         }
+         if (x->type == A_FORMULA || y->type == A_FORMULA || (z != NULL
+            && z->type == A_FORMULA))
+            x = make_ternary(mpl, O_IMPLICATION, x, y, z, A_FORMULA, 0);
+         else
+            x = make_ternary(mpl, O_IMPLICATION, x, y, z, A_LOGICAL, 0);
+      }
+      return x;
+}
+
+CODE *expression_14(MPL *mpl)
+{     return expression_14_helper(mpl, 0);
+}
+
+/*----------------------------------------------------------------------
+-- expression_15 - parse expression of level 15.
+--
+-- This routine parses expression of level 15 using the syntax:
+--
+-- <expression 15> ::= <expression 14>
+-- <expression 15> ::= <expression 15> <==> <expression 14> */
+
+CODE *expression_15(MPL *mpl)
+{     CODE *x, *y;
+      x = expression_14(mpl);
+      for (;;)
+      {  if (mpl->scan_input->token == T_IFF)
+         {  if (x->type == A_SYMBOLIC)
+               x = make_unary(mpl, O_CVTNUM, x, A_NUMERIC, 0);
+            if (x->type == A_NUMERIC)
+               x = make_unary(mpl, O_CVTLOG, x, A_LOGICAL, 0);
+            if (x->type != A_LOGICAL && x->type != A_FORMULA)
+               error_preceding(mpl, "<==>");
+            if (x->type == A_FORMULA && x->op == O_MEMVAR)
+               x = var_to_logic(mpl, x);
+            if (x->type == A_FORMULA) check_is_constraint(mpl, x);
+            get_token(mpl /* <==> */);
+            y = expression_14(mpl);
+            if (y->type == A_SYMBOLIC)
+               y = make_unary(mpl, O_CVTNUM, y, A_NUMERIC, 0);
+            if (y->type == A_NUMERIC)
+               y = make_unary(mpl, O_CVTLOG, y, A_LOGICAL, 0);
+            if (y->type != A_LOGICAL && y->type != A_FORMULA)
+               error_following(mpl, "<==>");
+            if (y->type == A_FORMULA && y->op == O_MEMVAR)
+               y = var_to_logic(mpl, y);
+            if (y->type == A_FORMULA) check_is_constraint(mpl, y);
+            if (x->type == A_FORMULA || y->type == A_FORMULA)
+               x = make_binary(mpl, O_IFF, x, y, A_FORMULA, 0);
+            else
+               x = make_binary(mpl, O_IFF, x, y, A_LOGICAL, 0);
          }
          else
             break;
@@ -4221,8 +4435,10 @@ CONSTRAINT *constraint_statement(MPL *mpl)
 #if 1
       /* parse the full constraint */
       /* commas before the relational operator are no longer allowed */
-      expr = expression_13(mpl);
+      expr = expression_15(mpl);
       if (expr->type != A_FORMULA) goto err;
+      if (expr->op == O_MEMVAR)
+         expr = var_to_logic(mpl, expr);
       /* extract the expression operands */
       if (expr->op == O_DB)
       {  first = expr->arg.arg.x;
@@ -4251,25 +4467,7 @@ CONSTRAINT *constraint_statement(MPL *mpl)
          rho = T_EQ;
       }
       else
-      {  switch (expr->op)
-         {  case O_LT:
-            case O_LE:
-            case O_EQ:
-            case O_GE:
-            case O_GT:
-            case O_NE:
-            case O_AND:
-            case O_OR:
-            case O_NOT:
-            case O_DB:
-            case O_FORALL:
-            case O_EXISTS:
-            case O_ALLDIFF:
-            case O_ALLDIFFERENT:
-               break;
-            default:
-               error(mpl, "not valid logical constraint");
-         }
+      {  check_is_constraint(mpl, expr);
 logcon:  con->type = A_LOGCON;
          con->code = expr;
          goto done;
@@ -4881,7 +5079,7 @@ SOLVE *solve_statement(MPL *mpl)
 --
 -- This routine parses check statement using the syntax:
 --
--- <check statement> ::= check <domain> : <expression 13> ;
+-- <check statement> ::= check <domain> : <expression 15> ;
 -- <domain> ::= <empty>
 -- <domain> ::= <indexing expression>
 --
@@ -4906,7 +5104,7 @@ CHECK *check_statement(MPL *mpl)
       /* skip optional colon */
       if (mpl->scan_input->token == T_COLON) get_token(mpl /* : */);
       /* parse logical expression */
-      chk->code = expression_13(mpl);
+      chk->code = expression_15(mpl);
       if (chk->code->type != A_LOGICAL)
          error(mpl, "expression has invalid type");
       xassert(chk->code->dim == 0);
@@ -4924,7 +5122,7 @@ CHECK *check_statement(MPL *mpl)
 --
 -- This routine parses check statement using the syntax:
 --
--- <check statement> ::= check <domain> : <expression 13> ;
+-- <check statement> ::= check <domain> : <expression 5> ;
 -- <domain> ::= <empty>
 -- <domain> ::= <indexing expression>
 --
@@ -5010,7 +5208,7 @@ LET_STMT *let_statement(MPL *mpl)
 -- <display entry> ::= <constraint name>
 -- <display entry> ::= <constraint name> [ <subscript list> ]
 -- <display entry> ::= <problem name>
--- <display entry> ::= <expression 13> */
+-- <display entry> ::= <expression 15> */
 
 DISPLAY *display_statement(MPL *mpl)
 {     DISPLAY *dpy;
@@ -5090,7 +5288,7 @@ DISPLAY *display_statement(MPL *mpl)
          else
 expr:    {  /* display entry is expression */
             entry->type = A_EXPRESSION;
-            entry->u.code = expression_13(mpl);
+            entry->u.code = expression_15(mpl);
          }
          /* check a token that follows the entry parsed */
          if (mpl->scan_input->token == T_COMMA)
@@ -5423,7 +5621,9 @@ IF_STMT *if_statement(MPL *mpl)
       if_stmt->true_list = if_stmt->else_list = NULL;
       get_token(mpl /* if */);
       /* parse logical expression */
-      if_stmt->code = expression_13(mpl);
+      if_stmt->code = expression_15(mpl);
+      if (if_stmt->code->type != A_LOGICAL)
+         error(mpl, "invalid if statement");
       if(mpl->scan_input->token != T_THEN)
           error(mpl, "'then' keyword expected");
       get_token(mpl /* then */);

@@ -6015,18 +6015,23 @@ FORMULA *eval_formula(MPL *mpl, CODE *code)
          case O_NE:
          case O_AND:
          case O_OR:
+         case O_IFF:
             /* binary operator */
             {  FORMULA *fx, *fy;
                if (code->arg.arg.x->type == A_NUMERIC)
-                  fx = constant_term(mpl, eval_numeric(mpl, code->arg.arg.x));
+                  fx = constant_term(mpl, eval_numeric(mpl,
+                     code->arg.arg.x));
                else if (code->arg.arg.x->type == A_LOGICAL)
-                  fx = constant_term(mpl, eval_logical(mpl, code->arg.arg.x));
+                  fx = constant_term(mpl, eval_logical(mpl,
+                     code->arg.arg.x));
                else
                   fx = eval_formula(mpl, code->arg.arg.x);
                if (code->arg.arg.y->type == A_NUMERIC)
-                  fy = constant_term(mpl, eval_numeric(mpl, code->arg.arg.y));
+                  fy = constant_term(mpl, eval_numeric(mpl,
+                     code->arg.arg.y));
                else if (code->arg.arg.y->type == A_LOGICAL)
-                  fy = constant_term(mpl, eval_logical(mpl, code->arg.arg.y));
+                  fy = constant_term(mpl, eval_logical(mpl,
+                     code->arg.arg.y));
                else
                   fy = eval_formula(mpl, code->arg.arg.y);
                value = make_formula(mpl, NULL, make_nl_expr(mpl,
@@ -6056,18 +6061,58 @@ FORMULA *eval_formula(MPL *mpl, CODE *code)
             {  FORMULA *fx, *fz;
                NL_EXPR *y, *l, *r;
                if (code->arg.arg.x->type == A_NUMERIC)
-                  fx = constant_term(mpl, eval_numeric(mpl, code->arg.arg.x));
+                  fx = constant_term(mpl, eval_numeric(mpl,
+                     code->arg.arg.x));
                else
                   fx = eval_formula(mpl, code->arg.arg.x);
-               y = formula_to_nl_expr(mpl, eval_formula(mpl, code->arg.arg.y));
+               y = formula_to_nl_expr(mpl, eval_formula(mpl,
+                  code->arg.arg.y));
                if (code->arg.arg.z->type == A_NUMERIC)
-                  fz = constant_term(mpl, eval_numeric(mpl, code->arg.arg.z));
+                  fz = constant_term(mpl, eval_numeric(mpl,
+                     code->arg.arg.z));
                else
                   fz = eval_formula(mpl, code->arg.arg.z);
                l = make_nl_expr(mpl, O_LE, formula_to_nl_expr(mpl, fx),
                   copy_nl_expr(mpl, y));     /* y is duplicated */
-               r = make_nl_expr(mpl, O_LE, y, formula_to_nl_expr(mpl, fz));
-               value = make_formula(mpl, NULL, make_nl_expr(mpl, O_AND, l, r));
+               r = make_nl_expr(mpl, O_LE, y, formula_to_nl_expr(mpl,
+                  fz));
+               value = make_formula(mpl, NULL, make_nl_expr(mpl, O_AND,
+                  l, r));
+            }
+            break;
+         case O_CVTLOG:
+            /* convert to linear form */
+            value = make_formula(mpl, NULL, make_nl_expr(mpl, O_NE,
+               formula_to_nl_expr(mpl, eval_formula(mpl,
+               code->arg.arg.x)), NULL));
+            break;
+         case O_IMPLICATION:
+            {  NL_EXPR *nl;
+               FORMULA *fx, *fy, *fz;
+               if (code->arg.arg.x->type == A_LOGICAL)
+                  fx = constant_term(mpl, eval_logical(mpl,
+                     code->arg.arg.x));
+               else
+                  fx = eval_formula(mpl, code->arg.arg.x);
+               if (code->arg.arg.y->type == A_LOGICAL)
+                  fy = constant_term(mpl, eval_logical(mpl,
+                     code->arg.arg.y));
+               else
+                  fy = eval_formula(mpl, code->arg.arg.y);
+               if (code->arg.arg.z != NULL) /* optional else part */
+               {  if (code->arg.arg.z->type == A_LOGICAL)
+                     fz = constant_term(mpl, eval_logical(mpl,
+                        code->arg.arg.z));
+                  else
+                     fz = eval_formula(mpl, code->arg.arg.z);
+               }
+               else
+                  fz = constant_term(mpl, 1.0);
+               nl = make_nl_expr(mpl, O_IMPLICATION,
+                  formula_to_nl_expr(mpl, fx), formula_to_nl_expr(mpl,
+                     fy));
+               nl->u.arg.z = formula_to_nl_expr(mpl, fz);
+               value = make_formula(mpl, NULL, nl);
             }
             break;
          default:
@@ -6194,6 +6239,7 @@ void clean_code(MPL *mpl, CODE *code)
          case O_SUBSTR:
          case O_STR2TIME:
          case O_TIME2STR:
+         case O_IFF:
             /* binary operation */
             clean_code(mpl, code->arg.arg.x);
             clean_code(mpl, code->arg.arg.y);
@@ -6202,6 +6248,7 @@ void clean_code(MPL *mpl, CODE *code)
          case O_FORK:
          case O_SUBSTR3:
          case O_DB:
+         case O_IMPLICATION:
             /* ternary operation */
             clean_code(mpl, code->arg.arg.x);
             clean_code(mpl, code->arg.arg.y);

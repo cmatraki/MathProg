@@ -4334,14 +4334,16 @@ ELEMCON *take_member_con      /* returns reference */
             if (refer->eqn) refer->eqn->lin =
                remove_constant(mpl, refer->eqn->lin, &temp);
             FORMULA *ftmp = eval_formula(mpl, con->lbnd);
-            if (ftmp) ftmp->lin =
-               remove_constant(mpl, ftmp->lin, &temp1);
-            xassert(ftmp->lin == NULL && ftmp->nl == NULL);
+            if (ftmp)
+            {  ftmp->lin = remove_constant(mpl, ftmp->lin, &temp1);
+               xassert(ftmp->lin == NULL && ftmp->nl == NULL);
+            }
             delete_formula(mpl, ftmp);
             ftmp = eval_formula(mpl, con->ubnd);
-            if (ftmp) ftmp->lin =
-               remove_constant(mpl, ftmp->lin, &temp2);
-            xassert(ftmp->lin == NULL && ftmp->nl == NULL);
+            if (ftmp)
+            {  ftmp->lin = remove_constant(mpl, ftmp->lin, &temp2);
+               xassert(ftmp->lin == NULL && ftmp->nl == NULL);
+            }
             delete_formula(mpl, ftmp);
             refer->lbnd = fp_sub(mpl, temp1, temp);
             refer->ubnd = fp_sub(mpl, temp2, temp);

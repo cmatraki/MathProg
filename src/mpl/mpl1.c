@@ -763,6 +763,7 @@ CODE *make_code(MPL *mpl, int op, OPERANDS *arg, int type, int dim)
          case O_SETOF:
          case O_BUILD:
          case O_ALLDIFFERENT:
+         case O_COUNT:
             /* iterated operation */
             domain = arg->loop.domain;
             xassert(domain != NULL);
@@ -2026,7 +2027,15 @@ void close_scope(MPL *mpl, DOMAIN *domain)
 -- <iterated expression> ::= forall <indexing expression>
 --                           <expression 12>
 -- <iterated expression> ::= setof <indexing expression> <expression 5>
--- <iterated expression> ::= alldiff <indexing expression> <expression 3>
+-- <iterated expression> ::= alldiff <indexing expression>
+--                           <expression 3>
+-- <iterated expression> ::= count <indexing expression> <expression 3>
+-- <iterated expression> ::= atleast <expression 3>
+--                           <indexing expression> <expression 12>
+-- <iterated expression> ::= atmost <expression 3> <indexing expression>
+--                           <expression 12>
+-- <iterated expression> ::= exactly <expression 3>
+--                           <indexing expression> <expression 12>
 --
 -- Note that parsing "integrand" depends on the iterated operator. */
 
@@ -2037,7 +2046,7 @@ static CODE *var_to_logic(MPL *mpl, CODE *expr)
       return make_unary(mpl, O_CVTLOG, expr, A_FORMULA, 0);
 }
 
-static void check_is_constraint(MPL *mpl, CODE *expr)
+static int is_constraint(CODE *expr)
 {     assert(expr->type == A_FORMULA);
       switch (expr->op)
       {  case O_LT:
@@ -2057,10 +2066,14 @@ static void check_is_constraint(MPL *mpl, CODE *expr)
          case O_IMPLICATION:
          case O_IFF:
          case O_CVTLOG:
-            break;
-         default:
-            error(mpl, "not valid logical constraint");
+            return 1;
       }
+      return 0;
+}
+
+static void check_is_constraint(MPL *mpl, CODE *expr)
+{     if (!is_constraint(expr))
+         error(mpl, "not valid logical constraint");
 }
 
 #if 1 /* 07/IX-2008 */
@@ -2091,6 +2104,9 @@ CODE *iterated_expression(MPL *mpl)
       OPERANDS arg;
       int op;
       char opstr[8];
+      CODE *limit;
+      int limit_op = 0;
+      int type;
       /* determine operation code */
       xassert(mpl->scan_input->token == T_NAME);
       if (strcmp(mpl->scan_input->image, "sum") == 0)
@@ -2109,11 +2125,32 @@ CODE *iterated_expression(MPL *mpl)
          op = O_SETOF;
       else if (strcmp(mpl->scan_input->image, "alldiff") == 0)
          op = O_ALLDIFFERENT;
+      else if (strcmp(mpl->scan_input->image, "count") == 0)
+         op = O_COUNT;
+      else if (strcmp(mpl->scan_input->image, "atleast") == 0)
+         op = O_COUNT, limit_op = O_LE;
+      else if (strcmp(mpl->scan_input->image, "atmost") == 0)
+         op = O_COUNT, limit_op = O_GE;
+      else if (strcmp(mpl->scan_input->image, "exactly") == 0)
+         op = O_COUNT, limit_op = O_EQ;
       else
-         error(mpl, "operator %s unknown", mpl->scan_input->image);
+      {  /* we may have reched here due to lookahead seeing a { that
+            binds to an earlier atleast/atmost/except */
+         return object_reference(mpl);
+      }
       strcpy(opstr, mpl->scan_input->image);
       xassert(strlen(opstr) < sizeof(opstr));
       get_token(mpl /* <symbolic name> */);
+      if (limit_op > 0)
+      {  /* atleast/atmost/except limit */
+         limit = expression_3(mpl);
+         if (limit->type == A_SYMBOLIC)
+            limit = make_unary(mpl, O_CVTNUM, limit, A_NUMERIC, 0);
+         if (limit->type != A_NUMERIC && limit->type != A_FORMULA)
+            error_following(mpl, opstr);
+         if (mpl->scan_input->token != T_LBRACE)
+            error(mpl, "missing { after %s limit", opstr);
+      }
       /* check the left brace that follows the operator name */
       xassert(mpl->scan_input->token == T_LBRACE);
       /* parse indexing expression that controls iterating */
@@ -2139,11 +2176,17 @@ err:           error(mpl, "integrand following %s{...} has invalid type"
             /* generate pseudo-code */
             code = make_code(mpl, op, &arg, arg.loop.x->type, 0);
             break;
+         case O_COUNT:
+            if (limit_op == 0)
+            {  /* plain count has different precedence */
+               arg.loop.x = expression_3(mpl);
+               goto skip;
+            }
          case O_FORALL:
          case O_EXISTS:
             arg.loop.x = expression_12(mpl);
             /* convert the integrand to logical type, if necessary */
-            if (arg.loop.x->type == A_SYMBOLIC)
+skip:       if (arg.loop.x->type == A_SYMBOLIC)
                arg.loop.x = make_unary(mpl, O_CVTNUM, arg.loop.x,
                   A_NUMERIC, 0);
             if (arg.loop.x->type == A_NUMERIC)
@@ -2155,11 +2198,18 @@ err:           error(mpl, "integrand following %s{...} has invalid type"
             if (arg.loop.x->type == A_FORMULA && arg.loop.x->op ==
                O_MEMVAR)
                arg.loop.x = var_to_logic(mpl, arg.loop.x);
-            if (arg.loop.x->type == A_FORMULA) check_is_constraint(mpl,
-               arg.loop.x);
+            if (arg.loop.x->type == A_FORMULA
+               && !is_constraint(arg.loop.x))
+               arg.loop.x = make_unary(mpl, O_CVTLOG, arg.loop.x,
+                  A_FORMULA, 0);
             xassert(arg.loop.x->dim == 0);
             /* generate pseudo-code */
-            code = make_code(mpl, op, &arg, arg.loop.x->type, 0);
+            type = arg.loop.x->type;
+            if (op == O_COUNT && type == A_LOGICAL)
+            {  /* count should give numeric result */
+               type = A_NUMERIC;
+            }
+            code = make_code(mpl, op, &arg, type, 0);
             break;
          case O_SETOF:
             arg.loop.x = expression_5(mpl);
@@ -2184,6 +2234,13 @@ err:           error(mpl, "integrand following %s{...} has invalid type"
 #if 1 /* 07/IX-2008 */
       link_up(code);
 #endif
+      if (limit_op > 0)
+      {  /* for atleast/atmost/except so far we have a count operation,
+            compare to the limit to complete the expression */
+         type = code->type;
+         if (type == A_NUMERIC) type = A_LOGICAL;
+         code = make_binary(mpl, limit_op, limit, code, type, 0);
+      }
       return code;
 }
 
@@ -2430,6 +2487,14 @@ CODE *primary_expression(MPL *mpl)
       else if (mpl->scan_input->token == T_STRING)
       {  /* parse string literal */
          code = string_literal(mpl);
+      }
+      else if (mpl->scan_input->token == T_NAME
+         && (strcmp(mpl->scan_input->image, "atleast") == 0
+         || strcmp(mpl->scan_input->image, "atmost") == 0
+         || strcmp(mpl->scan_input->image, "exactly") == 0))
+      {  /* atleast, atmost and exactly have an extra argument so can't
+            rely on lookahead as for the other names */
+         code = iterated_expression(mpl);
       }
       else if (mpl->scan_input->token == T_NAME)
       {  int next_token;

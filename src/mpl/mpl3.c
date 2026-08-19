@@ -1402,7 +1402,7 @@ FORMULA *single_variable
 int is_nary_nl_expr_op(int op)
 {     return (op == O_MIN || op == O_MAX || op == O_SUM
          || op == O_PIECEWISE || op == O_FORALL || op == O_EXISTS
-         || op == O_ALLDIFF);
+         || op == O_ALLDIFF || op == O_COUNT);
 }
 
 /*----------------------------------------------------------------------
@@ -1808,24 +1808,40 @@ static NL_EXPR *list_to_nl_expr(MPL *mpl, int op, struct nl_expr_list *list)
       xassert(is_nary_nl_expr_op(op));
       for (n = 0, p = list; p != NULL; p = p->next) n++;
       if (n == 0) return NULL;
+      else if (n == 1 && op == O_ALLDIFF)
+      {  /* alldiff with one term is true */
+         delete_nl_expr(mpl, list->nl);
+         /* need real nl expression but no "true" opcode */
+         nl = make_nl_expr(mpl, O_NOT, NULL, NULL);
+         goto xfree1;
+      }
+      else if (n == 1 && (op == O_EXISTS || op == O_FORALL
+         || op == O_COUNT))
+      {  /* exists, forall or count with one term is zero comparison */
+         nl = make_nl_expr(mpl, O_NE, list->nl, NULL);
+         goto xfree1;
+      }
       else if (n == 1)
       {  nl = list->nl;
-         xfree(list);
-         return nl;
+         goto xfree1;
       }
       else if (n == 2 && op == O_SUM)
       {  nl = make_nl_expr(mpl, O_ADD, list->next->nl, list->nl);
-xearly:  xfree(list->next);
-         xfree(list);
+xfree2:  xfree(list->next);
+xfree1:  xfree(list);
          return nl;
       }
       else if (n == 2 && op == O_FORALL)
       {  nl = make_nl_expr(mpl, O_AND, list->next->nl, list->nl);
-         goto xearly;
+         goto xfree2;
       }
       else if (n == 2 && op == O_EXISTS)
       {  nl = make_nl_expr(mpl, O_OR, list->next->nl, list->nl);
-         goto xearly;
+         goto xfree2;
+      }
+      else if (n == 2 && op == O_ALLDIFF)
+      {  nl = make_nl_expr(mpl, O_NE, list->next->nl, list->nl);
+         goto xfree2;
       }
       nl = dmp_get_atom(mpl->nlexprs, sizeof(NL_EXPR));
       nl->op = op;
@@ -4497,6 +4513,11 @@ static int iter_num_func(MPL *mpl, void *_info)
          on numeric "integrand" within domain scope */
       struct iter_num_info *info = _info;
       double temp;
+      if (info->code->op == O_COUNT)
+      {  /* count takes logical arguments */
+         info->value += !!eval_logical(mpl, info->code->arg.loop.x);
+         return 0;
+      }
       temp = eval_numeric(mpl, info->code->arg.loop.x);
       switch (info->code->op)
       {  case O_SUM:
@@ -4903,6 +4924,7 @@ double eval_numeric(MPL *mpl, CODE *code)
             }
             break;
          case O_SUM:
+         case O_COUNT:
             /* summation over domain */
             {  struct iter_num_info _info, *info = &_info;
                info->code = code;
@@ -4973,7 +4995,6 @@ double eval_numeric(MPL *mpl, CODE *code)
                value = info->value;
             }
             break;
-
          default:
             xassert(code != code);
       }
@@ -5770,6 +5791,7 @@ static int iter_form_func(MPL *mpl, void *_info)
          case O_EXISTS:
          case O_FORALL:
          case O_ALLDIFFERENT:
+         case O_COUNT:
             {  FORMULA *form;
                struct nl_expr_list *p;
                form = eval_formula(mpl, info->code->arg.loop.x);
@@ -5962,6 +5984,7 @@ FORMULA *eval_formula(MPL *mpl, CODE *code)
          case O_EXISTS:
          case O_FORALL:
          case O_ALLDIFFERENT:
+         case O_COUNT:
             {  struct iter_form_info _info, *info = &_info;
                int op;
                NL_EXPR *nl;
@@ -6273,6 +6296,7 @@ void clean_code(MPL *mpl, CODE *code)
          case O_SETOF:
          case O_BUILD:
          case O_ALLDIFFERENT:
+         case O_COUNT:
             /* iterated operation */
             clean_domain(mpl, code->arg.loop.domain);
             clean_code(mpl, code->arg.loop.x);

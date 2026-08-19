@@ -569,6 +569,7 @@ private:
          case O_ALLDIFF: return mp::nl::ALLDIFF;
          case O_IMPLICATION: return mp::nl::IMPLICATION;
          case O_IFF: return mp::nl::IFF;
+         case O_COUNT: return mp::nl::COUNT;
          default:
             assert(op != op);
       }
@@ -628,9 +629,11 @@ private:
          case O_EXISTS:
          case O_FORALL:
          case O_ALLDIFF:
+         case O_COUNT:
             assert(nl->u.vec.n > 1);
             assert(!((nl->op == O_SUM || nl->op == O_FORALL
-               || nl->op == O_EXISTS) && nl->u.vec.n == 2));
+               || nl->op == O_EXISTS || nl->op == O_ALLDIFF)
+               && nl->u.vec.n == 2));
             {  auto ew1 = ew.OPutN(get_opcode(nl->op), nl->u.vec.n);
                for (int i = 0; i < nl->u.vec.n; i++)
                   convert_nl(ew1, nl->u.vec.data[i]);
@@ -959,6 +962,12 @@ static double eval_nl_expr(NL_EXPR *nl, double *x)
          case O_IFF:
             return !(!!eval_nl_expr(nl->u.arg.x, x)
                ^ !!eval_nl_expr(nl->u.arg.y, x));
+         case O_COUNT:
+            {  int r = 0;
+               for (int i = 0; i < nl->u.vec.n; i++)
+                  r += !!eval_nl_expr(nl->u.vec.data[i], x);
+               return r;
+            }
          default:
             assert(nl != nl);
       }

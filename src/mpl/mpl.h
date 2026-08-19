@@ -1443,6 +1443,7 @@ struct NL_EXPR
 #define O_ALLDIFF       389   /* all different (n-ary) */
 #define O_IMPLICATION   391   /* implication */
 #define O_IFF           392   /* if and only if */
+#define O_COUNT         393   /* count */
       /* used as n-ary operator in NL_EXPR */
 #define O_SUM           378   /* summation */
 #define O_FORALL        382   /* conjunction (A-quantification) */
@@ -2617,6 +2618,7 @@ struct CODE
 #define O_ALLDIFFERENT  390   /* all different (iterated) */
 #define O_IMPLICATION   391   /* implication */
 #define O_IFF           392   /* if and only if */
+#define O_COUNT         393   /* count */
 
 #define GMPL_VERSION_STR "GLPK/GMPL 4.65"
       

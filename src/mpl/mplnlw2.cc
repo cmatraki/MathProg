@@ -570,6 +570,8 @@ private:
          case O_IMPLICATION: return mp::nl::IMPLICATION;
          case O_IFF: return mp::nl::IFF;
          case O_COUNT: return mp::nl::COUNT;
+         case O_IDIV: return mp::nl::TRUNC_DIV;
+         case O_MOD: return mp::nl::MOD;
          default:
             assert(op != op);
       }
@@ -597,6 +599,8 @@ private:
          case O_AND:
          case O_OR:
          case O_IFF:
+         case O_IDIV:
+         case O_MOD:
             {  auto ew1 = ew.OPut2(get_opcode(nl->op));
                convert_nl(ew1, nl->u.arg.x);
                convert_nl(ew1, nl->u.arg.y);
@@ -967,6 +971,16 @@ static double eval_nl_expr(NL_EXPR *nl, double *x)
                for (int i = 0; i < nl->u.vec.n; i++)
                   r += !!eval_nl_expr(nl->u.vec.data[i], x);
                return r;
+            }
+         case O_IDIV:
+            {  double r = eval_nl_expr(nl->u.arg.x, x)
+                  / eval_nl_expr(nl->u.arg.y, x);
+               return r > 0.0 ? floor(r) : r < 0.0 ? ceil(r) : 0.0;
+            }
+         case O_MOD:
+            {  double n = eval_nl_expr(nl->u.arg.x, x);
+               double d = eval_nl_expr(nl->u.arg.y, x);
+               return n == 0.0 ? 0.0 : d == 0.0 ? n : fmod(n, d);
             }
          default:
             assert(nl != nl);

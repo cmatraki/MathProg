@@ -2713,28 +2713,34 @@ CODE *expression_3(MPL *mpl)
          else if (mpl->scan_input->token == T_DIV)
          {  if (x->type == A_SYMBOLIC)
                x = make_unary(mpl, O_CVTNUM, x, A_NUMERIC, 0);
-            if (x->type != A_NUMERIC)
+            if (!(x->type == A_NUMERIC || x->type == A_FORMULA))
                error_preceding(mpl, "div");
             get_token(mpl /* div */);
             y = expression_2(mpl);
             if (y->type == A_SYMBOLIC)
                y = make_unary(mpl, O_CVTNUM, y, A_NUMERIC, 0);
-            if (y->type != A_NUMERIC)
+            if (!(y->type == A_NUMERIC || y->type == A_FORMULA))
                error_following(mpl, "div");
-            x = make_binary(mpl, O_IDIV, x, y, A_NUMERIC, 0);
+            if (x->type == A_NUMERIC && y->type == A_NUMERIC)
+               x = make_binary(mpl, O_IDIV, x, y, A_NUMERIC, 0);
+            else
+               x = make_binary(mpl, O_IDIV, x, y, A_FORMULA, 0);
          }
          else if (mpl->scan_input->token == T_MOD)
          {  if (x->type == A_SYMBOLIC)
                x = make_unary(mpl, O_CVTNUM, x, A_NUMERIC, 0);
-            if (x->type != A_NUMERIC)
+            if (!(x->type == A_NUMERIC || x->type == A_FORMULA))
                error_preceding(mpl, "mod");
             get_token(mpl /* mod */);
             y = expression_2(mpl);
             if (y->type == A_SYMBOLIC)
                y = make_unary(mpl, O_CVTNUM, y, A_NUMERIC, 0);
-            if (y->type != A_NUMERIC)
+            if (!(y->type == A_NUMERIC || y->type == A_FORMULA))
                error_following(mpl, "mod");
-            x = make_binary(mpl, O_MOD, x, y, A_NUMERIC, 0);
+            if (x->type == A_NUMERIC && y->type == A_NUMERIC)
+               x = make_binary(mpl, O_MOD, x, y, A_NUMERIC, 0);
+            else
+               x = make_binary(mpl, O_MOD, x, y, A_FORMULA, 0);
          }
          else
             break;

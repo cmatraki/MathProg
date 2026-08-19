@@ -6041,6 +6041,8 @@ FORMULA *eval_formula(MPL *mpl, CODE *code)
          case O_AND:
          case O_OR:
          case O_IFF:
+         case O_IDIV:
+         case O_MOD:
             /* binary operator */
             {  FORMULA *fx, *fy;
                if (code->arg.arg.x->type == A_NUMERIC)

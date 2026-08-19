@@ -1426,6 +1426,8 @@ struct NL_EXPR
 #define O_SUB           340   /* subtraction */
 #define O_MUL           342   /* multiplication */
 #define O_DIV           343   /* division */
+#define O_IDIV          344   /* quotient of exact division */
+#define O_MOD           345   /* remainder of exact division */
 #define O_POWER         346   /* exponentiation (raise to power) */
 #define O_ATAN2         347   /* trigonometric arctangent */
 #define O_LT            353   /* comparison on 'less than' */

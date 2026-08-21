@@ -1039,8 +1039,9 @@ done: /* return to the calling program */
 
 char *mpl_get_prob_name(MPL *mpl)
 {
-      if(mpl->current_problem) {
-          strcpy(mpl->mpl_buf, mpl->current_problem->name);
+      if(mpl->current_problem && !!strcmp(mpl->current_problem->name,
+         "Initial"))
+      {   strcpy(mpl->mpl_buf, mpl->current_problem->name);
           return mpl->mpl_buf;
       }
       char *name = mpl->mpl_buf;

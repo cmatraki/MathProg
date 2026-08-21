@@ -418,7 +418,8 @@ void matrix_format
       /* read the matrix heading that contains column symbols (there
          may be no columns at all) */
       list = create_slice(mpl);
-      while (mpl->scan_input->token != T_ASSIGN)
+      while (mpl->scan_input->token != T_ASSIGN
+         && mpl->scan_input->token != T_EQ)
       {  /* read column symbol and append it to the column list */
          if (!is_symbol(mpl))
             error(mpl, "number, symbol, or := missing where expected");
@@ -566,7 +567,8 @@ void set_data(MPL *mpl)
       {  /* skip optional comma */
          if (mpl->scan_input->token == T_COMMA) get_token(mpl /* , */);
          /* process assignment element */
-         if (mpl->scan_input->token == T_ASSIGN)
+         if (mpl->scan_input->token == T_ASSIGN
+            || mpl->scan_input->token == T_EQ)
          {  /* assignment ligature is non-significant element */
             get_token(mpl /* := */);
          }
@@ -820,7 +822,8 @@ void tabular_format
       /* read the table heading that contains column symbols (the table
          may have no columns) */
       list = create_slice(mpl);
-      while (mpl->scan_input->token != T_ASSIGN)
+      while (mpl->scan_input->token != T_ASSIGN
+         && mpl->scan_input->token != T_EQ)
       {  /* read column symbol and append it to the column list */
          if (!is_symbol(mpl))
             error(mpl, "number, symbol, or := missing where expected");
@@ -949,7 +952,8 @@ void tabbing_format
       }
       /* read the table heading that contains parameter names */
       list = create_slice(mpl);
-      while (mpl->scan_input->token != T_ASSIGN)
+      while (mpl->scan_input->token != T_ASSIGN
+         && mpl->scan_input->token != T_EQ)
       {  /* there must be symbolic name of parameter */
          if (!is_symbol(mpl))
             error(mpl, "parameter name or := missing where expected");
@@ -1132,7 +1136,8 @@ void parameter_data(MPL *mpl)
       {  /* skip optional comma */
          if (mpl->scan_input->token == T_COMMA) get_token(mpl /* , */);
          /* process current assignment */
-         if (mpl->scan_input->token == T_ASSIGN)
+         if (mpl->scan_input->token == T_ASSIGN
+            || mpl->scan_input->token == T_EQ)
          {  /* assignment ligature is non-significant element */
             get_token(mpl /* := */);
          }

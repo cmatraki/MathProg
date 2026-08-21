@@ -474,6 +474,29 @@ void open_input(MPL *mpl, char *file)
       sin->c_ptr = 0;
       xassert(sin->in_fp == NULL);
       sin->in_fp = glp_open(file, "r");
+      if (sin->in_fp == NULL && mpl->mod_file != NULL)
+      {  /* try to get path from model file */
+         char *filename = mpl->mod_file;
+         for (;;)
+         {  if (strchr(filename, '/') != NULL)
+               filename = strchr(filename, '/') + 1;
+            else if (strchr(filename, '\\') != NULL)
+               filename = strchr(filename, '\\') + 1;
+            else if (strchr(filename, ':') != NULL)
+               filename = strchr(filename, ':') + 1;
+            else
+               break;
+         }
+         if (filename > mpl->mod_file)
+         {  int path_len = filename - mpl->mod_file;
+            char *new_file = xcalloc(path_len + strlen(file) + 1,
+               sizeof(char));
+            strncpy(new_file, mpl->mod_file, path_len);
+            strcpy(new_file + path_len, file);
+            sin->in_fp = glp_open(new_file, "r");
+            xfree(new_file);
+         }
+      }
       if (sin->in_fp == NULL)
          error(mpl, "unable to open %s - %s", file, get_err_msg());
       sin->in_file = file;
@@ -865,13 +888,14 @@ int mpl_read_model(MPL *mpl, char *file, int skip_data)
       if (mpl->msg_lev >= GLP_MSG_ON)
         xprintf("Reading model section from %s...\n", file);
       open_input(mpl, file);
+      /* save name of the input text file containing model section
+         before processing the model so that the path can be extracted
+         if needed for other files */
+      mpl->mod_file = xcalloc(strlen(file)+1, sizeof(char));
+      strcpy(mpl->mod_file, file);
       model_section(mpl);
       if (mpl->model == NULL)
          error(mpl, "empty model section not allowed");
-      /* save name of the input text file containing model section for
-         error diagnostics during the generation phase */
-      mpl->mod_file = xcalloc(strlen(file)+1, sizeof(char));
-      strcpy(mpl->mod_file, mpl->scan_input->in_file);
       /* allocate content arrays for all model objects */
       alloc_content(mpl);
       /* optional data section may begin with the keyword 'data' */

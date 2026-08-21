@@ -3612,6 +3612,124 @@ err:              error(mpl, "%s%s = %.*g not %s %.*g; see (%d)",
 --
 -- NOTE: This routine must not be called out of domain scope. */
 
+static int is_invariant(CODE *code)
+{     /* helper to check if a let statement may change the value */
+      /* not all cases covered but should be good enough */
+      ARG_LIST *e;
+      if (code == NULL) return 1;
+      switch (code->op)
+      {  case O_NUMBER:
+         case O_STRING:
+         case O_INDEX:
+            return 1;
+         case O_MEMNUM:
+         case O_MEMSYM:
+         case O_MEMSET:
+         case O_MEMVAR:
+         case O_MEMCON:
+         case O_TUPLE:
+         case O_MAKE:
+         case O_SLICE:
+            return 0;
+         case O_IRAND224:
+         case O_UNIFORM01:
+         case O_NORMAL01:
+         case O_GMTIME:
+         case O_VERSION:
+            return 1;
+         case O_CVTNUM:
+         case O_CVTSYM:
+         case O_CVTLOG:
+         case O_CVTTUP:
+         case O_CVTLFM:
+         case O_PLUS:
+         case O_MINUS:
+         case O_NOT:
+         case O_ABS:
+         case O_CEIL:
+         case O_FLOOR:
+         case O_EXP:
+         case O_LOG:
+         case O_LOG10:
+         case O_SQRT:
+         case O_SIN:
+         case O_COS:
+         case O_TAN:
+         case O_ATAN:
+         case O_ROUND:
+         case O_TRUNC:
+         case O_CARD:
+         case O_LENGTH:
+            return is_invariant(code->arg.arg.x);
+         case O_ADD:
+         case O_SUB:
+         case O_LESS:
+         case O_MUL:
+         case O_DIV:
+         case O_IDIV:
+         case O_MOD:
+         case O_POWER:
+         case O_ATAN2:
+         case O_ROUND2:
+         case O_TRUNC2:
+         case O_UNIFORM:
+         case O_NORMAL:
+         case O_CONCAT:
+         case O_LT:
+         case O_LE:
+         case O_EQ:
+         case O_GE:
+         case O_GT:
+         case O_NE:
+         case O_AND:
+         case O_OR:
+         case O_UNION:
+         case O_DIFF:
+         case O_SYMDIFF:
+         case O_INTER:
+         case O_CROSS:
+         case O_IN:
+         case O_NOTIN:
+         case O_WITHIN:
+         case O_NOTWITHIN:
+         case O_SUBSTR:
+         case O_STR2TIME:
+         case O_TIME2STR:
+         case O_IFF:
+            return is_invariant(code->arg.arg.x)
+               && is_invariant(code->arg.arg.y);
+         case O_DOTS:
+         case O_FORK:
+         case O_SUBSTR3:
+         case O_DB:
+         case O_IMPLICATION:
+            return is_invariant(code->arg.arg.x)
+               && is_invariant(code->arg.arg.y)
+               && is_invariant(code->arg.arg.z);
+         case O_MIN:
+         case O_MAX:
+         case O_PIECEWISE:
+         case O_ALLDIFF:
+            for (e = code->arg.list; e != NULL; e = e->next)
+               if (!is_invariant(e->x)) return 0;
+            return 1;
+         case O_SUM:
+         case O_PROD:
+         case O_MINIMUM:
+         case O_MAXIMUM:
+         case O_FORALL:
+         case O_EXISTS:
+         case O_SETOF:
+         case O_BUILD:
+         case O_ALLDIFFERENT:
+         case O_COUNT:
+            return 0;
+         default:
+            xassert(code->op != code->op);
+      }
+      return 0;
+}
+
 double take_member_num
 (     MPL *mpl,
       PARAMETER *par,               /* maybe updated */
@@ -3656,7 +3774,7 @@ double take_member_num
       /* check that the value satisfies to all restrictions, assign
             it to new member, and add the member to the array */
       check_value_num(mpl, par, tuple, value);
-      if (par->assign || mpl->add_missing_param_values) {
+      if (par->assign && is_invariant(par->assign)) {
         memb = add_member(mpl, par->array, copy_tuple(mpl, tuple));
         memb->value.num = value;
       }
@@ -3874,7 +3992,7 @@ SYMBOL take_member_sym       /* returns value, not reference */
       /* check that the value satisfies to all restrictions, assign
             it to new member, and add the member to the array */
       check_value_sym(mpl, par, tuple, value);
-      if(par->assign || mpl->add_missing_param_values) {
+      if(par->assign && is_invariant(par->assign)) {
         memb = add_member(mpl, par->array, copy_tuple(mpl, tuple));
         memb->value.sym = copy_symbol(mpl, value);
       }
@@ -5706,6 +5824,7 @@ int is_member(MPL *mpl, CODE *code, TUPLE *tuple)
                /* compute "parameters" of the "arithmetic" set */
                t0 = eval_numeric(mpl, code->arg.arg.x);
                tf = eval_numeric(mpl, code->arg.arg.y);
+
                if (code->arg.arg.z == NULL)
                   dt = 1.0;
                else

@@ -429,9 +429,6 @@ struct mpl_tran
       /* flag to pre generate all entities in the model */
       int show_delta;
       /* flag to show time/memory delta usage */
-      int add_missing_param_values;
-      /* flag to indicate if missing values for params with default value
-         should be added or calculated every time */
       int msg_lev;
       /* indicate how much verbosity we want */
 #ifndef GLP_MSG_OFF /* should match values in glpk.h */

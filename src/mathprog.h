@@ -63,11 +63,6 @@ int mathprog_set_show_delta(mpl_tran *tran, int bflag);
 /* set the show_delta option, show time/memory delta usage
    return the previous value */
 
-int mathprog_set_add_missing_param_values(mpl_tran *tran, int bflag);
-/* set the add_missing_param_values option, parameters
-   with missing values and a default option by default
-   calculates it every unless this option is set to non zero */
-
 int mathprog_set_msg_lev(mpl_tran *tran, int msg_lev);
 /* set the message level (verbosity)
    return the previous value */

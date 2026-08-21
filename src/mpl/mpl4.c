@@ -337,7 +337,6 @@ void build_problem(MPL *mpl)
 
 void clean_build_problem(MPL *mpl, int skipResetColsRows)
 {
-#ifndef XASSERT_DISABLED
     if(!skipResetColsRows)
     {
       STATEMENT *stmt, *stmt_list;
@@ -349,24 +348,21 @@ void clean_build_problem(MPL *mpl, int skipResetColsRows)
       for (stmt = stmt_list; stmt != NULL; stmt = stmt->next)
       {  if (stmt->type == A_VARIABLE)
          {  v = stmt->u.var;
-            for (memb = v->array->head; memb != NULL; memb = memb->next)
-               memb->value.var->j = 0;
+            clear_variable(mpl, v);
          }
          else if (stmt->type == A_CONSTRAINT)
          {  c = stmt->u.con;
-            for (memb = c->array->head; memb != NULL; memb = memb->next)
-            {  if (memb->value.con == NULL) continue;
-               memb->value.con->i = 0;
-            }
+            clear_constraint(mpl, c);
          }
       }
     }
-#endif
 
       if (mpl->row != NULL) xfree(mpl->row);
       if (mpl->col != NULL) xfree(mpl->col);
       mpl->m = 0;
+      mpl->m_log = 0;
       mpl->n = 0;
+      mpl->n_def = 0;
       mpl->row = NULL;
       mpl->col = NULL;
 }
@@ -794,7 +790,6 @@ MPL *mpl_initialize(void)
       mpl->mpl_buf[0] = '\0';
       mpl->gen_all = 0;
       mpl->show_delta = 0;
-      mpl->add_missing_param_values = 0;
       mpl->msg_lev = GLP_MSG_ON;
       mpl->last_var_new = 0;
       /* default values for the cached options */

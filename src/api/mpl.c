@@ -102,13 +102,6 @@ int mathprog_set_show_delta(mpl_tran *tran, int bflag)
     return rc;
 }
 
-int mathprog_set_add_missing_param_values(mpl_tran *tran, int bflag)
-{
-    int rc = tran->add_missing_param_values;
-    tran->add_missing_param_values = bflag;
-    return rc;
-}
-
 int mathprog_set_msg_lev(mpl_tran *tran, int msg_lev)
 {
     int rc = tran->msg_lev;

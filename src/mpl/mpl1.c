@@ -5764,6 +5764,7 @@ void end_statement(MPL *mpl)
 -- <statement> ::= <display statement>
 -- <statement> ::= <printf statement>
 -- <statement> ::= <for statement>
+-- <statement> ::= <statement> ;
 --
 -- If the flag spec is set, some statements cannot be used. */
 
@@ -5899,6 +5900,9 @@ STATEMENT *simple_statement(MPL *mpl, int spec)
          error(mpl, "invalid use of reserved keyword %s", mpl->scan_input->image);
       else
          error(mpl, "syntax error in model section");
+      /* remove any extra semicolons */
+      while (mpl->scan_input->token == T_SEMICOLON)
+         get_token(mpl /*  */);
       return stmt;
 }
 

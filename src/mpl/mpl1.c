@@ -3949,7 +3949,6 @@ err3:             error(mpl, "component number must be integer between "
 
 PARAMETER *parameter_statement(MPL *mpl)
 {     PARAMETER *par;
-      int integer_used = 0, binary_used = 0, symbolic_used = 0;
       xassert(is_keyword(mpl, "param"));
       get_token(mpl /* param */);
       /* symbolic name must follow the keyword 'param' */
@@ -4005,21 +4004,15 @@ PARAMETER *parameter_statement(MPL *mpl)
          else if (mpl->scan_input->token == T_SEMICOLON)
             break;
          if (is_keyword(mpl, "integer"))
-         {  if (integer_used)
-               error(mpl, "at most one integer allowed");
-            if (par->type == A_SYMBOLIC)
+         {  if (par->type == A_SYMBOLIC)
                error(mpl, "symbolic parameter cannot be integer");
             if (par->type != A_BINARY) par->type = A_INTEGER;
-            integer_used = 1;
             get_token(mpl /* integer */);
          }
          else if (is_keyword(mpl, "binary"))
-bin:     {  if (binary_used)
-               error(mpl, "at most one binary allowed");
-            if (par->type == A_SYMBOLIC)
+bin:     {  if (par->type == A_SYMBOLIC)
                error(mpl, "symbolic parameter cannot be binary");
             par->type = A_BINARY;
-            binary_used = 1;
             get_token(mpl /* binary */);
          }
          else if (is_keyword(mpl, "logical"))
@@ -4030,9 +4023,7 @@ bin:     {  if (binary_used)
             goto bin;
          }
          else if (is_keyword(mpl, "symbolic"))
-         {  if (symbolic_used)
-               error(mpl, "at most one symbolic allowed");
-            if (par->type != A_NUMERIC)
+         {  if (par->type != A_NUMERIC)
                error(mpl, "integer or binary parameter cannot be symbol"
                   "ic");
             /* the parameter may be referenced from expressions given
@@ -4043,7 +4034,6 @@ bin:     {  if (binary_used)
                error(mpl, "keyword symbolic must precede any other para"
                   "meter attributes");
             par->type = A_SYMBOLIC;
-            symbolic_used = 1;
             get_token(mpl /* symbolic */);
          }
          else if (mpl->scan_input->token == T_LT || mpl->scan_input->token == T_LE ||
@@ -4214,7 +4204,6 @@ err:           error(mpl, "at most one := or default allowed");
 
 VARIABLE *variable_statement(MPL *mpl)
 {     VARIABLE *var;
-      int integer_used = 0, binary_used = 0;
       xassert(is_keyword(mpl, "var"));
       if (mpl->flag_s)
          error(mpl, "variable statement must precede solve statement");
@@ -4269,17 +4258,11 @@ VARIABLE *variable_statement(MPL *mpl)
          else if (mpl->scan_input->token == T_SEMICOLON)
             break;
          if (is_keyword(mpl, "integer"))
-         {  if (integer_used)
-               error(mpl, "at most one integer allowed");
-            if (var->type != A_BINARY) var->type = A_INTEGER;
-            integer_used = 1;
+         {  if (var->type != A_BINARY) var->type = A_INTEGER;
             get_token(mpl /* integer */);
          }
          else if (is_keyword(mpl, "binary"))
-bin:     {  if (binary_used)
-               error(mpl, "at most one binary allowed");
-            var->type = A_BINARY;
-            binary_used = 1;
+bin:     {  var->type = A_BINARY;
             get_token(mpl /* binary */);
          }
          else if (is_keyword(mpl, "logical"))
@@ -4351,8 +4334,8 @@ bin:     {  if (binary_used)
                var->lbnd = make_unary(mpl, O_CVTNUM, var->lbnd,
                   A_NUMERIC, 0);
             if (var->lbnd->type == A_FORMULA)
-            {  if (!(var->assign == NULL && var->option == NULL)
-                  || integer_used || binary_used
+            {  if (var->assign != NULL || var->option != NULL
+                  || var->type != A_NUMERIC
                   || mpl->scan_input->token != T_SEMICOLON)
                   error(mpl, "defined variables cannot have additional "
                      "attributes");

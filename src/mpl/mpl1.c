@@ -3621,6 +3621,9 @@ int data_statement(MPL *mpl)
       /* parse optional file name */
       switch(mpl->scan_input->token)
       {
+          case T_NAME:
+             while (isalnum(mpl->scan_input->c) || mpl->scan_input->c ==
+                '_' || mpl->scan_input->c == '.') append_char(mpl);
           case T_STRING:
             file_name = dmp_get_atomv(mpl->pool, strlen(mpl->scan_input->image)+1);
             strcpy(file_name, mpl->scan_input->image);
@@ -3629,7 +3632,7 @@ int data_statement(MPL *mpl)
           case T_SEMICOLON:
             break;
           default:
-              error(mpl, "file name as literal string or semicolon expected");
+              error(mpl, "file name or semicolon expected");
       }
       /* the data statement has been completely parsed */
       if (mpl->scan_input->token != T_SEMICOLON)

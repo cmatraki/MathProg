@@ -3500,8 +3500,10 @@ PROBLEM *problem_statement(MPL *mpl)
           }
       }
       /* the problem statement has been completely parsed */
-      xassert(mpl->scan_input->token == T_SEMICOLON);
-      get_token(mpl /* ; */);
+      if (mpl->scan_input->token == T_SEMICOLON)
+         get_token(mpl /* ; */);
+      else if (mpl->scan_input->token != T_RBRACE)
+         error(mpl, "syntax error in problem statement");
       return prob;
 }
 
@@ -3544,9 +3546,10 @@ OPT_STMT *option_statement(MPL *mpl)
               error(mpl, "option value as literal string or number expected");
       }
       /* the option statement has been completely parsed */
-      if (mpl->scan_input->token != T_SEMICOLON)
-         error(mpl, "semicolon missing where expected");
-      get_token(mpl /* ; */);
+      if (mpl->scan_input->token == T_SEMICOLON)
+         get_token(mpl /* ; */);
+      else if (mpl->scan_input->token != T_RBRACE)
+         error(mpl, "syntax error in option statement");
       return opt;
 }
 
@@ -3581,7 +3584,7 @@ void model_statement(MPL *mpl)
           default:
               error(mpl, "file name as literal string or semicolon expected");
       }
-      /* the problem statement has been completely parsed */
+      /* the model statement has been completely parsed */
       if (mpl->scan_input->token != T_SEMICOLON)
          error(mpl, "semicolon missing where expected");
       get_token(mpl /* ; */);
@@ -3922,7 +3925,8 @@ err3:             error(mpl, "component number must be integer between "
       /* if dimension of set members is still unknown, set it to 1 */
       if (set->dimen == 0) set->dimen = 1;
       /* the set statement has been completely parsed */
-      xassert(mpl->scan_input->token == T_SEMICOLON);
+      if (mpl->scan_input->token != T_SEMICOLON)
+         error(mpl, "syntax error in set statement");
       get_token(mpl /* ; */);
       return set;
 }
@@ -4181,7 +4185,8 @@ err:           error(mpl, "at most one := or default allowed");
       /* close the domain scope */
       if (par->domain != NULL) close_scope(mpl, par->domain);
       /* the parameter statement has been completely parsed */
-      xassert(mpl->scan_input->token == T_SEMICOLON);
+      if (mpl->scan_input->token != T_SEMICOLON)
+         error(mpl, "syntax error in param statement");
       get_token(mpl /* ; */);
       return par;
 }
@@ -4393,7 +4398,8 @@ err:           error(mpl, "at most one := or default allowed");
       /* close the domain scope */
       if (var->domain != NULL) close_scope(mpl, var->domain);
       /* the variable statement has been completely parsed */
-      xassert(mpl->scan_input->token == T_SEMICOLON);
+      if (mpl->scan_input->token != T_SEMICOLON)
+         error(mpl, "syntax error in var statement");
       get_token(mpl /* ; */);
       return var;
 }
@@ -5125,9 +5131,10 @@ SOLVE *solve_statement(MPL *mpl)
           get_token(mpl /* name */);
       }
       /* semicolon must follow solve statement */
-      if (mpl->scan_input->token != T_SEMICOLON)
+      if (mpl->scan_input->token == T_SEMICOLON)
+         get_token(mpl /* ; */);
+      else if (mpl->scan_input->token != T_RBRACE)
          error(mpl, "syntax error in solve statement");
-      get_token(mpl /* ; */);
       return solve;
 }
 
@@ -5168,9 +5175,10 @@ CHECK *check_statement(MPL *mpl)
       /* close the domain scope */
       if (chk->domain != NULL) close_scope(mpl, chk->domain);
       /* the check statement has been completely parsed */
-      if (mpl->scan_input->token != T_SEMICOLON)
+      if (mpl->scan_input->token == T_SEMICOLON)
+         get_token(mpl /* ; */);
+      else if (mpl->scan_input->token != T_RBRACE)
          error(mpl, "syntax error in check statement");
-      get_token(mpl /* ; */);
       return chk;
 }
 
@@ -5237,9 +5245,10 @@ LET_STMT *let_statement(MPL *mpl)
       /* close the domain scope */
       if (let->domain != NULL) close_scope(mpl, let->domain);
       /* the check statement has been completely parsed */
-      if (mpl->scan_input->token != T_SEMICOLON)
-         error(mpl, "syntax error in check statement");
-      get_token(mpl /* ; */);
+      if (mpl->scan_input->token == T_SEMICOLON)
+         get_token(mpl /* ; */);
+      else if (mpl->scan_input->token != T_RBRACE)
+         error(mpl, "syntax error in let statement");
       return let;
 }
 
@@ -5356,9 +5365,10 @@ expr:    {  /* display entry is expression */
       /* close the domain scope */
       if (dpy->domain != NULL) close_scope(mpl, dpy->domain);
       /* the display statement has been completely parsed */
-      if (mpl->scan_input->token != T_SEMICOLON)
+      if (mpl->scan_input->token == T_SEMICOLON)
+         get_token(mpl /* ; */);
+      else if (mpl->scan_input->token != T_RBRACE)
          error(mpl, "syntax error in display statement");
-      get_token(mpl /* ; */);
       return dpy;
 }
 #endif
@@ -5450,9 +5460,10 @@ PRINTF *printf_statement(MPL *mpl)
       }
 #endif
       /* the printf statement has been completely parsed */
-      if (mpl->scan_input->token != T_SEMICOLON)
+      if (mpl->scan_input->token == T_SEMICOLON)
+         get_token(mpl /* ; */);
+      else if (mpl->scan_input->token != T_RBRACE)
          error(mpl, "syntax error in printf statement");
-      get_token(mpl /* ; */);
       return prt;
 }
 
@@ -5536,9 +5547,10 @@ PRINTF *print_statement(MPL *mpl)
       }
 #endif
       /* the print statement has been completely parsed */
-      if (mpl->scan_input->token != T_SEMICOLON)
+      if (mpl->scan_input->token == T_SEMICOLON)
+         get_token(mpl /* ; */);
+      else if (mpl->scan_input->token != T_RBRACE)
          error(mpl, "syntax error in print statement");
-      get_token(mpl /* ; */);
       return prt;
 }
 
@@ -5646,9 +5658,10 @@ void break_continue_statement(MPL *mpl)
         error(mpl, "break/continue keywords expected");
     get_token(mpl /* break/continue */);
     /* the break/continue statement has been completely parsed */
-    if (mpl->scan_input->token != T_SEMICOLON)
+    if (mpl->scan_input->token == T_SEMICOLON)
+        get_token(mpl /* ; */);
+    else if (mpl->scan_input->token != T_RBRACE)
        error(mpl, "syntax error in break statement");
-    get_token(mpl /* ; */);
     /* to check if we are in a repeat loop without a break */
     mpl->current_for_loop->do_break = -2;
 }

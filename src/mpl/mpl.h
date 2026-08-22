@@ -751,6 +751,10 @@ IF_STMT *if_statement(MPL *mpl);
 void end_statement(MPL *mpl);
 /* parse end statement */
 
+#define include_statement _mpl_include_statement
+void include_statement(MPL *mpl);
+/* parse include statement */
+
 #define simple_statement _mpl_simple_statement
 STATEMENT *simple_statement(MPL *mpl, int spec);
 /* parse simple statement */

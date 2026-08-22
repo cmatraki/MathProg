@@ -504,6 +504,19 @@ void unget_token(MPL *mpl)
 }
 
 /*----------------------------------------------------------------------
+-- get_filename - expand current token with filename rules.
+--
+-- This routine expands the current token by reading all remaining
+-- characters that are allowed for an unquoted filename. */
+
+void get_filename(MPL *mpl)
+{     while (isprint(mpl->scan_input->c) && !isspace(mpl->scan_input->c)
+         && mpl->scan_input->c != '\"' && mpl->scan_input->c != '\''
+         && mpl->scan_input->c != ';') append_char(mpl);
+      mpl->scan_input->token = T_STRING;
+}
+
+/*----------------------------------------------------------------------
 -- is_keyword - check if current token is given non-reserved keyword.
 --
 -- If the current token is given (non-reserved) keyword, this routine
@@ -3574,6 +3587,10 @@ void model_statement(MPL *mpl)
       /* parse optional file name */
       switch(mpl->scan_input->token)
       {
+          case T_POINT:
+          case T_DOTS:
+          case T_NAME:
+             get_filename(mpl);
           case T_STRING:
             file_name = dmp_get_atomv(mpl->pool, strlen(mpl->scan_input->image)+1);
             strcpy(file_name, mpl->scan_input->image);
@@ -3582,7 +3599,7 @@ void model_statement(MPL *mpl)
           case T_SEMICOLON:
             break;
           default:
-              error(mpl, "file name as literal string or semicolon expected");
+              error(mpl, "file name or semicolon expected");
       }
       /* the model statement has been completely parsed */
       if (mpl->scan_input->token != T_SEMICOLON)
@@ -3607,7 +3624,7 @@ void model_statement(MPL *mpl)
 --
 -- This routine parses data statement using the syntax:
 --
--- <model statement> ::= data <string file_name>;
+-- <data statement> ::= data <string file_name>;
 -- <string file_name> ::= <empty>
 -- <string file_name> ::= <string literal>
 --
@@ -3624,9 +3641,10 @@ int data_statement(MPL *mpl)
       /* parse optional file name */
       switch(mpl->scan_input->token)
       {
+          case T_POINT:
+          case T_DOTS:
           case T_NAME:
-             while (isalnum(mpl->scan_input->c) || mpl->scan_input->c ==
-                '_' || mpl->scan_input->c == '.') append_char(mpl);
+             get_filename(mpl);
           case T_STRING:
             file_name = dmp_get_atomv(mpl->pool, strlen(mpl->scan_input->image)+1);
             strcpy(file_name, mpl->scan_input->image);
@@ -3681,6 +3699,67 @@ int data_statement(MPL *mpl)
           mpl->scan_input->token = T_NAME; /*overwrite for model section*/
       return 1;
 }
+
+/*----------------------------------------------------------------------
+-- include_statement - parse include statement.
+--
+-- This routine parses data statement using the syntax:
+--
+-- <include statement> ::= include <string file_name>;
+-- <string file_name> ::= <empty>
+-- <string file_name> ::= <string literal>
+--
+-- Note that it may be used in both model and data sections. */
+
+void include_statement(MPL *mpl)
+{     glp_input_file_st *saved_scan_input;
+      char *file_name = NULL;
+      get_token(mpl /* include */);
+      if(mpl->nested_scope)
+          error(mpl, "include not allowed in nested scopes");
+      /* parse file name */
+      switch(mpl->scan_input->token)
+      {  case T_POINT:
+         case T_DOTS:
+         case T_NAME:
+         case T_SYMBOL:
+            get_filename(mpl);
+         case T_STRING:
+            file_name = dmp_get_atomv(mpl->pool, strlen(mpl->scan_input->image)+1);
+            strcpy(file_name, mpl->scan_input->image);
+            get_token(mpl /* <string literal> */);
+            break;
+         default:
+            error(mpl, "file name expected");
+      }
+      /* the include statement has been completely parsed */
+      if (mpl->scan_input->token != T_SEMICOLON)
+         error(mpl, "semicolon missing where expected");
+      get_token(mpl /* ; */);
+
+      /* process include file */
+      if (mpl->msg_lev >= GLP_MSG_ON)
+         xprintf("Reading include file %s...\n", file_name);
+      saved_scan_input = mpl->scan_input;
+      mpl->scan_input = mpl_new_scan_input(mpl);
+      open_input(mpl, file_name);
+
+      if (mpl->phase == GLP_TRAN_PHASE_DATA)
+         data_section(mpl, 0);
+      else if (mpl->phase == GLP_TRAN_PHASE_MODEL)
+         model_section(mpl);
+      else
+         xassert(mpl->phase != mpl->phase);
+
+      if (mpl->msg_lev >= GLP_MSG_ON)
+         xprintf("%d line%s were read\n",
+            mpl->scan_input->line, mpl->scan_input->line == 1 ? "" : "s");
+
+      close_input(mpl);
+      mpl_free_scan_input(mpl, mpl->scan_input);
+      mpl->scan_input = saved_scan_input;
+}
+
 
 /*----------------------------------------------------------------------
 -- set_statement - parse set statement.
@@ -5183,7 +5262,7 @@ CHECK *check_statement(MPL *mpl)
 }
 
 /*----------------------------------------------------------------------
--- let_statement - parse ley statement.
+-- let_statement - parse let statement.
 --
 -- This routine parses check statement using the syntax:
 --
@@ -5762,7 +5841,13 @@ void end_statement(MPL *mpl)
 -- <statement> ::= <check statement>
 -- <statement> ::= <display statement>
 -- <statement> ::= <printf statement>
+-- <statement> ::= <print statement>
 -- <statement> ::= <for statement>
+-- <statement> ::= <break/continue statement>
+-- <statement> ::= <if statement>
+-- <statement> ::= <problem statement>
+-- <statement> ::= <let statement>
+-- <statement> ::= <option statement>
 -- <statement> ::= <statement> ;
 --
 -- If the flag spec is set, some statements cannot be used. */
@@ -6013,24 +6098,33 @@ void model_section(MPL *mpl)
 {     STATEMENT *stmt, *last_stmt;
       xassert(mpl->model == NULL || mpl->nested_input > 1);
 
-      add_initial_problem(mpl, "Initial");
-      add_system_param_num(mpl, "solve_result_num", A_INTEGER, -1);
-      add_system_param_sym(mpl, "solve_result", "?");
+      if (mpl->model == NULL)
+      {  add_initial_problem(mpl, "Initial");
+         add_system_param_num(mpl, "solve_result_num", A_INTEGER, -1);
+         add_system_param_sym(mpl, "solve_result", "?");
+      }
 
 #define SET_STMT_TO_MODEL_LAST(s) \
       for(s = mpl->model; s && s->next; s = s->next)
       SET_STMT_TO_MODEL_LAST(last_stmt);
       while (mpl->scan_input->token != T_EOF)
       {  /* parse statement */
-         if(is_keyword(mpl, "end")) break;
-         else if(is_keyword(mpl, "data"))
+         if (is_keyword(mpl, "end")) break;
+         else if (is_keyword(mpl, "data"))
          {
              if(data_statement(mpl)) continue;
              break;
          }
-         else if(is_keyword(mpl, "model"))
+         else if (is_keyword(mpl, "model"))
          {
              model_statement(mpl);
+             /* actualize our last_stmt */
+             SET_STMT_TO_MODEL_LAST(last_stmt);
+             continue;
+         }
+         else if (is_keyword(mpl, "include"))
+         {
+             include_statement(mpl);
              /* actualize our last_stmt */
              SET_STMT_TO_MODEL_LAST(last_stmt);
              continue;

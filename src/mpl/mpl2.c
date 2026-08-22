@@ -1220,6 +1220,8 @@ void data_section(MPL *mpl, int in_mod_file)
             set_data(mpl);
          else if (is_literal(mpl, "param"))
             parameter_data(mpl);
+         else if (is_literal(mpl, "include"))
+            include_statement(mpl);
          else if (in_mod_file && is_literal(mpl, "model"))
          {
               get_token(mpl /* model */);

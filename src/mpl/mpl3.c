@@ -7932,18 +7932,23 @@ void clean_if(MPL *mpl, IF_STMT *if_stmt)
 -- This routine executes specified option statement. */
 
 void execute_option(MPL *mpl, OPT_STMT *opt)
-{     /* add option to head of options list */
-      xassert(opt->next == NULL);
-      opt->next = mpl->options;
-      mpl->options = opt;
+{     /* add option to tree */
+      AVLNODE *node;
+      node = avl_find_node(mpl->options, opt->key);
+      if (!node)
+      {  node = avl_insert_node(mpl->options, opt->key);
+         avl_set_node_type(node, A_OPTION);
+      }
+      avl_set_node_link(node, (void *)opt->value);
+
       /* cache some important option values */
       if (!strcmp("linelim", opt->key))
          mpl->linelim = atoi(opt->value);
-      if (!strcmp("substout", opt->key))
+      else if (!strcmp("substout", opt->key))
          mpl->substout = atoi(opt->value);
-      if (!strcmp("allow_NaN", opt->key))
+      else if (!strcmp("allow_NaN", opt->key))
          mpl->allow_nan = atoi(opt->value);
-      if (!strcmp("print_separator", opt->key))
+      else if (!strcmp("print_separator", opt->key))
          mpl->print_separator = opt->value;
 }
 

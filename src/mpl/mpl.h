@@ -301,8 +301,8 @@ struct mpl_tran
          node.type = A_CONSTRANT => node.link -> CONSTRAINT */
       STATEMENT *model;
       /* linked list of model statements in the original order */
-      OPT_STMT *options;
-      /* linked list of model options in the reverse order */
+      AVL *options;
+      /* tree of model options */
       int flag_x;
       /* if this flag is set, the current token being left parenthesis
          begins a slice that allows recognizing any undeclared symbolic
@@ -2713,8 +2713,6 @@ void clean_code(MPL *mpl, CODE *code);
 
 struct OPT_STMT
 {     /* option statement */
-      OPT_STMT *next;
-      /* link to the next option */
       char *key;
       /* option key to assign a value */
       char *value;

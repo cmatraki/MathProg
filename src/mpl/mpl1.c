@@ -3538,7 +3538,6 @@ OPT_STMT *option_statement(MPL *mpl)
       get_token(mpl /* option */);
       /* create an option */
       opt = alloc(OPT_STMT);
-      opt->next = NULL;
       /* parse option name */
       if (mpl->scan_input->token != T_NAME)
          error(mpl, "name missing where expected");

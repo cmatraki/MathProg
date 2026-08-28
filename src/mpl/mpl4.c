@@ -758,7 +758,7 @@ MPL *mpl_initialize(void)
       mpl->pool = dmp_create_poolx(0);
       mpl->tree = avl_create_tree(avl_strcmp, NULL);
       mpl->model = NULL;
-      mpl->options = NULL;
+      mpl->options = avl_create_tree(avl_strcmp, NULL);
       mpl->flag_x = 0;
       mpl->as_within = 0;
       mpl->as_in = 0;
@@ -1694,11 +1694,10 @@ int mpl_get_col_bnds(MPL *mpl, int j, double *_lb, double *_ub)
 
 const char *mpl_get_option(MPL *mpl, const char *name)
 {     /* get option string */
-      OPT_STMT *opt;
-      for (opt = mpl->options; opt != NULL; opt = opt->next)
-         if (!strcmp(name, opt->key))
-            return opt->value;
-      return NULL;
+      AVLNODE *node;
+      node = avl_find_node(mpl->options, name);
+      if (node == NULL) return NULL;
+      return (const char *)avl_get_node_link(node);
 }
 
 /*----------------------------------------------------------------------
@@ -1870,6 +1869,7 @@ void mpl_terminate(MPL *mpl)
       }
       dmp_delete_pool(mpl->pool);
       avl_delete_tree(mpl->tree);
+      avl_delete_tree(mpl->options);
       clean_string_interned(mpl);
       dmp_delete_pool(mpl->strings);
       dmp_delete_pool(mpl->symbols);

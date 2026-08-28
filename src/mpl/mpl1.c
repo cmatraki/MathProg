@@ -3899,7 +3899,8 @@ err:           error(mpl, "at most one := or default/data allowed");
             xassert(set->assign->dim > 0);
             /* check/set dimension of set members */
             if (set->dimen == 0) set->dimen = set->assign->dim;
-            if (set->dimen != set->assign->dim)
+            if (set->dimen != set->assign->dim && (set->assign->dim != 1
+               || set->assign->arg.list != NULL)) /* allow empty set */
                error(mpl, "set expression following := must have dimens"
                   "ion %d rather than %d",
                   set->dimen, set->assign->dim);
@@ -3916,7 +3917,8 @@ err:           error(mpl, "at most one := or default/data allowed");
             xassert(set->option->dim > 0);
             /* check/set dimension of set members */
             if (set->dimen == 0) set->dimen = set->option->dim;
-            if (set->dimen != set->option->dim)
+            if (set->dimen != set->option->dim && (set->option->dim != 1
+               || set->option->arg.list != NULL)) /* allow empty set */
                error(mpl, "set expression following default must have d"
                   "imension %d rather than %d",
                   set->dimen, set->option->dim);

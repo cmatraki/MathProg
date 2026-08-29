@@ -5332,6 +5332,63 @@ LET_STMT *let_statement(MPL *mpl)
       return let;
 }
 
+/*----------------------------------------------------------------------
+-- fix_statement - parse fix/unfix statement.
+--
+-- This routine parses check statement using the syntax:
+--
+-- <fix statement> ::= fix <domain> <symbolic name> ;
+-- <fix statement> ::= fix <domain> <symbolic name> := <expression 5> ;
+-- <fix statement> ::= unfix <domain> <symbolic name> ;
+-- <fix statement> ::= unfix <domain> <symbolic name> := <expression 5> ;
+-- <domain> ::= <empty>
+-- <domain> ::= <indexing expression>
+--
+-- If <domain> is omitted, colon following it may also be omitted. */
+
+LET_STMT *fix_statement(MPL *mpl)
+{     LET_STMT *let;
+      xassert(is_keyword(mpl, "fix") || is_keyword(mpl, "unfix"));
+      /* create let descriptor */
+      let = alloc(LET_STMT);
+      let->domain = NULL;
+      let->par = NULL;
+      let->assign = NULL;
+      get_token(mpl /* fix/unfix */);
+      /* parse optional indexing expression */
+      if (mpl->scan_input->token == T_LBRACE)
+         let->domain = indexing_expression(mpl);
+      /* skip optional colon */
+      if (mpl->scan_input->token == T_COLON) get_token(mpl /* : */);
+      if (mpl->scan_input->token != T_NAME)
+         error(mpl, "variable name missing");
+      let->par = object_reference(mpl);
+      if (let->par->op != O_MEMVAR)
+         error(mpl, "only variable allowed here");
+      if (mpl->scan_input->token != T_ASSIGN)
+         goto done;
+      get_token(mpl /* := */);
+      /* parse an expression that follows ':=' */
+      let->assign = expression_5(mpl);
+      /* the expression must be of numeric/symbolic type */
+      if (!(let->assign->type == A_NUMERIC ||
+         let->assign->type == A_SYMBOLIC))
+         error(mpl, "expression following := has invalid type");
+      xassert(let->assign->dim == 0);
+      /* convert to the parameter type, if necessary */
+      if (let->assign->type == A_SYMBOLIC)
+         let->assign = make_unary(mpl, O_CVTNUM, let->assign,
+            A_NUMERIC, 0);
+      /* close the domain scope */
+done: if (let->domain != NULL) close_scope(mpl, let->domain);
+      /* the check statement has been completely parsed */
+      if (mpl->scan_input->token == T_SEMICOLON)
+         get_token(mpl /* ; */);
+      else if (mpl->scan_input->token != T_RBRACE)
+         error(mpl, "syntax error in let statement");
+      return let;
+}
+
 #if 1 /* 15/V-2010 */
 /*----------------------------------------------------------------------
 -- display_statement - parse display statement.
@@ -5973,6 +6030,16 @@ STATEMENT *simple_statement(MPL *mpl, int spec)
       else if (is_keyword(mpl, "option"))
       {  stmt->type = A_OPTION;
          stmt->u.opt = option_statement(mpl);
+      }
+      else if (is_keyword(mpl, "fix"))
+      {  stmt->type = A_FIX;
+         stmt->u.let = fix_statement(mpl);
+         add_problem_element(mpl, stmt);
+      }
+      else if (is_keyword(mpl, "unfix"))
+      {  stmt->type = A_UNFIX;
+         stmt->u.let = fix_statement(mpl);
+         add_problem_element(mpl, stmt);
       }
       else if (mpl->scan_input->token == T_NAME)
       {  if (spec)

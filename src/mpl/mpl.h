@@ -136,6 +136,8 @@ typedef struct NL_EXPR NL_EXPR;
 #define A_NODE          137   /* node statement */
 #define A_ARC           138   /* arc statement */
 #define A_LOGCON        139   /* logical constraint */
+#define A_FIX           140   /* fix statement */
+#define A_UNFIX         141   /* unfix statement */
 
 #define MAX_LENGTH 100
 /* maximal length of any symbolic value (this includes symbolic names,
@@ -726,6 +728,10 @@ CHECK *check_statement(MPL *mpl);
 #define let_statement _mpl_let_statement
 LET_STMT *let_statement(MPL *mpl);
 /* parse let statement */
+
+#define fix_statement _mpl_fix_statement
+LET_STMT *fix_statement(MPL *mpl);
+/* parse fix statement */
 
 #define display_statement _mpl_display_statement
 DISPLAY *display_statement(MPL *mpl);
@@ -2724,7 +2730,7 @@ void clean_option(MPL *mpl, OPT_STMT *opt);
 /* clean model option */
 
 struct LET_STMT
-{     /* let statement */
+{     /* let statement, also used for fix and unfix */
       DOMAIN *domain;
       /* subscript domain; NULL means domain is not used */
       CODE *par;
@@ -2840,7 +2846,9 @@ struct STATEMENT
          A_LET        - let statement
          A_DISPLAY    - display statement
          A_PRINTF     - printf statement
-         A_FOR        - for statement */
+         A_FOR        - for statement
+         A_FIX        - fix statement
+         A_UNFIX      - unfix statement */
       union
       {  SET *set;
          PARAMETER *par;
@@ -2886,6 +2894,14 @@ void clean_check(MPL *mpl, CHECK *chk);
 #define execute_let _mpl_execute_let
 void execute_let(MPL *mpl, LET_STMT *let);
 /* execute let statement */
+
+#define execute_fix _mpl_execute_fix
+void execute_fix(MPL *mpl, LET_STMT *let);
+/* execute fix statement */
+
+#define execute_unfix _mpl_execute_unfix
+void execute_unfix(MPL *mpl, LET_STMT *let);
+/* execute unfix statement */
 
 #define execute_solve _mpl_execute_solve
 void execute_solve(MPL *mpl, SOLVE *solve);

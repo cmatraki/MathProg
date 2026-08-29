@@ -136,6 +136,8 @@ void alloc_content_for_stmt(MPL *mpl, STATEMENT *stmt)
             case A_BREAK:
             case A_CONTINUE:
             case A_OPTION:
+            case A_FIX:
+            case A_UNFIX:
                /* functional statements have no content array */
                break;
             default:
@@ -245,6 +247,10 @@ void build_problem(MPL *mpl)
                   glp_show_mem_usage();
                }
             }
+            else if (stmt->type ==  A_FIX)
+               execute_fix(mpl, stmt->u.let);
+            else if (stmt->type ==  A_UNFIX)
+               execute_unfix(mpl, stmt->u.let);
          }
          mpl->stmt = saved_stmt;
       }
@@ -1662,8 +1668,8 @@ int mpl_get_col_bnds(MPL *mpl, int j, double *_lb, double *_ub)
       else
          type = MPL_FX, lb = ub = var->lbnd;
 #else
-      lb = (var->var->lbnd == NULL ? -INFINITY : var->lbnd);
-      ub = (var->var->ubnd == NULL ? +INFINITY : var->ubnd);
+      lb = var->lbnd;
+      ub = var->ubnd;
       if (lb == -INFINITY && ub == +INFINITY)
          type = MPL_FR, lb = ub = 0.0;
       else if (ub == +INFINITY)

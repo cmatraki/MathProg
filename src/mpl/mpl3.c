@@ -3164,6 +3164,8 @@ void add_problem_element(MPL *mpl, STATEMENT *stmt)
             case A_CONSTRAINT:
             case A_MINIMIZE:
             case A_MAXIMIZE:
+            case A_FIX:
+            case A_UNFIX:
                 break;
             default:
                 error(mpl, "wrong type of element to add to problem");
@@ -4187,12 +4189,12 @@ ELEMVAR *take_member_var      /* returns reference */
          refer->nl_flags = MPL_LIN;
          /* compute lower bound */
          if (var->lbnd == NULL)
-            refer->lbnd = 0.0;
+            refer->lbnd = -INFINITY;
          else
             refer->lbnd = eval_numeric(mpl, var->lbnd);
          /* compute upper bound */
          if (var->ubnd == NULL)
-            refer->ubnd = 0.0;
+            refer->ubnd = INFINITY;
          else if (var->ubnd == var->lbnd)
             refer->ubnd = refer->lbnd;
          else
@@ -4729,16 +4731,10 @@ double eval_numeric(MPL *mpl, CODE *code)
                var = eval_member_var(mpl, code->arg.var.var, tuple);
                switch (code->arg.var.suff)
                {  case DOT_LB:
-                     if (var->var->lbnd == NULL)
-                        value = -INFINITY;
-                     else
-                        value = var->lbnd;
+                     value = var->lbnd;
                      break;
                   case DOT_UB:
-                     if (var->var->ubnd == NULL)
-                        value = +INFINITY;
-                     else
-                        value = var->ubnd;
+                     value = var->ubnd;
                      break;
                   case DOT_STATUS:
                      value = var->stat;
@@ -6951,6 +6947,80 @@ void execute_let(MPL *mpl, LET_STMT *let)
 }
 
 /*----------------------------------------------------------------------
+-- execute_fix - execute fix statement.
+--
+-- This routine executes specified fix statement. */
+
+static int fix_func(MPL *mpl, void *info)
+{     /* this is auxiliary routine to work within domain scope */
+      LET_STMT *let = (LET_STMT *)info;
+      TUPLE *tuple;
+      ARG_LIST *e;
+      VARIABLE *var;
+      ELEMVAR *el;
+      xassert(let->par->op == O_MEMVAR);
+      var = let->par->arg.var.var;
+      if (++mpl->last_code_valid == 0) mpl->last_code_valid = 1;
+      tuple = create_tuple(mpl);
+      for (e = let->par->arg.var.list; e != NULL; e = e->next)
+         tuple = expand_tuple(mpl, tuple, eval_symbolic(mpl, e->x));
+      el = eval_member_var(mpl, var, tuple);
+      if (let->assign != NULL)
+         el->prim = eval_numeric(mpl, let->assign);
+      el->lbnd = el->prim;
+      el->ubnd = el->prim;
+      delete_tuple(mpl, tuple);
+      return 0;
+}
+
+void execute_fix(MPL *mpl, LET_STMT *let)
+{     loop_within_domain(mpl, let->domain, let, fix_func);
+      return;
+}
+
+/*----------------------------------------------------------------------
+-- execute_unfix - execute unfix statement.
+--
+-- This routine executes specified unfix statement. */
+
+static int unfix_func(MPL *mpl, void *info)
+{     /* this is auxiliary routine to work within domain scope */
+      LET_STMT *let = (LET_STMT *)info;
+      TUPLE *tuple;
+      ARG_LIST *e;
+      VARIABLE *var;
+      ELEMVAR *el;
+      xassert(let->par->op == O_MEMVAR);
+      var = let->par->arg.var.var;
+      if (++mpl->last_code_valid == 0) mpl->last_code_valid = 1;
+      tuple = create_tuple(mpl);
+      for (e = let->par->arg.var.list; e != NULL; e = e->next)
+         tuple = expand_tuple(mpl, tuple, eval_symbolic(mpl, e->x));
+      el = eval_member_var(mpl, var, tuple);
+      if (let->assign != NULL)
+         el->prim = eval_numeric(mpl, let->assign);
+      /* restore lower bound */
+      if (var->lbnd == NULL)
+         el->lbnd = -INFINITY;
+      else
+         el->lbnd = eval_numeric(mpl, var->lbnd);
+      /* restore upper bound */
+      if (var->ubnd == NULL)
+         el->ubnd = INFINITY;
+      else if (var->ubnd == var->lbnd)
+         el->ubnd = el->lbnd;
+      else
+         el->ubnd = eval_numeric(mpl, var->ubnd);
+      delete_tuple(mpl, tuple);
+      return 0;
+}
+
+void execute_unfix(MPL *mpl, LET_STMT *let)
+{     loop_within_domain(mpl, let->domain, let, unfix_func);
+      return;
+}
+
+/*----------------------------------------------------------------------
 -- clean_let - clean let statement.
 --
 -- This routine cleans specified let statement that assumes deleting
@@ -7048,12 +7118,10 @@ static void display_var(MPL *mpl, VARIABLE *var, MEMBER *memb,
       else if (suff == DOT_LB)
          write_text(mpl, "%s%s.lb = %.*g\n", var->name,
             format_tuple(mpl, '[', memb->tuple), DBL_DIG,
-            memb->value.var->var->lbnd == NULL ? -INFINITY :
             memb->value.var->lbnd);
       else if (suff == DOT_UB)
          write_text(mpl, "%s%s.ub = %.*g\n", var->name,
             format_tuple(mpl, '[', memb->tuple), DBL_DIG,
-            memb->value.var->var->ubnd == NULL ? +INFINITY :
             memb->value.var->ubnd);
       else if (suff == DOT_STATUS)
          write_text(mpl, "%s%s.status = %d\n", var->name, format_tuple
@@ -8058,6 +8126,16 @@ void execute_statement(MPL *mpl, STATEMENT *stmt)
          case A_OPTION:
             execute_option(mpl, stmt->u.opt);
             break;
+         case A_FIX:
+            if(!mpl->gen_all && mpl->current_problem
+               && mpl->solve_callback) break;
+            execute_fix(mpl, stmt->u.let);
+            break;
+         case A_UNFIX:
+            if(!mpl->gen_all && mpl->current_problem
+               && mpl->solve_callback) break;
+            execute_unfix(mpl, stmt->u.let);
+            break;
          default:
             xassert(stmt != stmt);
       }
@@ -8092,6 +8170,8 @@ void clean_statement(MPL *mpl, STATEMENT *stmt)
             clean_solve(mpl, stmt->u.slv); break;
             break;
          case A_LET:
+         case A_FIX:
+         case A_UNFIX:
             clean_let(mpl, stmt->u.let); break;
          case A_CHECK:
             clean_check(mpl, stmt->u.chk); break;

@@ -7876,6 +7876,8 @@ static int for_func(MPL *mpl, void *info)
       FOR *fur = (FOR *)info;
       STATEMENT *stmt, *save;
       int has_local_decl = 0;
+      if (fur->entry_test && fur->until != NULL
+         && eval_logical(mpl, fur->until)) return 0;
       save = mpl->stmt;
       stmt = fur->list;
       while ( stmt != NULL )
@@ -7895,7 +7897,9 @@ static int for_func(MPL *mpl, void *info)
          /* if we are in the last statement we need
             check if we are in a repeat/for loop ? */
          if(stmt->next == NULL && fur->domain == NULL)
+         {   if (fur->until != NULL && eval_logical(mpl, fur->until)) break;
              stmt = fur->list; /* repeat loop */
+         }
          else
             stmt = stmt->next; /* for loop */
       }

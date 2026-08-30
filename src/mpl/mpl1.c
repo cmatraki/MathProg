@@ -5749,6 +5749,22 @@ static void close_scope_remove_decl(MPL *mpl, STATEMENT *list)
 -- <statement> ::= <if statement>
 -- <statement> ::= <for statement> */
 
+static CODE *parse_opt_while(MPL *mpl)
+{  CODE *ret = NULL;
+   if (is_keyword(mpl, "while") || is_keyword(mpl, "until"))
+   {  char opstr[6];
+      strcpy(opstr, mpl->scan_input->image);
+      xassert(strlen(opstr) < sizeof(opstr));
+      get_token(mpl /* while/until */);
+      ret = expression_15(mpl);
+      if (ret->type != A_LOGICAL)
+         error(mpl, "%s condition has invalid type", opstr);
+      if (opstr[0] == 'w') /* while */
+         ret = make_unary(mpl, O_NOT, ret, A_LOGICAL, 0);
+   }
+   return ret;
+}
+
 FOR *for_statement(MPL *mpl, int is_repeat)
 {     FOR *fur, *prev_for_loop;
       xassert(is_keyword(mpl, "for") || is_keyword(mpl, "repeat"));
@@ -5758,9 +5774,18 @@ FOR *for_statement(MPL *mpl, int is_repeat)
       fur->do_break = 0;
       fur->do_continue = 0;
       fur->list = NULL;
+      fur->until = NULL;
+      fur->entry_test = 0;
       prev_for_loop = mpl->current_for_loop;
       mpl->current_for_loop = fur;
       get_token(mpl /* for/repeat */);
+      if (is_repeat)
+      {  fur->until = parse_opt_while(mpl);
+         if (fur->until != NULL)
+         {  fur->entry_test = 1;
+            fur->do_break = -1;
+         }
+      }
       if(!is_repeat) {
         /* parse indexing expression */
         if (mpl->scan_input->token != T_LBRACE)
@@ -5776,6 +5801,17 @@ FOR *for_statement(MPL *mpl, int is_repeat)
       }
       else
           fur->list = parse_compound_statement(mpl);
+      if (is_repeat)
+      {  CODE *until = parse_opt_while(mpl);
+         if (until != NULL)
+         {  if (fur->until != NULL)
+               error(mpl, "only one until/while condition allowed");
+            fur->until = until;
+            fur->do_break = -1;
+            if (mpl->scan_input->token != T_SEMICOLON)
+               error(mpl, "semicolon missing where expected");
+         }
+      }
       if(!is_repeat) {
         /* close the domain scope */
         xassert(fur->domain != NULL);

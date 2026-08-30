@@ -2815,7 +2815,11 @@ struct FOR
       STATEMENT *list;
       /* linked list of model statements within this for statement in
          the original order */
-      char do_break, do_continue; 
+      CODE *until;
+      /* continuation condition for repeat loop */
+      char entry_test;
+      /* whether to check the until condition before the repeat loop */
+      char do_break, do_continue;
 };
 
 struct IF_STMT

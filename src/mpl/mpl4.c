@@ -167,6 +167,7 @@ void generate_model(MPL *mpl)
       {  execute_statement(mpl, stmt);
          if (mpl->stmt->type == A_SOLVE && !mpl->solve_callback_called) break;
       }
+      execute_pending_checks(mpl);
       mpl->stmt = stmt;
       return;
 }
@@ -821,6 +822,7 @@ MPL *mpl_initialize(void)
       mpl->show_delta = 0;
       mpl->msg_lev = GLP_MSG_ON;
       mpl->last_var_new = 0;
+      mpl->check = NULL;
       /* default values for the cached options */
       mpl->linelim = 1;
       mpl->substout = 0;

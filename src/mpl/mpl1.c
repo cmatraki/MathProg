@@ -5223,6 +5223,7 @@ SOLVE *solve_statement(MPL *mpl)
 --
 -- This routine parses check statement using the syntax:
 --
+-- <check statement> ::= check ;
 -- <check statement> ::= check <domain> : <expression 15> ;
 -- <domain> ::= <empty>
 -- <domain> ::= <indexing expression>
@@ -5236,7 +5237,11 @@ CHECK *check_statement(MPL *mpl)
       chk = alloc(CHECK);
       chk->domain = NULL;
       chk->code = NULL;
+      chk->next = NULL;
       get_token(mpl /* check */);
+      /* allow empty check statement */
+      if (mpl->scan_input->token == T_SEMICOLON
+         || mpl->scan_input->token == T_RBRACE) goto done;
       /* parse optional indexing expression */
       if (mpl->scan_input->token == T_LBRACE)
       {  chk->domain = indexing_expression(mpl);
@@ -5255,7 +5260,7 @@ CHECK *check_statement(MPL *mpl)
       /* close the domain scope */
       if (chk->domain != NULL) close_scope(mpl, chk->domain);
       /* the check statement has been completely parsed */
-      if (mpl->scan_input->token == T_SEMICOLON)
+done: if (mpl->scan_input->token == T_SEMICOLON)
          get_token(mpl /* ; */);
       else if (mpl->scan_input->token != T_RBRACE)
          error(mpl, "syntax error in check statement");

@@ -8025,6 +8025,27 @@ void execute_option(MPL *mpl, OPT_STMT *opt)
 }
 
 /*----------------------------------------------------------------------
+-- execute_pending_checks - execute all pending checks.
+--
+-- This routine executes checks that were added to the pending list by
+-- earlier check statements. The pending list is cleared. */
+
+void execute_pending_checks(MPL *mpl)
+{     STATEMENT *stmt, *next;
+      stmt = mpl->check;
+      while (stmt != NULL)
+      {  xassert(stmt->type == A_CHECK);
+         if (mpl->msg_lev >= GLP_MSG_ON)
+            xprintf("Checking (line %d)...\n", stmt->line);
+         execute_check(mpl, stmt->u.chk);
+         next = stmt->u.chk->next;
+         stmt->u.chk->next = NULL;
+         stmt = next;
+      }
+      mpl->check = NULL;
+}
+
+/*----------------------------------------------------------------------
 -- execute_statement - execute specified model statement.
 --
 -- This routine executes specified model statement. */
@@ -8097,15 +8118,27 @@ void execute_statement(MPL *mpl, STATEMENT *stmt)
              mpl->current_problem = stmt->u.prob;
              break;
          case A_SOLVE:
+             execute_pending_checks(mpl);
              execute_solve(mpl, stmt->u.slv);
              break;
          case A_LET:
             execute_let(mpl, stmt->u.let);
             break;
          case A_CHECK:
-            if (mpl->msg_lev >= GLP_MSG_ON)
-                xprintf("Checking (line %d)...\n", stmt->line);
-            execute_check(mpl, stmt->u.chk);
+            if (stmt->u.chk->code == NULL)
+            {  /* empty check statement, do pending ones */
+               execute_pending_checks(mpl);
+            }
+            else if (stmt->u.chk->next == NULL)
+            {  /* only add it if not pending */
+               if (mpl->check == NULL)
+                  mpl->check = stmt;
+               else
+               {  STATEMENT *p = mpl->check;
+                  while (p->u.chk->next != NULL) p = p->u.chk->next;
+                  p->u.chk->next = stmt;
+               }
+            }
             break;
          case A_DISPLAY:
             if (mpl->msg_lev >= GLP_MSG_ON)

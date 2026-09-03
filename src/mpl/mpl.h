@@ -389,6 +389,8 @@ struct mpl_tran
          of the problem, 1 <= j <= n */
       int last_var_new;
       /* whether the last variable encountered is new */
+      STATEMENT *check;
+      /* pending checks list to do on solve or empty check statement */
       /*--------------------------------------------------------------*/
       /* cached options segment */
       int linelim;
@@ -2745,6 +2747,8 @@ struct CHECK
       /* subscript domain; NULL means domain is not used */
       CODE *code;
       /* code for computing the predicate to be checked */
+      STATEMENT *next;
+      /* next check in the pending list */
 };
 
 struct DISPLAY
@@ -2894,6 +2898,10 @@ void execute_check(MPL *mpl, CHECK *chk);
 #define clean_check _mpl_clean_check
 void clean_check(MPL *mpl, CHECK *chk);
 /* clean check statement */
+
+#define execute_pending_checks _mpl_execute_pending_checks
+void execute_pending_checks(MPL *mpl);
+/* execute pending check statements */
 
 #define execute_let _mpl_execute_let
 void execute_let(MPL *mpl, LET_STMT *let);

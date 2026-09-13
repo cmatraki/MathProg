@@ -4677,11 +4677,11 @@ static int iter_num_func(MPL *mpl, void *_info)
 double eval_numeric(MPL *mpl, CODE *code)
 {     double value;
       xassert(code != NULL);
-      xassert(code->type == A_NUMERIC);
+      xassert(code->type == A_NUMERIC || code->type == A_FORMULA);
       xassert(code->dim == 0);
       /* if the operation has a side effect, invalidate and delete the
          resultant value */
-      if (code->valid)
+      if (code->valid && code->type != A_FORMULA)
       {
           if(code->vflag || (code->valid != mpl->last_code_valid))
           {
@@ -4729,6 +4729,11 @@ double eval_numeric(MPL *mpl, CODE *code)
                   ->value;
 #else
                var = eval_member_var(mpl, code->arg.var.var, tuple);
+               if (var->var->type == A_FORMULA)
+               {  /* defined variable */
+                  value = eval_numeric(mpl, var->var->def);
+                  goto skip;
+               }
                switch (code->arg.var.suff)
                {  case DOT_LB:
                      value = var->lbnd;
@@ -4740,6 +4745,7 @@ double eval_numeric(MPL *mpl, CODE *code)
                      value = var->stat;
                      break;
                   case DOT_VAL:
+                  case DOT_NONE:
                      value = var->prim;
                      break;
                   case DOT_DUAL:
@@ -4748,6 +4754,7 @@ double eval_numeric(MPL *mpl, CODE *code)
                   default:
                      xassert(code != code);
                }
+skip:
 #endif
                delete_tuple(mpl, tuple);
             }
@@ -5109,13 +5116,19 @@ double eval_numeric(MPL *mpl, CODE *code)
                value = info->value;
             }
             break;
+         case O_CVTLFM:
+            /* convert to linear form */
+            value = eval_numeric(mpl, code->arg.arg.x);
+            break;
          default:
             xassert(code != code);
       }
-      /* save resultant value */
-      xassert(!code->valid);
-      code->valid = mpl->last_code_valid;
-      code->value.num = value;
+      if(code->type != A_FORMULA)
+      {  /* save resultant value */
+         xassert(!code->valid);
+         code->valid = mpl->last_code_valid;
+         code->value.num = value;
+      }
 done: return value;
 }
 
@@ -5292,11 +5305,11 @@ static int iter_log_func(MPL *mpl, void *_info)
 
 int eval_logical(MPL *mpl, CODE *code)
 {     int value;
-      xassert(code->type == A_LOGICAL);
+      xassert(code->type == A_LOGICAL || code->type == A_FORMULA);
       xassert(code->dim == 0);
       /* if the operation has a side effect, invalidate and delete the
          resultant value */
-      if (code->valid)
+      if (code->valid && code->type != A_FORMULA)
       {
           if(code->vflag || (code->valid != mpl->last_code_valid))
           {
@@ -5305,7 +5318,7 @@ int eval_logical(MPL *mpl, CODE *code)
           }
       }
       /* if resultant value is valid, no evaluation is needed */
-      if (code->valid)
+      if (code->valid && code->type != A_FORMULA)
       {  value = code->value.bit;
          goto done;
       }
@@ -5326,7 +5339,7 @@ int eval_logical(MPL *mpl, CODE *code)
                      eval_numeric(mpl, code->arg.arg.y));
 #else
             xassert(code->arg.arg.x != NULL);
-            if (code->arg.arg.x->type == A_NUMERIC)
+            if (code->arg.arg.x->type != A_SYMBOLIC)
                value = (eval_numeric(mpl, code->arg.arg.x) <
                         eval_numeric(mpl, code->arg.arg.y));
             else
@@ -5345,7 +5358,7 @@ int eval_logical(MPL *mpl, CODE *code)
                      eval_numeric(mpl, code->arg.arg.y));
 #else
             xassert(code->arg.arg.x != NULL);
-            if (code->arg.arg.x->type == A_NUMERIC)
+            if (code->arg.arg.x->type != A_SYMBOLIC)
                value = (eval_numeric(mpl, code->arg.arg.x) <=
                         eval_numeric(mpl, code->arg.arg.y));
             else
@@ -5360,7 +5373,7 @@ int eval_logical(MPL *mpl, CODE *code)
          case O_EQ:
             /* comparison on 'equal to' */
             xassert(code->arg.arg.x != NULL);
-            if (code->arg.arg.x->type == A_NUMERIC)
+            if (code->arg.arg.x->type != A_SYMBOLIC)
                value = (eval_numeric(mpl, code->arg.arg.x) ==
                         eval_numeric(mpl, code->arg.arg.y));
             else
@@ -5378,7 +5391,7 @@ int eval_logical(MPL *mpl, CODE *code)
                      eval_numeric(mpl, code->arg.arg.y));
 #else
             xassert(code->arg.arg.x != NULL);
-            if (code->arg.arg.x->type == A_NUMERIC)
+            if (code->arg.arg.x->type != A_SYMBOLIC)
                value = (eval_numeric(mpl, code->arg.arg.x) >=
                         eval_numeric(mpl, code->arg.arg.y));
             else
@@ -5397,7 +5410,7 @@ int eval_logical(MPL *mpl, CODE *code)
                      eval_numeric(mpl, code->arg.arg.y));
 #else
             xassert(code->arg.arg.x != NULL);
-            if (code->arg.arg.x->type == A_NUMERIC)
+            if (code->arg.arg.x->type != A_SYMBOLIC)
                value = (eval_numeric(mpl, code->arg.arg.x) >
                         eval_numeric(mpl, code->arg.arg.y));
             else
@@ -5412,7 +5425,7 @@ int eval_logical(MPL *mpl, CODE *code)
          case O_NE:
             /* comparison on 'not equal to' */
             xassert(code->arg.arg.x != NULL);
-            if (code->arg.arg.x->type == A_NUMERIC)
+            if (code->arg.arg.x->type != A_SYMBOLIC)
                value = (eval_numeric(mpl, code->arg.arg.x) !=
                         eval_numeric(mpl, code->arg.arg.y));
             else
@@ -5504,8 +5517,10 @@ int eval_logical(MPL *mpl, CODE *code)
       }
       /* save resultant value */
       xassert(!code->valid);
-      code->valid = mpl->last_code_valid;
-      code->value.bit = value;
+      if(code->type != A_FORMULA)
+      {  code->valid = mpl->last_code_valid;
+         code->value.bit = value;
+      }
 done: return value;
 }
 
@@ -7112,9 +7127,14 @@ static void display_var(MPL *mpl, VARIABLE *var, MEMBER *memb,
       int suff)
 {     /* display member of model variable */
       if (suff == DOT_NONE || suff == DOT_VAL)
+      {  if (var->type == A_FORMULA)
+         {  /* evaluate defined variable */
+            memb->value.var->prim = eval_numeric(mpl, var->def);
+         }
          write_text(mpl, "%s%s.val = %.*g\n", var->name,
             format_tuple(mpl, '[', memb->tuple), DBL_DIG,
             memb->value.var->prim);
+      }
       else if (suff == DOT_LB)
          write_text(mpl, "%s%s.lb = %.*g\n", var->name,
             format_tuple(mpl, '[', memb->tuple), DBL_DIG,
@@ -7218,6 +7238,7 @@ static void display_code(MPL *mpl, CODE *code)
 {     /* display value of expression */
       switch (code->type)
       {  case A_NUMERIC:
+         case A_FORMULA:
             /* numeric value */
             {  double num;
                num = eval_numeric(mpl, code);
@@ -7258,26 +7279,6 @@ static void display_code(MPL *mpl, CODE *code)
                   write_text(mpl, "   %s\n", format_tuple(mpl, '(',
                      memb->tuple));
                delete_elemset(mpl, set);
-            }
-            break;
-         case A_FORMULA:
-            /* linear form */
-            {  FORMULA *form;
-               LINFORM *term;
-               form = eval_formula(mpl, code);
-               if (form == NULL || form->lin == NULL)
-                  write_text(mpl, "linear form is empty\n");
-               if(form && form->nl != NULL)
-                  error(mpl, "unexpected nonlinear term");
-               for (term = form ? form->lin : NULL; term != NULL; term = term->next)
-               {  if (term->var == NULL)
-                     write_text(mpl, "   %.*g\n", term->coef);
-                  else
-                     write_text(mpl, "   %.*g %s%s\n", DBL_DIG,
-                        term->coef, term->var->var->name,
-                        format_tuple(mpl, '[', term->var->memb->tuple));
-               }
-               delete_formula(mpl, form);
             }
             break;
          default:
@@ -7390,7 +7391,6 @@ static int display_func(MPL *mpl, void *info)
          {  /* model variable */
             VARIABLE *var = entry->u.var;
             MEMBER *memb;
-            xassert(mpl->flag_p);
             /* display all members of the variable array */
             if (var->array->head == NULL)
                write_text(mpl, "%s has empty content\n", var->name);
@@ -7401,7 +7401,6 @@ static int display_func(MPL *mpl, void *info)
          {  /* model constraint */
             CONSTRAINT *con = entry->u.con;
             MEMBER *memb;
-            xassert(mpl->flag_p);
             /* display all members of the constraint array */
             if (con->array->head == NULL)
                write_text(mpl, "%s has empty content\n", con->name);
@@ -7556,6 +7555,7 @@ static int printf_func(MPL *mpl, void *info)
                xassert(entry != NULL);
                switch (entry->code->type)
                {  case A_NUMERIC:
+                  case A_FORMULA:
                      value = eval_numeric(mpl, entry->code);
                      break;
                   case A_SYMBOLIC:
@@ -7664,6 +7664,7 @@ static int print_func(MPL *mpl, void *_info)
             print_text(mpl, "%s", mpl->print_separator);
          switch (entry->code->type)
          {  case A_NUMERIC:
+            case A_FORMULA:
                dvalue = eval_numeric(mpl, entry->code);
                print_text(mpl, "%g", dvalue);
                break;

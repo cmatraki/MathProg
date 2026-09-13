@@ -1084,7 +1084,7 @@ CODE *object_reference(MPL *mpl)
          list = create_arg_list(mpl);
       }
       /* parse optional suffix */
-      if (!mpl->flag_s && avl_get_node_type(node) == A_VARIABLE)
+      if (avl_get_node_type(node) == A_VARIABLE)
          suff = DOT_NONE;
       else
          suff = DOT_VAL;
@@ -1137,11 +1137,6 @@ CODE *object_reference(MPL *mpl)
                 code->vflag = 1;
             break;
          case A_VARIABLE:
-            if (!mpl->flag_s && (suff == DOT_STATUS || suff == DOT_VAL
-               || suff == DOT_DUAL))
-               error(mpl, "invalid reference to status, primal value, o"
-                  "r dual value of variable %s above solve statement",
-                  var->name);
             arg.var.var = var;
             arg.var.list = list;
             arg.var.suff = suff;
@@ -1149,12 +1144,6 @@ CODE *object_reference(MPL *mpl)
                A_FORMULA : A_NUMERIC, 0);
             break;
          case A_CONSTRAINT:
-            if (!mpl->flag_s && (suff == DOT_STATUS || suff == DOT_VAL
-               || suff == DOT_DUAL))
-               error(mpl, "invalid reference to status, primal value, o"
-                  "r dual value of %s %s above solve statement",
-                  con->type == A_CONSTRAINT ? "constraint" : "objective"
-                  , con->name);
             arg.con.con = con;
             arg.con.list = list;
             arg.con.suff = suff;
@@ -1987,7 +1976,7 @@ expr:    /* parse expression that follows either the keyword 'in' (in
          if (code->type == A_NUMERIC)
             code = make_unary(mpl, O_CVTLOG, code, A_LOGICAL, 0);
          /* now the expression must be of logical type */
-         if (code->type != A_LOGICAL)
+         if (code->type != A_LOGICAL && code->type != A_FORMULA)
             error(mpl, "expression following colon has invalid type");
          xassert(code->dim == 0);
          domain->code = code;
@@ -5315,7 +5304,8 @@ LET_STMT *let_statement(MPL *mpl)
       let->assign = expression_5(mpl);
       /* the expression must be of numeric/symbolic type */
       if (!(let->assign->type == A_NUMERIC ||
-              let->assign->type == A_SYMBOLIC))
+              let->assign->type == A_SYMBOLIC ||
+              let->assign->type == A_FORMULA))
            error(mpl, "expression following := has invalid type");
       xassert(let->assign->dim == 0);
       /* convert to the parameter type, if necessary */
@@ -5473,17 +5463,9 @@ DISPLAY *display_statement(MPL *mpl)
                   break;
                case A_VARIABLE:
                   entry->u.var = (VARIABLE *)avl_get_node_link(node);
-                  if (!mpl->flag_s)
-                     error(mpl, "invalid reference to variable %s above"
-                        " solve statement", entry->u.var->name);
                   break;
                case A_CONSTRAINT:
                   entry->u.con = (CONSTRAINT *)avl_get_node_link(node);
-                  if (!mpl->flag_s)
-                     error(mpl, "invalid reference to %s %s above solve"
-                        " statement",
-                        entry->u.con->type == A_CONSTRAINT ?
-                        "constraint" : "objective", entry->u.con->name);
                   break;
                case A_PROBLEM:
                   entry->u.prob = (PROBLEM *)avl_get_node_link(node);
@@ -5578,7 +5560,8 @@ PRINTF *printf_statement(MPL *mpl)
          entry->code = expression_9(mpl);
          if (!(entry->code->type == A_NUMERIC ||
                entry->code->type == A_SYMBOLIC ||
-               entry->code->type == A_LOGICAL))
+               entry->code->type == A_LOGICAL ||
+               entry->code->type == A_FORMULA))
             error(mpl, "only numeric, symbolic, or logical expression a"
                "llowed");
       }
@@ -5665,7 +5648,8 @@ PRINTF *print_statement(MPL *mpl)
          entry->code = expression_9(mpl);
          if (!(entry->code->type == A_NUMERIC ||
                entry->code->type == A_SYMBOLIC ||
-               entry->code->type == A_LOGICAL))
+               entry->code->type == A_LOGICAL ||
+               entry->code->type == A_FORMULA))
             error(mpl, "only numeric, symbolic, or logical expression a"
                "llowed");
       }
@@ -5762,7 +5746,7 @@ static CODE *parse_opt_while(MPL *mpl)
       xassert(strlen(opstr) < sizeof(opstr));
       get_token(mpl /* while/until */);
       ret = expression_15(mpl);
-      if (ret->type != A_LOGICAL)
+      if (ret->type != A_LOGICAL && ret->type != A_FORMULA)
          error(mpl, "%s condition has invalid type", opstr);
       if (opstr[0] == 'w') /* while */
          ret = make_unary(mpl, O_NOT, ret, A_LOGICAL, 0);
@@ -5870,7 +5854,8 @@ IF_STMT *if_statement(MPL *mpl)
       get_token(mpl /* if */);
       /* parse logical expression */
       if_stmt->code = expression_15(mpl);
-      if (if_stmt->code->type != A_LOGICAL)
+      if (if_stmt->code->type != A_LOGICAL &&
+         if_stmt->code->type != A_FORMULA)
          error(mpl, "invalid if statement");
       if(mpl->scan_input->token != T_THEN)
           error(mpl, "'then' keyword expected");

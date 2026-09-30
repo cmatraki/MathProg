@@ -199,6 +199,7 @@ static int str2int(const char *s, int *x)
       return 0;
 }
 
+#if 0
 static int str2num(const char *s, double *x)
 {     /* convert string to floating point */
       double t;
@@ -214,6 +215,7 @@ static int str2num(const char *s, double *x)
 #endif
       return 0;
 }
+#endif
 
 static void print_help(const char *my_name)
 {     /* print help information */
@@ -530,7 +532,7 @@ static int parse_cmdline(struct csa *csa, int argc, char *argv[])
          else if (p("--seed"))
          {  k++;
             if (k == argc || argv[k][0] == '\0' ||
-               argv[k][0] == '-' && !isdigit((unsigned char)argv[k][1]))
+               (argv[k][0] == '-' && !isdigit((unsigned char)argv[k][1])))
             {  xprintf("No seed value specified\n");
                return 1;
             }
@@ -1182,10 +1184,12 @@ int __cdecl main(int argc, char *argv[])
 {     /* stand-alone LP/MIP solver */
       struct csa _csa, *csa = &_csa;
       int ret;
+#if 0
 #if 0 /* 10/VI-2013 */
       glp_long start;
 #else
       double start;
+#endif
 #endif
       /* perform initialization */
       csa->prob = glp_create_prob();
@@ -1319,6 +1323,7 @@ int __cdecl main(int argc, char *argv[])
          ret = EXIT_FAILURE;
          goto done;
       }
+#if 0
       if (csa->format == FMT_MPS_DECK)
       {  ret = glp_read_mps(csa->prob, GLP_MPS_DECK, NULL,
             csa->in_file);
@@ -1349,7 +1354,9 @@ err1:    {  xprintf("MPS file processing error\n");
             goto done;
          }
       }
-      else if (csa->format == FMT_MATHPROG)
+      else
+#endif
+      if (csa->format == FMT_MATHPROG)
       {  int k;
          /* allocate the translator workspace */
          csa->tran = mathprog_alloc_wksp();
@@ -1389,6 +1396,7 @@ err2:    {  xprintf("MathProg model processing error\n");
          mathprog_build_prob(csa->tran, csa->prob);
 #endif
       }
+#if 0
       else if (csa->format == FMT_MIN_COST)
       {  csa->graph = glp_create_graph(sizeof(v_data), sizeof(a_data));
          ret = glp_read_mincost(csa->graph, offsetof(v_data, rhs),
@@ -1429,15 +1437,18 @@ err2:    {  xprintf("MathProg model processing error\n");
          glp_set_prob_name(csa->prob, csa->in_file);
       }
 #endif
+#endif
       else
          xassert(csa != csa);
       /*--------------------------------------------------------------*/
       /* change problem name, if required */
       if (csa->new_name != NULL)
          glp_set_prob_name(csa->prob, csa->new_name);
+#if 0
       /* change optimization direction, if required */
       if (csa->dir != 0)
          glp_set_obj_dir(csa->prob, csa->dir);
+#endif
       /* sort elements of the constraint matrix */
       glp_sort_matrix(csa->prob);
 #if 1 /* 18/I-2018 */
@@ -1453,6 +1464,7 @@ err2:    {  xprintf("MathProg model processing error\n");
             glp_set_col_name(csa->prob, j, NULL);
       }
 #endif
+#if 0
       /*--------------------------------------------------------------*/
       /* write problem data in fixed MPS format, if required */
       if (csa->out_mps != NULL)
@@ -1524,6 +1536,7 @@ err2:    {  xprintf("MathProg model processing error\n");
             goto done;
          }
       }
+#endif
 #endif
       /*--------------------------------------------------------------*/
       /* if only problem data check is required, skip computations */

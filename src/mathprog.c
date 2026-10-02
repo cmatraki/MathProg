@@ -1109,7 +1109,21 @@ static int solve_callback(mpl_tran *tran, int sol_type, void *udata)
         csa->solve_callback_used_has_solution = 1;
         /* build the problem instance from the model */
         if (mathprog_build_prob(csa->tran, csa->prob)) return 500;
+
+        if (csa->new_name != NULL)
+           glp_set_prob_name(csa->prob, csa->new_name);
+
         glp_sort_matrix(csa->prob);
+
+        if (csa->hide)
+        {  int i, j;
+           glp_set_obj_name(csa->prob, NULL);
+           glp_delete_index(csa->prob);
+           for (i = glp_get_num_rows(csa->prob); i >= 1; i--)
+              glp_set_row_name(csa->prob, i, NULL);
+           for (j = glp_get_num_cols(csa->prob); j >= 1; j--)
+              glp_set_col_name(csa->prob, j, NULL);
+        }
 
         //glp_scale_prob(csa->prob, GLP_SF_AUTO);
         //glp_set_bfcp(csa->prob, &csa->bfcp);
@@ -1441,6 +1455,7 @@ err2:    {  xprintf("MathProg model processing error\n");
       else
          xassert(csa != csa);
       /*--------------------------------------------------------------*/
+#if 0
       /* change problem name, if required */
       if (csa->new_name != NULL)
          glp_set_prob_name(csa->prob, csa->new_name);
@@ -1464,7 +1479,6 @@ err2:    {  xprintf("MathProg model processing error\n");
             glp_set_col_name(csa->prob, j, NULL);
       }
 #endif
-#if 0
       /*--------------------------------------------------------------*/
       /* write problem data in fixed MPS format, if required */
       if (csa->out_mps != NULL)

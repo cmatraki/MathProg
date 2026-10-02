@@ -114,6 +114,11 @@ const char *mathprog_get_option(mpl_tran *tran, const char *name)
       return mpl_get_option(tran, name);
 }
 
+double mathprog_eval_string(mpl_tran *tran, const char *expr)
+{     /* evaluate numerical expression in given string */
+      return mpl_eval_string(tran, expr);
+}
+
 int mathprog_build_prob(mpl_tran *tran, glp_prob *prob)
 {     /* build LP/MIP problem instance from the model */
       int m, n, i, j, t, kind, type, len, *ind;
@@ -249,10 +254,6 @@ int mathprog_postsolve(mpl_tran *tran, glp_prob *prob, int sol)
       if (!(m == glp_get_num_rows(prob) &&
             n == glp_get_num_cols(prob)))
          xerror("mathprog_postsolve: wrong problem object\n");
-      if (!mpl_has_solve_stmt(tran))
-      {  ret = 0;
-         goto done;
-      }
       has_shift = glp_get_obj_coef(prob, 0) != 0.0;
       for (i = 1; i <= m; i++)
       {  if (sol == GLP_SOL)

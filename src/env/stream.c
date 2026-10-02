@@ -164,6 +164,40 @@ glp_file *glp_open(const char *name, const char *mode)
 /***********************************************************************
 *  NAME
 *
+*  glp_open_string - open string as stream for reading
+*
+*  SYNOPSIS
+*
+*  glp_file *glp_open_string(const char *string);
+*
+*  DESCRIPTION
+*
+*  The routine glp_open_string opens a string as a file for reading and
+*  associates a stream with it.
+*
+*  RETURNS
+*
+*  The routine glp_open_string returns a pointer to the object
+*  controlling the stream. If the operation fails, the routine returns
+*  NULL. */
+
+glp_file *glp_open_string(const char *string)
+{     glp_file *f;
+      if (string == NULL) return NULL;
+      f = talloc(1, glp_file);
+      f->size = strlen(string) + 1;
+      f->base = talloc(f->size, char);
+      strncpy(f->base, string, f->size);
+      f->ptr = f->base;
+      f->cnt = f->size - 1;
+      f->flag = IONULL;
+      f->file = NULL;
+      return f;
+}
+
+/***********************************************************************
+*  NAME
+*
 *  glp_eof - test end-of-file indicator
 *
 *  SYNOPSIS

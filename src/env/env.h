@@ -279,6 +279,10 @@ typedef struct glp_file glp_file;
 glp_file *glp_open(const char *name, const char *mode);
 /* open stream */
 
+#define glp_open_string _glp_open_string
+glp_file *glp_open_string(const char *string);
+/* open string as stream for reading */
+
 #define glp_eof _glp_eof
 int glp_eof(glp_file *f);
 /* test end-of-file indicator */

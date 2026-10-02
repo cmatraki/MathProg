@@ -3007,6 +3007,10 @@ void clean_model(MPL *mpl);
 void open_input(MPL *mpl, char *file);
 /* open input text file */
 
+#define open_input_string _mpl_open_input_string
+void open_input_string(MPL *mpl, const char *string);
+/* open string as text file */
+
 #define read_char _mpl_read_char
 int read_char(MPL *mpl);
 /* read next character from input text file */
@@ -3176,6 +3180,10 @@ void mpl_put_col_value(MPL *mpl, int j, double val);
 #define mpl_postsolve _mpl_postsolve
 int mpl_postsolve(MPL *mpl);
 /* postsolve model */
+
+#define mpl_eval_string _mpl_eval_string
+double mpl_eval_string(MPL *mpl, const char *expr);
+/* evaluate numerical expression in given string */
 
 #define mpl_terminate _mpl_terminate
 void mpl_terminate(MPL *mpl);

@@ -85,7 +85,7 @@ void get_char(MPL *mpl)
       if (c == EOF)
       {  if (mpl->scan_input->c == '\n')
             mpl->scan_input->line--;
-         else
+         else if (mpl->phase != GLP_TRAN_PHASE_GENERATE)
             warning(mpl, "final NL missing before end of file");
       }
       else if (c == '\n')

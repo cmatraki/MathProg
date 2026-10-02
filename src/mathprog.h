@@ -73,6 +73,9 @@ const char *mathprog_get_option(mpl_tran *tran, const char *name);
 int mathprog_build_prob(mpl_tran *tran, glp_prob *prob);
 /* build LP/MIP problem instance from the model */
 
+double mathprog_eval_string(mpl_tran *tran, const char *expr);
+/* evaluate numerical expression in given string */
+
 int mathprog_postsolve(mpl_tran *tran, glp_prob *prob, int sol);
 /* postsolve the model */
 

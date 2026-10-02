@@ -515,6 +515,46 @@ void open_input(MPL *mpl, char *file)
 }
 
 /*----------------------------------------------------------------------
+-- open_input_string - open string as text file.
+--
+-- This routine opens a string as a file for scanning. */
+
+void open_input_string(MPL *mpl, const char *string)
+{
+      if(++mpl->nested_input > MAX_NESTED_INPUT)
+          error(mpl, "max number of recursive file inclusion reached");
+      glp_input_file_st *sin = mpl->scan_input;
+      sin->line = 0;
+      sin->c = '\n';
+      sin->token = 0;
+      sin->imlen = 0;
+      sin->image[0] = '\0';
+      sin->value = 0.0;
+      sin->b_token = T_EOF;
+      sin->b_imlen = 0;
+      sin->b_image[0] = '\0';
+      sin->b_value = 0.0;
+      sin->f_dots = 0;
+      sin->f_scan = 0;
+      sin->f_token = 0;
+      sin->f_imlen = 0;
+      sin->f_image[0] = '\0';
+      sin->f_value = 0.0;
+      memset(sin->context, ' ', CONTEXT_SIZE);
+      sin->c_ptr = 0;
+      xassert(sin->in_fp == NULL);
+      sin->in_fp = glp_open_string(string);
+      if (sin->in_fp == NULL)
+         error(mpl, "unable to open string - %s", get_err_msg());
+      sin->in_file = NULL;
+      /* scan the very first character */
+      get_char(mpl);
+      /* scan the very first token */
+      get_token(mpl);
+      return;
+}
+
+/*----------------------------------------------------------------------
 -- read_char - read next character from input text file.
 --
 -- This routine returns a next ASCII character read from the input text
@@ -1818,6 +1858,36 @@ int mpl_postsolve(MPL *mpl)
         xprintf("Model has been successfully processed\n");
 done: /* return to the calling program */
       return mpl->phase;
+}
+
+/*----------------------------------------------------------------------
+-- mpl_eval_string - evaluate numerical expression in given string.
+--
+-- *Synopsis*
+--
+-- #include "glpmpl.h"
+-- double mpl_eval_string(MPL *mpl, const char *expr);
+--
+-- *Returns*
+--
+-- Returns the value of the expression evaluated at the current state of
+-- the MathProg translator. In case of error, NaN is returned. */
+
+double mpl_eval_string(MPL *mpl, const char *expr)
+{     CODE *code;
+      double val;
+      /* set up error handler */
+      if (setjmp(mpl->jump)) return NAN;
+      glp_input_file_st *saved_scan_input = mpl->scan_input;
+      mpl->scan_input = mpl_new_scan_input(mpl);
+      open_input_string(mpl, expr);
+      code = expression_5(mpl);
+      val = eval_numeric(mpl, code);
+      clean_code(mpl, code);
+      close_input(mpl);
+      mpl_free_scan_input(mpl, mpl->scan_input);
+      mpl->scan_input = saved_scan_input;
+      return val;
 }
 
 /*----------------------------------------------------------------------

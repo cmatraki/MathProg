@@ -1565,7 +1565,14 @@ err2:    {  xprintf("MathProg model processing error\n");
       /*--------------------------------------------------------------*/
       /* if only problem data check is required, skip computations */
       if (csa->check)
-      {
+      {  mpl_stats stats;
+         mathprog_get_stats(csa->tran, &stats);
+         xprintf("--- Problem Characteristics ---\n");
+         xprintf("Number of rows               = %8d\n", stats.rows);
+         xprintf("Number of logical constr.    = %8d\n", stats.log);
+         xprintf("Number of columns            = %8d\n", stats.cols);
+         xprintf("Number of defined variables  = %8d\n", stats.defs);
+#if 0
          /* build the problem instance from the model */
          mathprog_build_prob(csa->tran, csa->prob);
 #if 1 /* 29/III-2016 */
@@ -1584,6 +1591,7 @@ err2:    {  xprintf("MathProg model processing error\n");
          }
          xprintf("Number of non-zeros (objrow) = %8d\n",
             cnt);
+#endif
 #endif
          ret = EXIT_SUCCESS;
          goto done;

@@ -21,6 +21,7 @@
 *  along with GLPK. If not, see <http://www.gnu.org/licenses/>.
 ***********************************************************************/
 
+#include "mathprog.h"
 #include "mpl.h"
 #include "glpk.h"
 
@@ -117,6 +118,14 @@ const char *mathprog_get_option(mpl_tran *tran, const char *name)
 double mathprog_eval_string(mpl_tran *tran, const char *expr)
 {     /* evaluate numerical expression in given string */
       return mpl_eval_string(tran, expr);
+}
+
+void mathprog_get_stats(mpl_tran *tran, mpl_stats *stats)
+{     /* get problem statistics */
+      stats->rows = mpl_get_num_rows(tran);
+      stats->log = mpl_get_num_log(tran);
+      stats->cols = mpl_get_num_cols(tran);
+      stats->defs = mpl_get_num_defs(tran);
 }
 
 int mathprog_build_prob(mpl_tran *tran, glp_prob *prob)

@@ -34,6 +34,20 @@ extern "C" {
 typedef struct mpl_tran mpl_tran;
 /* MathProg translator workspace */
 
+typedef struct glp_prob glp_prob;
+/* GLPK problem object */
+
+typedef struct
+{     int rows;
+      /* number of rows in problem */
+      int log;
+      /* number of logical constraints */
+      int cols;
+      /* number of columns */
+      int defs;
+      /* number of defined variables */
+} mpl_stats;
+
 mpl_tran *mathprog_alloc_wksp(void);
 /* allocate the MathProg translator workspace */
 
@@ -69,6 +83,9 @@ int mathprog_set_msg_lev(mpl_tran *tran, int msg_lev);
 
 const char *mathprog_get_option(mpl_tran *tran, const char *name);
 /* get option string */
+
+void mathprog_get_stats(mpl_tran *tran, mpl_stats *stats);
+/* get problem statistics */
 
 int mathprog_build_prob(mpl_tran *tran, glp_prob *prob);
 /* build LP/MIP problem instance from the model */

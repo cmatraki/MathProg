@@ -222,6 +222,7 @@ static void print_help(const char *my_name)
       xprintf("Usage: %s [options...] filename\n", my_name);
       xprintf("\n");
       xprintf("General options:\n");
+#if 0
       xprintf("   --mps             read LP/MIP problem in fixed MPS fo"
          "rmat\n");
       xprintf("   --freemps         read LP/MIP problem in free MPS for"
@@ -230,6 +231,7 @@ static void print_help(const char *my_name)
          "mat\n");
       xprintf("   --glp             read LP/MIP problem in GLPK format "
          "\n");
+#endif
       xprintf("   --math            read LP/MIP model written in GNU Ma"
          "thProg modeling\n");
       xprintf("                     language\n");
@@ -253,6 +255,7 @@ static void print_help(const char *my_name)
          "(any integer);\n");
       xprintf("                     if seed value is ?, some random see"
          "d will be used\n");
+#if 0
       xprintf("   --mincost         read min-cost flow problem in DIMAC"
          "S format\n");
       xprintf("   --maxflow         read maximum flow problem in DIMACS"
@@ -284,6 +287,7 @@ static void print_help(const char *my_name)
       xprintf("                     printable format (simplex only)\n");
       xprintf("   --tmlim nnn       limit solution time to nnn seconds "
          "\n");
+#endif
       xprintf("   --memlim nnn      limit available memory to nnn megab"
          "ytes\n");
       xprintf("   --check           do not solve problem, check input d"
@@ -305,6 +309,7 @@ static void print_help(const char *my_name)
 #endif
       xprintf("   --nonames         do not copy/set cols/rows names in the prob"
          "lem object\n");
+#if 0
       xprintf("   --wmps filename   write problem to filename in fixed "
          "MPS format\n");
       xprintf("   --wfreemps filename\n");
@@ -324,6 +329,7 @@ static void print_help(const char *my_name)
       xprintf("   --wcnf filename   write problem to filename in DIMACS"
          " CNF-SAT format\n");
 #endif
+#endif
       xprintf("   --log filename    write copy of terminal output to fi"
          "lename\n");
       xprintf("   -h, --help        display this help information and e"
@@ -331,6 +337,7 @@ static void print_help(const char *my_name)
       xprintf("   -v, --version     display program version and exit\n")
          ;
       xprintf("\n");
+#if 0
       xprintf("LP basis factorization options:\n");
 #if 0 /* 08/III-2014 */
       xprintf("   --luf             LU + Forrest-Tomlin update\n");
@@ -467,6 +474,7 @@ static void print_help(const char *my_name)
          "lpk.html>.\n");
       xprintf("\n");
       xprintf("Please report bugs to <bug-glpk@gnu.org>.\n");
+#endif
       return;
 }
 
@@ -1048,8 +1056,10 @@ static int parse_cmdline(struct csa *csa, int argc, char *argv[])
       return 0;
 }
 
+#if 0
 typedef struct { double rhs, pi; } v_data;
 typedef struct { double low, cap, cost, x; } a_data;
+#endif
 
 static int solve_callback(mpl_tran *tran, int sol_type, void *udata)
 {

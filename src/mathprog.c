@@ -34,16 +34,7 @@
 #include <string.h>
 
 #include <glpk.h>
-
 #include "mathprog.h"
-
-#ifdef WITH_NLW2
-void *mathprog_nlw2_build_prob(mpl_tran *tran, int relax);
-int mathprog_nlw2_run_solver(mpl_tran *tran, void *csa,
-   const char *solver, const char *options);
-int mathprog_nlw2_postsolve(mpl_tran *tran, void *csa, int relax);
-void mathprog_nlw2_cleanup(void *csa);
-#endif
 
 #define xassert glp_assert
 #define xerror  glp_error
@@ -1063,7 +1054,9 @@ typedef struct { double low, cap, cost, x; } a_data;
 
 static int solve_callback(mpl_tran *tran, int sol_type, void *udata)
 {
-    int ret = 0, psol_type = GLP_SOL, status;
+    int ret;
+    mpl_solver_options opt;
+
     struct csa *csa = (struct csa *)udata;
     if(!csa->quiet)
         xprintf("Solve callback called\n");
@@ -1071,132 +1064,20 @@ static int solve_callback(mpl_tran *tran, int sol_type, void *udata)
     if(!csa->solve_callback_used)
         csa->solve_callback_used = 1;
 
+    memset(&opt, 0, sizeof(opt));
+    opt.nomip = csa->nomip;
+    opt.quiet = csa->quiet;
+    opt.new_name = csa->new_name;
+    opt.hide = csa->hide;
 #ifdef WITH_NLW2
-    if (csa->nlw2)
-    {   const char *solver, *solver_opts, *opt;
-        int relax = 0;
-        csa->solve_callback_used_has_solution = 1;
-
-        opt = mathprog_get_option(tran, "relax_integrality");
-        relax = opt != NULL && atoi(opt) > 0;
-        relax |= csa->nomip;
-        if (sol_type == 1 || sol_type == 3)
-        {  /*A_PROBLEM_LP or A_PROBLEM_IP*/
-           xprintf("Need to set solver options to select simplex or int"
-              "erior point method\n");
-           relax = 1;
-        }
-        solver = csa->nlw2_solver;
-        if (solver == NULL)
-           solver = mathprog_get_option(csa->tran, "solver");
-        if (solver == NULL)
-        {  xprintf("No solver given\n");
-           return -1;
-        }
-        solver_opts = csa->nlw2_solver_opts;
-        if (solver_opts == NULL)
-        {  char *suffix = "_options";
-           char *name = malloc(strlen(solver) + strlen(suffix) + 1);
-           strcpy(name, solver);
-           strcat(name, suffix);
-           solver_opts = mathprog_get_option(csa->tran, name);
-           free(name);
-        }
-        if (solver_opts == NULL)
-           solver_opts = "";
-
-        /* build the problem instance from the model */
-        void *nlse = mathprog_nlw2_build_prob (tran, relax);
-        if (!mathprog_nlw2_run_solver(tran, nlse, solver, solver_opts))
-           ret = -1;
-        else
-           ret = mathprog_nlw2_postsolve(csa->tran, nlse, relax);
-        mathprog_nlw2_cleanup(nlse);
-    }
-    else
+    opt.use_nlw2 = csa->nlw2;
+    opt.nlw2_solver = csa->nlw2_solver;
+    opt.nlw2_solver_opts = csa->nlw2_solver_opts;
 #endif
-    {
-        csa->solve_callback_used_has_solution = 1;
-        /* build the problem instance from the model */
-        if (mathprog_build_prob(csa->tran, csa->prob)) return 500;
+    opt.sol_type = sol_type;
 
-        if (csa->new_name != NULL)
-           glp_set_prob_name(csa->prob, csa->new_name);
-
-        glp_sort_matrix(csa->prob);
-
-        if (csa->hide)
-        {  int i, j;
-           glp_set_obj_name(csa->prob, NULL);
-           glp_delete_index(csa->prob);
-           for (i = glp_get_num_rows(csa->prob); i >= 1; i--)
-              glp_set_row_name(csa->prob, i, NULL);
-           for (j = glp_get_num_cols(csa->prob); j >= 1; j--)
-              glp_set_col_name(csa->prob, j, NULL);
-        }
-
-        //glp_scale_prob(csa->prob, GLP_SF_AUTO);
-        //glp_set_bfcp(csa->prob, &csa->bfcp);
-
-        if(sol_type == 0) /*A_PROBLEM_AUTO*/
-        {
-            if(glp_get_num_int(csa->prob) + glp_get_num_bin(csa->prob) > 0)
-                sol_type = 2; /*A_PROBLEM_MIP*/
-            else
-                sol_type = 1; /*A_PROBLEM_LP*/
-        }
-
-        switch(sol_type)
-        {
-            case 1: /*A_PROBLEM_LP*/
-                ret = glp_simplex(csa->prob, &csa->smcp);
-                status = glp_get_status(csa->prob);
-                psol_type = GLP_SOL;
-                break;
-            case 2: /*A_PROBLEM_MIP*/
-                ret = glp_intopt(csa->prob, &csa->iocp);
-                status = glp_mip_status(csa->prob);
-                psol_type = GLP_MIP;
-                break;
-            case 3: /*A_PROBLEM_IP*/
-                ret = glp_interior(csa->prob, &csa->iptcp);
-                status = glp_ipt_status(csa->prob);
-                psol_type = GLP_IPT;
-                break;
-            default:
-                printf("Unknown solution type %d\n", sol_type);
-                ret = -1;
-        }
-        switch(status)
-        {
-            case GLP_OPT:    /* solution is optimal */
-                ret = 0;     /* solved */
-                break;
-            case GLP_NOFEAS: /* no feasible solution exists */
-                ret = 200;   /* infeasible */
-                break;
-            case GLP_UNBND:  /* solution is unbounded */
-                ret = 300;   /* unbounded */
-                break;
-            case GLP_FEAS:   /* solution is feasible */
-                ret = 400;   /* limit */
-                break;
-            case GLP_INFEAS: /* solution is infeasible */
-            case GLP_UNDEF:  /* solution is undefined */
-                if (ret == GLP_ENODFS)
-                    ret = 450;   /* limit, problem is either infeasible or unbounded. */
-                else if (ret == GLP_EITLIM || ret == GLP_ETMLIM || ret == GLP_EMIPGAP)
-                    ret = 470;   /* limit, no solution returned */
-                else
-                    ret = 500;   /* failure */
-                break;
-        }
-        if (mathprog_postsolve(csa->tran, csa->prob, psol_type))
-        {
-            printf("Error on postsolving model\n");
-            return -1;
-        }
-    }
+    ret = mathprog_solver_run(tran, &opt);
+    csa->solve_callback_used_has_solution = 1;
     return ret;
 }
 
@@ -1291,11 +1172,13 @@ int __cdecl main(int argc, char *argv[])
       {  ret = EXIT_FAILURE;
          goto done;
       }
+#if 0
       if(csa->quiet)
       {
           //glp_term_out(0);
           csa->smcp.msg_lev = csa->iptcp.msg_lev = csa->iocp.msg_lev = GLP_MSG_OFF;
       }
+#endif
       /*--------------------------------------------------------------*/
       /* remove all output files specified in the command line */
       if (csa->out_dpy != NULL) remove(csa->out_dpy);

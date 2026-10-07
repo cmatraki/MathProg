@@ -34,8 +34,16 @@ extern "C" {
 typedef struct mpl_tran mpl_tran;
 /* MathProg translator workspace */
 
-typedef struct glp_prob glp_prob;
-/* GLPK problem object */
+typedef struct
+{     int nomip;
+      int quiet;
+      const char *new_name;
+      int hide;
+      int use_nlw2;
+      const char *nlw2_solver;
+      const char *nlw2_solver_opts;
+      int sol_type;
+} mpl_solver_options;
 
 typedef struct
 {     int rows;
@@ -69,6 +77,9 @@ void mathprog_set_solve_callback(mpl_tran *tran, mpl_solve_callback solve_cb, vo
    statement is executed, the user_data pointer is passed
    back */
 
+int mathprog_solver_run(mpl_tran *tran, const mpl_solver_options *opt);
+/* call the solver */
+
 int mathprog_set_genall(mpl_tran *tran, int bflag);
 /* set the gen_all option, pre generate all entities in the model
    return the previous value */
@@ -81,20 +92,11 @@ int mathprog_set_msg_lev(mpl_tran *tran, int msg_lev);
 /* set the message level (verbosity)
    return the previous value */
 
-const char *mathprog_get_option(mpl_tran *tran, const char *name);
-/* get option string */
-
 void mathprog_get_stats(mpl_tran *tran, mpl_stats *stats);
 /* get problem statistics */
 
-int mathprog_build_prob(mpl_tran *tran, glp_prob *prob);
-/* build LP/MIP problem instance from the model */
-
 double mathprog_eval_string(mpl_tran *tran, const char *expr);
 /* evaluate numerical expression in given string */
-
-int mathprog_postsolve(mpl_tran *tran, glp_prob *prob, int sol);
-/* postsolve the model */
 
 int mathprog_waiting_solve(mpl_tran *tran);
 /* check if the model execution is waiting for solve */

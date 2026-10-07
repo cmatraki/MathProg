@@ -110,11 +110,6 @@ int mathprog_set_msg_lev(mpl_tran *tran, int msg_lev)
     return rc;
 }
 
-const char *mathprog_get_option(mpl_tran *tran, const char *name)
-{     /* get option string */
-      return mpl_get_option(tran, name);
-}
-
 double mathprog_eval_string(mpl_tran *tran, const char *expr)
 {     /* evaluate numerical expression in given string */
       return mpl_eval_string(tran, expr);
@@ -128,7 +123,7 @@ void mathprog_get_stats(mpl_tran *tran, mpl_stats *stats)
       stats->defs = mpl_get_num_defs(tran);
 }
 
-int mathprog_build_prob(mpl_tran *tran, glp_prob *prob)
+static int mathprog_build_prob(mpl_tran *tran, glp_prob *prob)
 {     /* build LP/MIP problem instance from the model */
       int m, n, i, j, t, kind, type, len, *ind;
       double lb, ub, *val;
@@ -249,7 +244,7 @@ int mathprog_build_prob(mpl_tran *tran, glp_prob *prob)
       return 0;
 }
 
-int mathprog_postsolve(mpl_tran *tran, glp_prob *prob, int sol)
+static int mathprog_postsolve(mpl_tran *tran, glp_prob *prob, int sol)
 {     /* postsolve the model */
       int i, j, m, n, stat, ret, has_shift;
       double prim, dual;
@@ -322,7 +317,168 @@ int mathprog_postsolve(mpl_tran *tran, glp_prob *prob, int sol)
          ret = 0;
       else if (ret == 4)
          ret = 1;
-done: return ret;
+      return ret;
+}
+
+
+#ifdef WITH_NLW2
+void *mathprog_nlw2_build_prob(mpl_tran *tran, int relax);
+int mathprog_nlw2_run_solver(mpl_tran *tran, void *csa,
+   const char *solver, const char *options);
+int mathprog_nlw2_postsolve(mpl_tran *tran, void *csa, int relax);
+void mathprog_nlw2_cleanup(void *csa);
+#endif
+
+int mathprog_solver_run(mpl_tran *tran, const mpl_solver_options *opt)
+{     /* call the solver */
+      int ret = 0, psol_type = GLP_SOL, status = GLP_UNDEF;
+      int sol_type = opt->sol_type;
+      glp_prob *prob;
+      if (opt && opt->use_nlw2)
+#if !defined(WITH_NLW2)
+         xprintf("No nlw2 support, use_nlw2 option ignored\n");
+#else
+      {  const char *solver, *solver_opts, *cfg_opt;
+         int relax = 0;
+         void *nlse;
+
+         cfg_opt = mpl_get_option(tran, "relax_integrality");
+         relax = cfg_opt != NULL && atoi(cfg_opt) > 0;
+         relax |= opt->nomip;
+         if (sol_type == 1 || sol_type == 3)
+         {  /*A_PROBLEM_LP or A_PROBLEM_IP*/
+            xprintf("Need to set solver options to select simplex or int"
+               "erior point method\n");
+            relax = 1;
+         }
+         solver = opt->nlw2_solver;
+         if (solver == NULL)
+            solver = mpl_get_option(tran, "solver");
+         if (solver == NULL)
+         {  xprintf("No solver given\n");
+            return -1;
+         }
+         solver_opts = opt->nlw2_solver_opts;
+         if (solver_opts == NULL)
+         {  const char *suffix = "_options";
+            char *name = malloc(strlen(solver) + strlen(suffix) + 1);
+            strcpy(name, solver);
+            strcat(name, suffix);
+            solver_opts = mpl_get_option(tran, name);
+            free(name);
+         }
+         if (solver_opts == NULL)
+            solver_opts = "";
+
+         /* build the problem instance from the model */
+         nlse = mathprog_nlw2_build_prob (tran, relax);
+         if (!mathprog_nlw2_run_solver(tran, nlse, solver, solver_opts))
+            ret = -1;
+         else
+            ret = mathprog_nlw2_postsolve(tran, nlse, relax);
+         mathprog_nlw2_cleanup(nlse);
+         return ret;
+      }
+#endif
+      /* build the problem instance from the model */
+      prob = glp_create_prob();
+      if (mathprog_build_prob(tran, prob))
+      {  ret = 500;
+         goto done;
+      }
+
+      if (opt && opt->new_name != NULL)
+         glp_set_prob_name(prob, opt->new_name);
+
+      glp_sort_matrix(prob);
+
+      if (opt && opt->hide)
+      {  int i, j;
+         glp_set_obj_name(prob, NULL);
+         glp_delete_index(prob);
+         for (i = glp_get_num_rows(prob); i >= 1; i--)
+            glp_set_row_name(prob, i, NULL);
+         for (j = glp_get_num_cols(prob); j >= 1; j--)
+            glp_set_col_name(prob, j, NULL);
+      }
+
+      if (sol_type == 0) /*A_PROBLEM_AUTO*/
+      {  if (glp_get_num_int(prob) + glp_get_num_bin(prob) > 0)
+            sol_type = 2; /*A_PROBLEM_MIP*/
+         else
+            sol_type = 1; /*A_PROBLEM_LP*/
+      }
+
+      if (sol_type == 2 && opt && opt->nomip)
+         sol_type = 1;
+
+      switch (sol_type)
+      {  case 1: /*A_PROBLEM_LP*/
+            {  glp_smcp smcp;
+               glp_init_smcp(&smcp);
+               smcp.presolve = GLP_ON;
+               if (opt && opt->quiet)
+                  smcp.msg_lev = GLP_MSG_OFF;
+               ret = glp_simplex(prob, &smcp);
+            }
+            status = glp_get_status(prob);
+            psol_type = GLP_SOL;
+            break;
+         case 2: /*A_PROBLEM_MIP*/
+            {  glp_iocp iocp;
+               glp_init_iocp(&iocp);
+               iocp.presolve = GLP_ON;
+               if (opt && opt->quiet)
+                  iocp.msg_lev = GLP_MSG_OFF;
+               ret = glp_intopt(prob, &iocp);
+            }
+            status = glp_mip_status(prob);
+            psol_type = GLP_MIP;
+            break;
+         case 3: /*A_PROBLEM_IP*/
+            {  glp_iptcp iptcp;
+               glp_init_iptcp(&iptcp);
+               if (opt && opt->quiet)
+                  iptcp.msg_lev = GLP_MSG_OFF;
+               ret = glp_interior(prob, &iptcp);
+            }
+            status = glp_ipt_status(prob);
+            psol_type = GLP_IPT;
+            break;
+         default:
+            xprintf("Unknown solution type %d\n", sol_type);
+            ret = 500;
+            goto done;
+      }
+      switch (status)
+      {  case GLP_OPT:    /* solution is optimal */
+            ret = 0;      /* solved */
+            break;
+         case GLP_NOFEAS: /* no feasible solution exists */
+            ret = 200;    /* infeasible */
+            break;
+         case GLP_UNBND:  /* solution is unbounded */
+            ret = 300;    /* unbounded */
+            break;
+         case GLP_FEAS:   /* solution is feasible */
+            ret = 400;    /* limit */
+            break;
+         case GLP_INFEAS: /* solution is infeasible */
+         case GLP_UNDEF:  /* solution is undefined */
+            if (ret == GLP_ENODFS)
+               ret = 450; /* limit, problem is either infeasible or unbounded. */
+            else if (ret == GLP_EITLIM || ret == GLP_ETMLIM || ret == GLP_EMIPGAP)
+               ret = 470; /* limit, no solution returned */
+            else
+               ret = 500; /* failure */
+            break;
+      }
+      if (mathprog_postsolve(tran, prob, psol_type))
+      {  xprintf("Error on postsolving model\n");
+         ret = 500;
+      }
+done: glp_delete_prob(prob);
+      return ret;
 }
 
 int mathprog_waiting_solve(mpl_tran *tran)

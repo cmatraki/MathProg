@@ -1,0 +1,5 @@
+option('with_nlw2',
+  type : 'boolean',
+  value : true,
+  description : 'Enable NL-writer2 solver bridge')
+

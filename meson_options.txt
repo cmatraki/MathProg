@@ -3,3 +3,7 @@ option('with_nlw2',
   value : true,
   description : 'Enable NL-writer2 solver bridge')
 
+option('tests',
+  type : 'boolean',
+  value : true,
+  description : 'Build GoogleTest suites')

@@ -91,3 +91,6 @@ executable('mathprog',
   install : false,
 )
 
+if get_option('tests')
+  subdir('tests')
+endif

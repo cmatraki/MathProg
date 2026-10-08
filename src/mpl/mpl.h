@@ -269,8 +269,6 @@ struct glp_input_file_st
       /* stream assigned to the input text file */
       char *in_file;
       /* name of the input text file */
-      char *unget_buf; /* char unget_buf[MAX_LENGTH+1]; */
-      /* stack of characters from unappend_char */
 };
 
 #if 0 /* 22/I-2013 */
@@ -3014,6 +3012,10 @@ void open_input_string(MPL *mpl, const char *string);
 #define read_char _mpl_read_char
 int read_char(MPL *mpl);
 /* read next character from input text file */
+
+#define unread_char _mpl_unread_char
+int unread_char(int c, MPL *mpl);
+/* push character back to input buffer */
 
 #define close_input _mpl_close_input
 void close_input(MPL *mpl);

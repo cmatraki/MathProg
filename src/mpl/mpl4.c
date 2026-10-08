@@ -574,6 +574,18 @@ int read_char(MPL *mpl)
 }
 
 /*----------------------------------------------------------------------
+-- unread_char - push character back to input buffer.
+--
+-- This routine pushes a character back to the buffer for the next read
+-- and returns the input character or EOF on error. */
+
+int unread_char(int c, MPL *mpl)
+{     xassert(mpl->scan_input->in_fp != NULL);
+      c = glp_ungetc(c, mpl->scan_input->in_fp);
+      return c;
+}
+
+/*----------------------------------------------------------------------
 -- close_input - close input text file.
 --
 -- This routine closes the input text file. */
@@ -776,8 +788,6 @@ glp_input_file_st *mpl_new_scan_input(MPL *mpl)
       sin->c_ptr = 0;
       sin->in_fp = NULL;
       sin->in_file = NULL;
-      sin->unget_buf = xcalloc(MAX_LENGTH+1, sizeof(char));
-      sin->unget_buf[0] = '\0';
       return sin;
 }
 
@@ -788,7 +798,6 @@ void mpl_free_scan_input(MPL *mpl, glp_input_file_st *sin)
       xfree(mpl->scan_input->b_image);
       xfree(mpl->scan_input->f_image);
       xfree(mpl->scan_input->context);
-      xfree(mpl->scan_input->unget_buf);
       if (mpl->scan_input->in_fp != NULL) glp_close(mpl->scan_input->in_fp);
       xfree(sin);
 }

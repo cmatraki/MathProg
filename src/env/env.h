@@ -299,6 +299,10 @@ int glp_read(glp_file *f, void *buf, int nnn);
 int glp_getc(glp_file *f);
 /* read character from stream */
 
+#define glp_ungetc _glp_ungetc
+int glp_ungetc(int c, glp_file *f);
+/* push character back to stream */
+
 #define glp_write _glp_write
 int glp_write(glp_file *f, const void *buf, int nnn);
 /* write data to stream */

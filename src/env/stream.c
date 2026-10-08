@@ -355,6 +355,50 @@ int glp_getc(glp_file *f)
 }
 
 /***********************************************************************
+*  NAME
+*
+*  glp_ungetc - push character back to stream
+*
+*  SYNOPSIS
+*
+*  int glp_ungetc(int c, glp_file *f);
+*
+*  DESCRIPTION
+*
+*  The routine glp_ungetc pushes a character back into the input stream
+*  pointed to by f, so that it will be returned by the next call to
+*  glp_getc.
+*
+*  RETURNS
+*
+*  The routine glp_getc returns the character c. If an error occurs, the
+*  routine returns EOF. */
+
+int glp_ungetc(int c, glp_file *f)
+{     if (f->flag & IOWRT)
+         xerror("glp_ungetc: attempt to push to output stream\n");
+      if (c == EOF)
+         return EOF;
+      if (f->ptr > f->base)
+         f->ptr--;
+      else if (f->cnt == f->size)
+      {  char *new_base = talloc(f->size + 16, char);
+         if (new_base == NULL) return EOF;
+         memmove(new_base + 1, f->base, f->cnt);
+         tfree(f->base);
+         f->base = new_base;
+         f->ptr = new_base;
+         f->size += 16;
+      }
+      else
+         memmove(f->base + 1, f->base, f->cnt);
+      *f->ptr = c;
+      f->cnt++;
+      f->flag &= ~IOEOF;
+      return c;
+}
+
+/***********************************************************************
 *  do_flush - flush output stream
 *
 *  This routine causes buffered data for the specified output stream to

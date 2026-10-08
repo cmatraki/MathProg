@@ -128,13 +128,7 @@ void append_char(MPL *mpl)
       }
       mpl->scan_input->image[mpl->scan_input->imlen++] = (char)mpl->scan_input->c;
       mpl->scan_input->image[mpl->scan_input->imlen] = '\0';
-      if (mpl->scan_input->unget_buf[0] != 0)
-      {  int i = strlen(mpl->scan_input->unget_buf);
-         mpl->scan_input->c = mpl->scan_input->unget_buf[--i];
-         mpl->scan_input->unget_buf[i] = 0;
-      }
-      else
-         get_char(mpl);
+      get_char(mpl);
       return;
 }
 
@@ -145,11 +139,8 @@ void append_char(MPL *mpl)
 -- a buffer for the next read. */
 
 void unappend_char(MPL *mpl)
-{     int i = strlen(mpl->scan_input->unget_buf);
-      xassert(i < MAX_LENGTH);
-      mpl->scan_input->unget_buf[i] = mpl->scan_input->c;
-      mpl->scan_input->unget_buf[i+1] = 0;
-      i = strlen(mpl->scan_input->image);
+{     int i = strlen(mpl->scan_input->image);
+      unread_char(mpl->scan_input->c, mpl);
       mpl->scan_input->c = mpl->scan_input->image[--i];
       mpl->scan_input->image[i] = 0;
 }

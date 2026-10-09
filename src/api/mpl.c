@@ -458,15 +458,24 @@ int mathprog_solver_run(mpl_tran *tran, const mpl_solver_options *opt)
             ret = 200;    /* infeasible */
             break;
          case GLP_UNBND:  /* solution is unbounded */
-            ret = 300;    /* unbounded */
+            if (glp_get_prim_stat(prob) == GLP_FEAS)
+               ret = 300; /* unbounded, feasible solution returned */
+            else
+               ret = 350; /* unbounded, no feasible solution returned */
             break;
          case GLP_FEAS:   /* solution is feasible */
-            ret = 400;    /* limit */
+            if (ret == GLP_ETMLIM || ret == GLP_EITLIM || ret == GLP_EMIPGAP)
+               ret = 400; /* limit */
+            else
+               ret = 100; /* solved? solution candidate returned but error
+                             likely */
             break;
          case GLP_INFEAS: /* solution is infeasible */
          case GLP_UNDEF:  /* solution is undefined */
-            if (ret == GLP_ENODFS)
-               ret = 450; /* limit, problem is either infeasible or unbounded. */
+            if (ret == GLP_ENOPFS)
+               ret = 200; /* infeasible */
+            else if (ret == GLP_ENODFS)
+               ret = 450; /* limit, problem is either infeasible or unbounded */
             else if (ret == GLP_EITLIM || ret == GLP_ETMLIM || ret == GLP_EMIPGAP)
                ret = 470; /* limit, no solution returned */
             else

@@ -331,9 +331,8 @@ void mathprog_nlw2_cleanup(void *csa);
 
 int mathprog_solver_run(mpl_tran *tran, const mpl_solver_options *opt)
 {     /* call the solver */
-      int ret = 0, psol_type = GLP_SOL, status = GLP_UNDEF;
+      int ret = 0;
       int sol_type = opt->sol_type;
-      glp_prob *prob;
       if (opt && opt->use_nlw2)
 #if !defined(WITH_NLW2)
          xprintf("No nlw2 support, use_nlw2 option ignored\n");
@@ -380,6 +379,35 @@ int mathprog_solver_run(mpl_tran *tran, const mpl_solver_options *opt)
          return ret;
       }
 #endif
+      int psol_type = GLP_SOL, status = GLP_UNDEF;
+      glp_prob *prob;
+      int presol = GLP_ON;
+
+      /* check solver options */
+      const char *glpk_opts = mpl_get_option(tran, "glpk_options");
+      if (glpk_opts != NULL)
+      {  char *str = malloc(strlen(glpk_opts) + 1);
+         char *key, *value;
+         strcpy(str, glpk_opts);
+         key = strtok(str, " ");
+         while (key != NULL)
+         {  value = strchr(key, '=');
+            if (value == NULL)
+            {  xprintf("No value for glpk option '%s'\n", key);
+               return -1;
+            }
+            *value++ = 0;
+            if (!strcmp("pre:solve", key))
+               presol = atoi(value);
+            else
+            {  xprintf("Unknown glpk option '%s'\n", key);
+               return -1;
+            }
+            key = strtok(NULL, " ");
+         }
+         free(str);
+      }
+
       /* build the problem instance from the model */
       prob = glp_create_prob();
       if (mathprog_build_prob(tran, prob))
@@ -416,7 +444,7 @@ int mathprog_solver_run(mpl_tran *tran, const mpl_solver_options *opt)
       {  case 1: /*A_PROBLEM_LP*/
             {  glp_smcp smcp;
                glp_init_smcp(&smcp);
-               smcp.presolve = GLP_ON;
+               smcp.presolve = presol;
                if (opt && opt->quiet)
                   smcp.msg_lev = GLP_MSG_OFF;
                ret = glp_simplex(prob, &smcp);
@@ -427,7 +455,7 @@ int mathprog_solver_run(mpl_tran *tran, const mpl_solver_options *opt)
          case 2: /*A_PROBLEM_MIP*/
             {  glp_iocp iocp;
                glp_init_iocp(&iocp);
-               iocp.presolve = GLP_ON;
+               iocp.presolve = presol;
                if (opt && opt->quiet)
                   iocp.msg_lev = GLP_MSG_OFF;
                ret = glp_intopt(prob, &iocp);

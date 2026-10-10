@@ -24,6 +24,7 @@
 #ifndef MPL_H
 #define MPL_H
 
+#define ENABLE_NON_SAFE
 #include "avl.h"
 #include "splaytree.h"
 #include "dmp.h"

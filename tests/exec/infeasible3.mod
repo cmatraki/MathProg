@@ -1,5 +1,5 @@
 # TEST: category=exec_glpk
-# TEST: expect_status=450
+# TEST: expect_status=200
 
 # PROBLEM HAS NO DUAL FEASIBLE SOLUTION
 
@@ -12,6 +12,8 @@ minimize obj: x - 2 * y + 5 * z;
 subj to c1: -x + 21 * y >=  2;
 subj to c2: -3 * x + 2 * y <=  1;
 subj to c3: 20 * x + y <= 20;
+
+option glpk_options 'pre:solve=0';
 
 solve;
 

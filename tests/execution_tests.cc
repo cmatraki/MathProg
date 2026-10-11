@@ -37,6 +37,20 @@ std::string meta_string(const TestCase& tc, const char* key,
   return it->second;
 }
 
+extern "C" struct cb_dat {
+  mpl_solver_options options;
+  int count;
+  int rc;
+};
+
+extern "C" int solve_callback(mpl_tran *tran, int sol_type, void *udata) {
+    struct cb_dat *cbd = (struct cb_dat *)udata;
+    cbd->count++;
+    cbd->options.sol_type = sol_type;
+    cbd->rc = mathprog_solver_run(tran, &cbd->options);
+    return cbd->rc;
+}
+
 }  // namespace
 
 class ExecutionCaseTest : public ::testing::TestWithParam<TestCase> {};
@@ -58,25 +72,25 @@ TEST_P(ExecutionCaseTest, RunModel) {
   mpl_tran* tran = mathprog_alloc_wksp();
   ASSERT_NE(tran, nullptr);
 
-  mathprog_init_rand(tran, 1);
-  ASSERT_EQ(mathprog_read_model(tran, tc.path.c_str(), 0), 0) << tc.path;
-  ASSERT_EQ(mathprog_generate(tran, nullptr), 0) << tc.path;
-
-  mpl_solver_options options;
-  std::memset(&options, 0, sizeof(options));
+  struct cb_dat cbd;
+  std::memset(&cbd, 0, sizeof(cbd));
 
 #ifdef WITH_NLW2
   if (category == "exec_external") {
-    options.use_nlw2 = 1;
+    cbd.options.use_nlw2 = 1;
     std::string solver = meta_string(tc, "solver");
     const char* env_solver = std::getenv("MATHPROG_EXTERNAL_SOLVER");
     if (env_solver != nullptr && *env_solver != '\0')
       solver = env_solver;
-    options.nlw2_solver = solver.empty() ? nullptr : solver.c_str();
+    cbd.options.nlw2_solver = solver.empty() ? nullptr : solver.c_str();
   }
 #endif
 
-  const int rc = mathprog_solver_run(tran, &options);
+  mathprog_set_solve_callback(tran, solve_callback, &cbd);
+  mathprog_init_rand(tran, 1);
+  ASSERT_EQ(mathprog_read_model(tran, tc.path.c_str(), 0), 0) << tc.path;
+  ASSERT_EQ(mathprog_generate(tran, nullptr), 0) << tc.path;
+  const int rc = cbd.count > 0 ? cbd.rc : mathprog_solver_run(tran, &cbd.options);
 
   const int expected_status = meta_int(tc, "expect_status", 0);
   EXPECT_EQ(rc, expected_status) << tc.path;

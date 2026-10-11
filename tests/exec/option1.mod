@@ -5,6 +5,7 @@ var x >= 0;
 
 minimize obj: x;
 
+option solve_exitcode_max 1;
 option glpk_options 'pre:solve';
 
 solve;

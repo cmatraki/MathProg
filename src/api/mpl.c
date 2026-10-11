@@ -382,6 +382,9 @@ int mathprog_solver_run(mpl_tran *tran, const mpl_solver_options *opt)
       int psol_type = GLP_SOL, status = GLP_UNDEF;
       glp_prob *prob;
       int presol = GLP_ON;
+      double mip_gap = 0;
+      int it_lim = INT_MAX;
+      int tm_lim = INT_MAX;
 
       /* check solver options */
       const char *glpk_opts = mpl_get_option(tran, "glpk_options");
@@ -399,6 +402,12 @@ int mathprog_solver_run(mpl_tran *tran, const mpl_solver_options *opt)
             *value++ = 0;
             if (!strcmp("pre:solve", key))
                presol = atoi(value);
+            else if (!strcmp("mip:gap", key))
+               mip_gap = atof(value);
+            else if (!strcmp("lim:iter", key))
+               it_lim = atoi(value);
+            else if (!strcmp("lim:time", key))
+               tm_lim = atoi(value);
             else
             {  xprintf("Unknown glpk option '%s'\n", key);
                return -1;
@@ -445,6 +454,8 @@ int mathprog_solver_run(mpl_tran *tran, const mpl_solver_options *opt)
             {  glp_smcp smcp;
                glp_init_smcp(&smcp);
                smcp.presolve = presol;
+               smcp.it_lim = it_lim;
+               smcp.tm_lim = tm_lim;
                if (opt && opt->quiet)
                   smcp.msg_lev = GLP_MSG_OFF;
                ret = glp_simplex(prob, &smcp);
@@ -456,6 +467,8 @@ int mathprog_solver_run(mpl_tran *tran, const mpl_solver_options *opt)
             {  glp_iocp iocp;
                glp_init_iocp(&iocp);
                iocp.presolve = presol;
+               iocp.tm_lim = tm_lim;
+               iocp.mip_gap = mip_gap;
                if (opt && opt->quiet)
                   iocp.msg_lev = GLP_MSG_OFF;
                ret = glp_intopt(prob, &iocp);

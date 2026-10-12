@@ -1042,7 +1042,6 @@ int mathprog_nlw2_postsolve(mpl_tran *tran, struct csa *csa, int relax)
 
       for (i = 0; i < m + m_log; i++)
       {  prim = 0;
-         stat = 0;
          dual = 0;
          len = mpl_get_mat_row(tran, i+1, ind, val);
          if (csa->x != NULL)
@@ -1058,8 +1057,10 @@ int mathprog_nlw2_postsolve(mpl_tran *tran, struct csa *csa, int relax)
                   dval[ind[t]-1] -= val[t] * csa->y[i];
          }
          stat = csa->row_status != NULL ? csa->row_status[i] : 0;
-         if (stat == 2 || stat == 6) stat -= 2;
-         if (stat == 3 || stat == 4) stat--;
+         if (stat == 6 && mpl_get_row_bnds(tran, i+1, NULL, NULL) == MPL_FR)
+            stat = 4;
+         else if (stat == 2 || stat == 6) stat = 0;
+         else if (stat == 3 || stat == 4) stat--;
          if (fabs(prim) < 1e-9) prim = 0.0;
          if (fabs(dual) < 1e-9) dual = 0.0;
          mpl_put_row_soln(tran, i+1, stat, prim, dual);
@@ -1067,10 +1068,12 @@ int mathprog_nlw2_postsolve(mpl_tran *tran, struct csa *csa, int relax)
 
       for (j = 0; j < n; j++)
       {  prim = csa->x != NULL ? csa->x[j] : 0;
-         stat = csa->var_status != NULL ? csa->var_status[j] : 0;
          dual = !skip ? dval[j] : 0;
-         if (stat == 2 || stat == 6) stat = 0;
-         if (stat == 3 || stat == 4) stat--;
+         stat = csa->var_status != NULL ? csa->var_status[j] : 0;
+         if (stat == 6 && mpl_get_col_bnds(tran, j+1, NULL, NULL) == MPL_FR)
+            stat = 4;
+         else if (stat == 2 || stat == 6) stat = 0;
+         else if (stat == 3 || stat == 4) stat--;
          if (fabs(prim) < 1e-9) prim = 0.0;
          if (fabs(dual) < 1e-9) dual = 0.0;
          mpl_put_col_soln(tran, j+1, stat, prim, dual);

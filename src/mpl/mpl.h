@@ -3061,7 +3061,7 @@ void error(MPL *mpl, char *fmt, ...);
 /* print error message and terminate model processing */
 
 #define warning _mpl_warning
-void warning(MPL *mpl, char *fmt, ...);
+void warning(MPL *mpl, const char *fmt, ...);
 /* print warning message and continue model processing */
 
 #define mpl_initialize _mpl_initialize

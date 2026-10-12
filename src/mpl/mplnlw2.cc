@@ -1007,16 +1007,34 @@ int mathprog_nlw2_postsolve(mpl_tran *tran, struct csa *csa, int relax)
       dval = (double *)xcalloc(n, sizeof(double));
       for (j = 0; j < n; j++) dval[j] = 0;
 
-      int mip = 0;
-      if (!relax)
-         for (j=0; j<n; j++)
+      /* check whether to skip reduced cost calculation */
+      bool skip = m_log > 0 || (csa->y == NULL && csa->m_con > 0);
+      if (!skip && !relax)
+         for (j = 0; j < n; j++)
             if (mpl_get_col_kind(tran, j+1) != MPL_NUM)
-            {  mip = 1;
+            {  skip = 1;
                break;
             }
+      /* try to warn for placeholder (zero) duals, some solvers return that */
+      if (!skip && csa->y != NULL)
+      {  for (i = 0; i < m; i++)
+            if (csa->y[i] != 0) break;
+         bool warn = i == m;
+         if (warn && csa->row_status != NULL)
+         {  /* do not warn if all constraint rows are basic/superbasic */
+            for (i = 0; i < m; i++)
+               if (csa->row_status[i] != 1 /* basic */ &&
+                  csa->row_status[i] != 2 /* superbasic */ &&
+                  mpl_get_row_kind(tran, i+1) == MPL_ST) break;
+            warn = i != m;
+         }
+         if (warn)
+            warning(tran, "solver returned all-zero duals; reduced costs may"
+               " be unreliable");
+      }
 
       /* initialize var dual */
-      if (!mip && csa->y != NULL && csa->obj_no >= 0)
+      if (!skip && csa->obj_no >= 0)
       {  assert(csa->obj_no < csa->m_obj);
          len = mpl_get_mat_row(tran, csa->obj_row[csa->obj_no]+1, ind, val);
          for (t = 1; t <= len; t++)
@@ -1036,7 +1054,7 @@ int mathprog_nlw2_postsolve(mpl_tran *tran, struct csa *csa, int relax)
          }
          if (csa->y != NULL && i < m)
          {  dual = csa->y[i];
-            if (!mip && csa->obj_no >= 0)
+            if (!skip && csa->obj_no >= 0)
                for (t = 1; t <= len; t++)
                   dval[ind[t]-1] -= val[t] * csa->y[i];
          }
@@ -1051,7 +1069,7 @@ int mathprog_nlw2_postsolve(mpl_tran *tran, struct csa *csa, int relax)
       for (j = 0; j < n; j++)
       {  prim = csa->x != NULL ? csa->x[j] : 0;
          stat = csa->var_status != NULL ? csa->var_status[j] : 0;
-         dual = !mip ? dval[j] : 0;
+         dual = !skip ? dval[j] : 0;
          if (stat == 2 || stat == 6) stat = 0;
          if (stat == 3 || stat == 4) stat--;
          if (fabs(prim) < 1e-9) prim = 0.0;

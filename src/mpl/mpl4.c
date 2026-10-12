@@ -717,7 +717,7 @@ void error(MPL *mpl, char *fmt, ...)
 -- This routine formats and prints a warning message and returns to the
 -- calling program. */
 
-void warning(MPL *mpl, char *fmt, ...)
+void warning(MPL *mpl, const char *fmt, ...)
 {     va_list arg;
       char msg[4095+1];
       va_start(arg, fmt);

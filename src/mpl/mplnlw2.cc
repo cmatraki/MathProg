@@ -66,7 +66,7 @@ struct csa *mathprog_nlw2_build_prob(mpl_tran *tran, int relax)
 {     /* build LP/MIP problem instance from the model */
       struct csa *csa = new struct csa;
       int m, n, i, j, t, ct, kind, type, len, *ind, nnz, n_def, m_log;
-      double lb, ub, *val;
+      double *val;
       char *name;
       int *cnt_idx, *int_idx, *bin_idx, *nl_both_idx, *nl_both_int_idx;
       int *nl_obj_idx, *nl_obj_int_idx, *nl_con_idx, *nl_con_int_idx;
@@ -499,7 +499,6 @@ public:
    template <class DefVarWriterFactory>
    void FeedDefinedVariables(int idx, DefVarWriterFactory& dvw)
    {  if (idx != 0) return;
-      int n = tran->n;
       ELEMVAR **col = tran->col;
       for (int i = 0; i < csa->n_def; i++)
       {  int j = csa->defvar_order[i];
@@ -733,7 +732,7 @@ public:
    mp::NLHeader Header() const { return hdr; }
 
    void OnSolveMessage(const char* s, int nbs)
-   {  if (s!= NULL && strlen(s) > nbs)
+   {  if (s!= NULL && strlen(s) > static_cast<size_t>(nbs))
          xprintf("%s\n", s + nbs);
    }
 
@@ -888,10 +887,10 @@ static double eval_nl_expr(NL_EXPR *nl, double *x)
                != eval_nl_expr(nl->u.arg.y, x);
          case O_AND:
             return !!eval_nl_expr(nl->u.arg.x, x)
-               & !!eval_nl_expr(nl->u.arg.y, x);
+               && !!eval_nl_expr(nl->u.arg.y, x);
          case O_OR:
             return !!eval_nl_expr(nl->u.arg.x, x)
-               | !!eval_nl_expr(nl->u.arg.y, x);
+               || !!eval_nl_expr(nl->u.arg.y, x);
          case O_EXP:
             return exp(eval_nl_expr(nl->u.arg.x, x));
          case O_LOG:
@@ -991,7 +990,7 @@ static double eval_nl_expr(NL_EXPR *nl, double *x)
 
 int mathprog_nlw2_postsolve(mpl_tran *tran, struct csa *csa, int relax)
 {     /* postsolve the model */
-      int i, j, m, n, stat, ret, kind, len, t, m_log;
+      int i, j, m, n, stat, ret, len, t, m_log;
       double prim, dual;
       int *ind;
       double *val, *dval;

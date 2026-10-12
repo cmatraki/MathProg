@@ -25,7 +25,6 @@ solve;
 
 check abs(x - 2) <= 1e-6;
 check abs(abs(nlcon.dual) - 0.25) <= 1e-6;
-
-printf "nlw2_reduced_cost_nl_con: x=%g nlcon.dual=%g\n", x, nlcon.dual;
+check abs(abs(x.dual)) <= 1e-6;
 
 end;

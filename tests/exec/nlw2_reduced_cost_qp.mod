@@ -22,6 +22,4 @@ solve;
 check abs(x - 5) <= 1e-6;
 check abs(abs(x.dual) - 4) <= 1e-6;
 
-printf "nlw2_reduced_cost_qp: x=%g dual=%g\n", x, x.dual;
-
 end;

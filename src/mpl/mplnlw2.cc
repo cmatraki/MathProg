@@ -1,5 +1,6 @@
 #ifdef WITH_NLW2
 
+#include <unordered_map>
 #include <unordered_set>
 
 #include "mp/nl-solver.h"
@@ -829,6 +830,257 @@ static double eval_linform(LINFORM *form, double *x)
       return sum;
 }
 
+static void add_scaled_grad(std::unordered_map<int, double> &dst,
+   const std::unordered_map<int, double> &src, double scale)
+{  if (scale == 0.0) return;
+   for (const auto &p : src)
+      dst[p.first] += scale * p.second;
+}
+
+static bool eval_nl_expr_grad(NL_EXPR *nl, double *x, int n,
+   double *value, std::unordered_map<int, double> &grad);
+
+static bool eval_linform_grad(LINFORM *form, double *x, int n,
+   double *value, std::unordered_map<int, double> &grad)
+{  double sum = 0.0;
+   grad.clear();
+   for (; form != NULL; form = form->next)
+   {  if (form->var == NULL)
+      {  sum += form->coef;
+         continue;
+      }
+      int j = form->var->j - 1;
+      if (j >= 0 && j < n)
+      {  sum += form->coef * x[j];
+         grad[j] += form->coef;
+      }
+      else if (form->var->def != NULL)
+      {  std::unordered_map<int, double> g_def, g_nl;
+         double v_def = 0.0, v_nl = 0.0;
+         if (!eval_linform_grad(form->var->def->lin, x, n, &v_def, g_def))
+            return false;
+         if (!eval_nl_expr_grad(form->var->def->nl, x, n, &v_nl, g_nl))
+            return false;
+         sum += form->coef * (v_def + v_nl);
+         add_scaled_grad(grad, g_def, form->coef);
+         add_scaled_grad(grad, g_nl, form->coef);
+      }
+      else
+         return false;
+   }
+   *value = sum;
+   return true;
+}
+
+static bool eval_nl_expr_grad(NL_EXPR *nl, double *x, int n,
+   double *value, std::unordered_map<int, double> &grad)
+{     grad.clear();
+      if (nl == NULL)
+      {  *value = 0.0;
+         return true;
+      }
+      switch (nl->op)
+      {  case O_LINFORM:
+            return eval_linform_grad(nl->u.lin, x, n, value, grad);
+         case O_DEFVAR:
+            {  if (nl->u.defvar->def == NULL)
+               {  *value = 0.0;
+                  return true;
+               }
+               std::unordered_map<int, double> g1, g2;
+               double v1 = 0.0, v2 = 0.0;
+               if (!eval_linform_grad(nl->u.defvar->def->lin, x, n, &v1, g1))
+                  return false;
+               if (!eval_nl_expr_grad(nl->u.defvar->def->nl, x, n, &v2, g2))
+                  return false;
+               *value = v1 + v2;
+               grad = std::move(g1);
+               add_scaled_grad(grad, g2, 1.0);
+               return true;
+            }
+         case O_ADD:
+         case O_SUB:
+         case O_MUL:
+         case O_DIV:
+         case O_POWER:
+         case O_ATAN2:
+            {  std::unordered_map<int, double> gx, gy;
+               double vx = 0.0, vy = 0.0;
+               if (!eval_nl_expr_grad(nl->u.arg.x, x, n, &vx, gx))
+                  return false;
+               if (!eval_nl_expr_grad(nl->u.arg.y, x, n, &vy, gy))
+                  return false;
+               if (nl->op == O_ADD)
+               {  *value = vx + vy;
+                  grad = std::move(gx);
+                  add_scaled_grad(grad, gy, 1.0);
+                  return true;
+               }
+               if (nl->op == O_SUB)
+               {  *value = vx - vy;
+                  grad = std::move(gx);
+                  add_scaled_grad(grad, gy, -1.0);
+                  return true;
+               }
+               if (nl->op == O_MUL)
+               {  *value = vx * vy;
+                  grad.clear();
+                  add_scaled_grad(grad, gx, vy);
+                  add_scaled_grad(grad, gy, vx);
+                  return true;
+               }
+               if (nl->op == O_DIV)
+               {  if (vy == 0.0) return false;
+                  *value = vx / vy;
+                  grad.clear();
+                  add_scaled_grad(grad, gx, 1.0 / vy);
+                  add_scaled_grad(grad, gy, -vx / (vy * vy));
+                  return true;
+               }
+               if (nl->op == O_POWER)
+               {  if (vx < 0.0) return false;
+                  if (vx == 0.0)
+                  {  if (vy < 1.0) return false;
+                     *value = 0.0;
+                     if (!gy.empty()) return false;
+                     grad.clear();
+                     add_scaled_grad(grad, gx, vy == 1.0 ? 1.0 : 0.0);
+                     return true;
+                  }
+                  *value = pow(vx, vy);
+                  grad.clear();
+                  add_scaled_grad(grad, gx, vy * (*value) / vx);
+                  add_scaled_grad(grad, gy, (*value) * log(vx));
+                  return true;
+               }
+               /* O_ATAN2 */
+               {  double yarg = vx, xarg = vy;
+                  double den = yarg*yarg + xarg*xarg;
+                  if (den == 0.0) return false;
+                  *value = atan2(yarg, xarg);
+                  grad.clear();
+                  add_scaled_grad(grad, gx, xarg / den);
+                  add_scaled_grad(grad, gy, -yarg / den);
+                  return true;
+               }
+            }
+         case O_MINUS:
+         case O_SQRT:
+         case O_ABS:
+         case O_COS:
+         case O_SIN:
+         case O_TAN:
+         case O_ATAN:
+         case O_EXP:
+         case O_LOG:
+         case O_LOG10:
+            {  double vx = 0.0;
+               std::unordered_map<int, double> gx;
+               if (!eval_nl_expr_grad(nl->u.arg.x, x, n, &vx, gx))
+                  return false;
+               grad.clear();
+               if (nl->op == O_MINUS)
+               {  *value = -vx;
+                  add_scaled_grad(grad, gx, -1.0);
+                  return true;
+               }
+               if (nl->op == O_SQRT)
+               {  if (vx < 0.0) return false;
+                  if (vx == 0.0) return false;
+                  *value = sqrt(vx);
+                  add_scaled_grad(grad, gx, 0.5 / (*value));
+                  return true;
+               }
+               if (nl->op == O_ABS)
+               {  if (vx == 0.0) return false;
+                  *value = fabs(vx);
+                  add_scaled_grad(grad, gx, vx > 0 ? 1.0 : -1.0);
+                  return true;
+               }
+               if (nl->op == O_COS)
+               {  *value = cos(vx);
+                  add_scaled_grad(grad, gx, -sin(vx));
+                  return true;
+               }
+               if (nl->op == O_SIN)
+               {  *value = sin(vx);
+                  add_scaled_grad(grad, gx, cos(vx));
+                  return true;
+               }
+               if (nl->op == O_TAN)
+               {  double c = cos(vx);
+                  if (c == 0.0) return false;
+                  *value = tan(vx);
+                  add_scaled_grad(grad, gx, 1.0 / (c * c));
+                  return true;
+               }
+               if (nl->op == O_ATAN)
+               {  *value = atan(vx);
+                  add_scaled_grad(grad, gx, 1.0 / (1.0 + vx * vx));
+                  return true;
+               }
+               if (nl->op == O_EXP)
+               {  *value = exp(vx);
+                  add_scaled_grad(grad, gx, *value);
+                  return true;
+               }
+               if (nl->op == O_LOG)
+               {  if (vx <= 0.0) return false;
+                  *value = log(vx);
+                  add_scaled_grad(grad, gx, 1.0 / vx);
+                  return true;
+               }
+               /* O_LOG10 */
+               if (vx <= 0.0) return false;
+               *value = log10(vx);
+               add_scaled_grad(grad, gx, 1.0 / (vx * log(10.0)));
+               return true;
+            }
+         case O_SUM:
+            {  double sum = 0.0;
+               for (int i = 0; i < nl->u.vec.n; i++)
+               {  std::unordered_map<int, double> gi;
+                  double vi = 0.0;
+                  if (!eval_nl_expr_grad(nl->u.vec.data[i], x, n, &vi, gi))
+                     return false;
+                  sum += vi;
+                  add_scaled_grad(grad, gi, 1.0);
+               }
+               *value = sum;
+               return true;
+            }
+         case O_MIN:
+         case O_MAX:
+            {  int argi = -1;
+               const double kMinMaxTieTol = 1e-12;
+               double best = (nl->op == O_MIN)
+                  ? std::numeric_limits<double>::infinity()
+                  : -std::numeric_limits<double>::infinity();
+               std::unordered_map<int, double> gbest;
+               for (int i = 0; i < nl->u.vec.n; i++)
+               {  std::unordered_map<int, double> gi;
+                  double vi = 0.0;
+                  if (!eval_nl_expr_grad(nl->u.vec.data[i], x, n, &vi, gi))
+                     return false;
+                  if (fabs(vi - best) <= kMinMaxTieTol * (1.0 + fabs(best)))
+                     return false;
+                  else if ((nl->op == O_MIN && vi < best) ||
+                     (nl->op == O_MAX && vi > best))
+                  {  best = vi;
+                     gbest = std::move(gi);
+                     argi = i;
+                  }
+               }
+               if (argi < 0) return false;
+               *value = best;
+               grad = std::move(gbest);
+               return true;
+            }
+         default:
+            return false;
+      }
+}
+
 static double eval_nl_expr(NL_EXPR *nl, double *x)
 {     if (nl == NULL)
          return 0;
@@ -1035,9 +1287,19 @@ int mathprog_nlw2_postsolve(mpl_tran *tran, struct csa *csa, int relax)
       /* initialize var dual */
       if (!skip && csa->obj_no >= 0)
       {  assert(csa->obj_no < csa->m_obj);
-         len = mpl_get_mat_row(tran, csa->obj_row[csa->obj_no]+1, ind, val);
+         int obj_row = csa->obj_row[csa->obj_no] + 1;
+         len = mpl_get_mat_row(tran, obj_row, ind, val);
          for (t = 1; t <= len; t++)
             dval[ind[t]-1] = val[t];
+         if (csa->x != NULL)
+         {  std::unordered_map<int, double> obj_grad;
+            double obj_nl_val = 0.0;
+            NL_EXPR *obj_nl = mpl_get_row_nl(tran, obj_row);
+            if (eval_nl_expr_grad(obj_nl, csa->x, n, &obj_nl_val, obj_grad))
+               for (const auto &p : obj_grad)
+                  if (0 <= p.first && p.first < n)
+                     dval[p.first] += p.second;
+         }
       }
 
       for (i = 0; i < m + m_log; i++)
@@ -1053,8 +1315,21 @@ int mathprog_nlw2_postsolve(mpl_tran *tran, struct csa *csa, int relax)
          if (csa->y != NULL && i < m)
          {  dual = csa->y[i];
             if (!skip && csa->obj_no >= 0)
-               for (t = 1; t <= len; t++)
+            {  for (t = 1; t <= len; t++)
                   dval[ind[t]-1] -= val[t] * csa->y[i];
+               if (csa->x != NULL)
+               {  NL_EXPR *con_nl = mpl_get_row_nl(tran, i+1);
+                  if (con_nl != NULL)
+                  {  std::unordered_map<int, double> con_grad;
+                     double con_nl_val = 0.0;
+                     if (eval_nl_expr_grad(con_nl, csa->x, n, &con_nl_val,
+                        con_grad))
+                        for (const auto &p : con_grad)
+                           if (0 <= p.first && p.first < n)
+                              dval[p.first] -= p.second * csa->y[i];
+                  }
+               }
+            }
          }
          stat = csa->row_status != NULL ? csa->row_status[i] : 0;
          if (stat == 6 && mpl_get_row_bnds(tran, i+1, NULL, NULL) == MPL_FR)
@@ -1122,4 +1397,3 @@ void mathprog_nlw2_cleanup(struct csa *csa)
 #endif
 
 /* eof */
-

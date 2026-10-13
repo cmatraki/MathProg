@@ -167,8 +167,8 @@ void generate_model(MPL *mpl)
       {  execute_statement(mpl, stmt);
          if (mpl->stmt->type == A_SOLVE && !mpl->solve_callback_called) break;
       }
-      execute_pending_checks(mpl);
       mpl->stmt = stmt;
+      execute_pending_checks(mpl);
       return;
 }
 
@@ -693,15 +693,19 @@ void error(MPL *mpl, char *fmt, ...)
          case GLP_TRAN_PHASE_DATA:
             /* translation phase */
             xprintf("%s:%d: %s\n",
-               mpl->scan_input->in_file == NULL ? "(unknown)" : mpl->scan_input->in_file,
-               mpl->scan_input->line, msg);
+               mpl->scan_input->in_file == NULL ? "(unknown)" :
+               mpl->scan_input->in_file, mpl->scan_input->line, msg);
             print_context(mpl);
             break;
          case GLP_TRAN_PHASE_GENERATE:
-            /* generation/postsolve phase */
-            xprintf("%s:%d: %s\n",
-               mpl->mod_file == NULL ? "(unknown)" : mpl->mod_file,
-               mpl->stmt == NULL ? 0 : mpl->stmt->line, msg);
+            {  /* generation/postsolve phase */
+               const char *f = mpl->mod_file == NULL ? "(unknown)" :
+                  mpl->mod_file;
+               if (mpl->stmt == NULL)
+                  xprintf("%s:end: %s\n", f, msg);
+               else
+                  xprintf("%s:%d: %s\n", f, mpl->stmt->line, msg);
+            }
             break;
          default:
             xassert(mpl != mpl);
@@ -729,14 +733,19 @@ void warning(MPL *mpl, const char *fmt, ...)
          case GLP_TRAN_PHASE_DATA:
             /* translation phase */
             xprintf("%s:%d: warning: %s\n",
-               mpl->scan_input->in_file == NULL ? "(unknown)" : mpl->scan_input->in_file,
-               mpl->scan_input->line, msg);
+               mpl->scan_input->in_file == NULL ? "(unknown)" :
+               mpl->scan_input->in_file, mpl->scan_input->line, msg);
             break;
          case GLP_TRAN_PHASE_GENERATE:
-            /* generation/postsolve phase */
-            xprintf("%s:%d: warning: %s\n",
-               mpl->mod_file == NULL ? "(unknown)" : mpl->mod_file,
-               mpl->stmt == NULL ? 0 : mpl->stmt->line, msg);
+            {  /* generation/postsolve phase */
+               const char *f = mpl->mod_file == NULL ? "(unknown)" :
+                  mpl->mod_file;
+               if (mpl->stmt == NULL)
+                  xprintf("%s:end: warning: %s\n", f, msg);
+               else
+                  xprintf("%s:%d: warning: %s\n", f, mpl->stmt->line,
+                     msg);
+            }
             break;
          default:
             xassert(mpl != mpl);

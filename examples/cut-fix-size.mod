@@ -62,15 +62,20 @@ repeat {
 #for {1..4} {
    #display nPAT, nPAT_top;
    solve.lp Cutting_Opt;
+   check solve_result_num = 0;
+   check sum {i in WIDTHS} abs(Fill[i].dual) > 0;
+   check;
    let {i in WIDTHS} price[i] := Fill[i].dual;
    #display price;
 
    solve/*.mip*/ Pattern_Gen;
+   check solve_result_num = 0;
+   check;
    #display Reduced_Cost, Use;
    if Reduced_Cost < -0.00001 and nPAT_top < nPAT then
    {
       let nPAT_top := nPAT_top + 1;
-      let {i in WIDTHS} nbr[i,nPAT_top] := Use[i];
+      let {i in WIDTHS} nbr[i,nPAT_top] := round(Use[i]);
       #display nPAT;
    }
    else break;
@@ -81,6 +86,8 @@ if nPAT_top < nPAT then
 	check {j in PATTERNS : j <= nPAT_top}: sum {i in WIDTHS} i * nbr[i,j] <= roll_width;
 
 	solve/*.mip*/ Cutting_Opt;
+	check solve_result_num = 0;
+	check;
 	#display Number; #, Cut, nbr;
 	param total_length := 0;
 	printf "Patterns\n";

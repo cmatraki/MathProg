@@ -1161,20 +1161,6 @@ CODE *numeric_argument(MPL *mpl, char *func)
       /* convert the argument to numeric type, if necessary */
       if (x->type == A_SYMBOLIC)
          x = make_unary(mpl, O_CVTNUM, x, A_NUMERIC, 0);
-      /* check that now the argument is of numeric type */
-      if (x->type != A_NUMERIC)
-         error(mpl, "argument for %s has invalid type", func);
-      xassert(x->dim == 0);
-      return x;
-}
-
-/* Like numeric_argument but allows also A_FORMULA. */
-CODE *expression_argument(MPL *mpl, char *func)
-{     CODE *x;
-      x = expression_5(mpl);
-      /* convert the argument to numeric type, if necessary */
-      if (x->type == A_SYMBOLIC)
-         x = make_unary(mpl, O_CVTNUM, x, A_NUMERIC, 0);
       /* check that now the argument is of approrpiate type */
       if (x->type != A_NUMERIC && x->type != A_FORMULA)
          error(mpl, "argument for %s has invalid type", func);
@@ -1327,7 +1313,7 @@ CODE *function_reference(MPL *mpl)
          for (;;)
          {  /* parse argument and append it to the operands list */
             arg.list = expand_arg_list(mpl, arg.list,
-               expression_argument(mpl, func));
+               numeric_argument(mpl, func));
             /* check a token that follows the argument */
             if (mpl->scan_input->token == T_COMMA)
                get_token(mpl /* , */);
@@ -1368,10 +1354,7 @@ CODE *function_reference(MPL *mpl)
       else if (op == O_ATAN || op == O_ROUND || op == O_TRUNC)
       {  /* atan, round, and trunc need one or two arguments */
          /* parse the first argument */
-         if (op == O_ATAN)
-            arg.arg.x = expression_argument(mpl, func);
-         else
-            arg.arg.x = numeric_argument(mpl, func);
+         arg.arg.x = numeric_argument(mpl, func);
          /* parse the second argument, if specified */
          if (mpl->scan_input->token == T_COMMA)
          {  switch (op)
@@ -1381,10 +1364,7 @@ CODE *function_reference(MPL *mpl)
                default: xassert(op != op);
             }
             get_token(mpl /* , */);
-            if (op == O_ATAN2)
-               arg.arg.y = expression_argument(mpl, func);
-            else
-               arg.arg.y = numeric_argument(mpl, func);
+            arg.arg.y = numeric_argument(mpl, func);
          }
          /* check a token that follows the last argument */
          if (mpl->scan_input->token == T_COMMA)
@@ -1474,7 +1454,7 @@ CODE *function_reference(MPL *mpl)
             arg.arg.x = symbolic_argument(mpl, func);
          else if (op == O_SQRT || op == O_ABS || op == O_COS || op == O_SIN
             || op == O_TAN || op == O_EXP || op == O_LOG || op == O_LOG10)
-            arg.arg.x = expression_argument(mpl, func);
+            arg.arg.x = numeric_argument(mpl, func);
          else
             arg.arg.x = numeric_argument(mpl, func);
          /* check a token that follows the argument */

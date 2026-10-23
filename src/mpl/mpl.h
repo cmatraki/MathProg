@@ -540,9 +540,6 @@ CODE *object_reference(MPL *mpl);
 CODE *numeric_argument(MPL *mpl, char *func);
 /* parse argument passed to built-in function */
 
-#define expression_argument _mpl_expression_argument
-CODE *expression_argument(MPL *mpl, char *func);
-
 #define symbolic_argument _mpl_symbolic_argument
 CODE *symbolic_argument(MPL *mpl, char *func);
 

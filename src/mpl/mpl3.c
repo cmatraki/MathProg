@@ -6870,10 +6870,9 @@ void execute_solve(MPL *mpl, SOLVE *solve)
             prob = solve->prob;
         }
         else prob = mpl->current_problem;
-        if(prob && prob->list)
-        {
-            saved_prob = mpl->current_problem;
-            clean_build_problem(mpl, 0);
+        xassert(prob != NULL);
+        if (prob->list)
+        {   clean_build_problem(mpl, 0);
             build_problem(mpl);
             mpl->flag_p = 0;
             mpl->solve_callback_called = 1;
@@ -7413,7 +7412,7 @@ static int display_func(MPL *mpl, void *info)
             STATEMENT *elm;
             write_text(mpl, "problem %s%s", prob->name, prob->list ? ":" : "");
             for (elm = prob->list; elm != NULL; elm = elm->next)
-            {
+            {   if (elm->type == A_FIX || elm->type == A_UNFIX) continue;
                 if(elm != prob->list)
                     write_text(mpl, ",");
                 switch(elm->type){
@@ -8053,6 +8052,15 @@ void execute_pending_checks(MPL *mpl)
 
 void execute_statement(MPL *mpl, STATEMENT *stmt)
 {     mpl->stmt = stmt;
+      if (mpl->current_problem && mpl->solve_callback)
+         switch (stmt->type)
+         {  case A_CONSTRAINT:
+            case A_VARIABLE:
+            case A_FIX:
+            case A_UNFIX:
+               add_problem_element(mpl, stmt);
+            default:
+         };
       switch (stmt->type)
       {  case A_SET:
             if(mpl->gen_all) {

@@ -236,8 +236,7 @@ void build_problem(MPL *mpl)
       {  STATEMENT *saved_stmt;
          saved_stmt = mpl->stmt;
          for (stmt = stmt_list; stmt != NULL; stmt = stmt->next)
-         {  execute_statement(mpl, stmt);
-            if (stmt->type == A_CONSTRAINT)
+         {  if (stmt->type == A_CONSTRAINT)
             {  mpl->stmt = stmt;
                if (mpl->show_delta || mpl->msg_lev >= GLP_MSG_ON)
                   xprintf("Generating %s...%s", stmt->u.con->name,
@@ -355,11 +354,26 @@ void clean_build_problem(MPL *mpl, int skipResetColsRows)
       for (stmt = stmt_list; stmt != NULL; stmt = stmt->next)
       {  if (stmt->type == A_VARIABLE)
          {  v = stmt->u.var;
-            clear_variable(mpl, v);
+            for (memb = v->array->head; memb != NULL; memb = memb->next)
+            {  /* also refresh bounds because let may have changed them */
+               ELEMVAR *el;
+               el = eval_member_var(mpl, v, memb->tuple);
+               xassert(el == memb->value.var);
+               if (v->lbnd != NULL)
+                 el->lbnd = eval_numeric(mpl, v->lbnd);
+               if (v->ubnd != NULL)
+               {  if (v->ubnd == v->lbnd)
+                     el->ubnd = el->lbnd;
+                  else
+                     el->ubnd = eval_numeric(mpl, v->ubnd);
+               }
+               el->j = 0;
+            }
          }
          else if (stmt->type == A_CONSTRAINT)
          {  c = stmt->u.con;
-            clear_constraint(mpl, c);
+            for (memb = c->array->head; memb != NULL; memb = memb->next)
+               memb->value.con->i = 0;
          }
       }
     }

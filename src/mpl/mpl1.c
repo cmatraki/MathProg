@@ -5943,7 +5943,6 @@ STATEMENT *simple_statement(MPL *mpl, int spec)
             error(mpl, "variable statement not allowed here");
          stmt->type = A_VARIABLE;
          stmt->u.var = variable_statement(mpl);
-         add_problem_element(mpl, stmt);
       }
       else if (is_keyword(mpl, "subject") ||
                is_keyword(mpl, "subj") ||
@@ -5952,7 +5951,6 @@ STATEMENT *simple_statement(MPL *mpl, int spec)
             error(mpl, "constraint statement not allowed here");
          stmt->type = A_CONSTRAINT;
          stmt->u.con = constraint_statement(mpl);
-         add_problem_element(mpl, stmt);
       }
       else if (is_keyword(mpl, "minimize") ||
                is_keyword(mpl, "maximize"))
@@ -5960,7 +5958,6 @@ STATEMENT *simple_statement(MPL *mpl, int spec)
             error(mpl, "objective statement not allowed here");
          stmt->type = A_CONSTRAINT;
          stmt->u.con = objective_statement(mpl);
-         add_problem_element(mpl, stmt);
       }
 #if 1 /* 11/II-2008 */
       else if (is_keyword(mpl, "table"))
@@ -6031,19 +6028,16 @@ STATEMENT *simple_statement(MPL *mpl, int spec)
       else if (is_keyword(mpl, "fix"))
       {  stmt->type = A_FIX;
          stmt->u.let = fix_statement(mpl);
-         add_problem_element(mpl, stmt);
       }
       else if (is_keyword(mpl, "unfix"))
       {  stmt->type = A_UNFIX;
          stmt->u.let = fix_statement(mpl);
-         add_problem_element(mpl, stmt);
       }
       else if (mpl->scan_input->token == T_NAME)
       {  if (spec)
             error(mpl, "constraint statement not allowed here");
          stmt->type = A_CONSTRAINT;
          stmt->u.con = constraint_statement(mpl);
-         add_problem_element(mpl, stmt);
       }
       else if (is_reserved(mpl))
          error(mpl, "invalid use of reserved keyword %s", mpl->scan_input->image);

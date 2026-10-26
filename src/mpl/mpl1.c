@@ -3568,13 +3568,11 @@ void model_statement(MPL *mpl)
       mpl->phase = GLP_TRAN_PHASE_MODEL;
       mpl->flag_d = 0;
       if(file_name) {
-          glp_input_file_st *saved_scan_input = mpl->scan_input;
-          mpl->scan_input = mpl_new_scan_input(mpl);
+          mpl_new_scan_input(mpl);
           open_input(mpl, file_name);
           model_section(mpl);
           close_input(mpl);
-          mpl_free_scan_input(mpl, mpl->scan_input);
-          mpl->scan_input = saved_scan_input;
+          mpl_free_scan_input(mpl);
       }
 }
 
@@ -3591,7 +3589,6 @@ void model_statement(MPL *mpl)
 
 int data_statement(MPL *mpl)
 {
-      glp_input_file_st *saved_scan_input;
       char *file_name = NULL;
       xassert(is_keyword(mpl, "data"));
       get_token(mpl /* data */);
@@ -3631,8 +3628,7 @@ int data_statement(MPL *mpl)
           /* process data file */
           if (mpl->msg_lev >= GLP_MSG_ON)
             xprintf("Reading data section from %s...\n", file_name);
-          saved_scan_input = mpl->scan_input;
-          mpl->scan_input = mpl_new_scan_input(mpl);
+          mpl_new_scan_input(mpl);
           open_input(mpl, file_name);
           /* in this case the keyword 'data' is optional */
           if (is_literal(mpl, "data"))
@@ -3649,8 +3645,7 @@ int data_statement(MPL *mpl)
               mpl->scan_input->line, mpl->scan_input->line == 1 ? "" : "s");
       if(file_name) {
           close_input(mpl);
-          mpl_free_scan_input(mpl, mpl->scan_input);
-          mpl->scan_input = saved_scan_input;
+          mpl_free_scan_input(mpl);
       }
       mpl->phase = GLP_TRAN_PHASE_MODEL;
       mpl->flag_d = 0;
@@ -3671,8 +3666,7 @@ int data_statement(MPL *mpl)
 -- Note that it may be used in both model and data sections. */
 
 void include_statement(MPL *mpl)
-{     glp_input_file_st *saved_scan_input;
-      char *file_name = NULL;
+{     char *file_name = NULL;
       get_token(mpl /* include */);
       if(mpl->nested_scope)
           error(mpl, "include not allowed in nested scopes");
@@ -3699,8 +3693,7 @@ void include_statement(MPL *mpl)
       /* process include file */
       if (mpl->msg_lev >= GLP_MSG_ON)
          xprintf("Reading include file %s...\n", file_name);
-      saved_scan_input = mpl->scan_input;
-      mpl->scan_input = mpl_new_scan_input(mpl);
+      mpl_new_scan_input(mpl);
       open_input(mpl, file_name);
 
       if (mpl->phase == GLP_TRAN_PHASE_DATA)
@@ -3715,8 +3708,7 @@ void include_statement(MPL *mpl)
             mpl->scan_input->line, mpl->scan_input->line == 1 ? "" : "s");
 
       close_input(mpl);
-      mpl_free_scan_input(mpl, mpl->scan_input);
-      mpl->scan_input = saved_scan_input;
+      mpl_free_scan_input(mpl);
 }
 
 

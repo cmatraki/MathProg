@@ -525,7 +525,9 @@ void open_input(MPL *mpl, char *file)
          }
       }
       if (sin->in_fp == NULL)
+      {  if (mpl->scan_input->prev != NULL) mpl_free_scan_input(mpl);
          error(mpl, "unable to open %s - %s", file, get_err_msg());
+      }
       sin->in_file = file;
       /* scan the very first character */
       get_char(mpl);
@@ -790,7 +792,7 @@ void warning(MPL *mpl, const char *fmt, ...)
 --
 -- The routine returns a pointer to the database created. */
 
-glp_input_file_st *mpl_new_scan_input(MPL *mpl)
+void mpl_new_scan_input(MPL *mpl)
 {
       glp_input_file_st *sin = xmalloc(sizeof(glp_input_file_st));
       sin->line = 0;
@@ -817,17 +819,19 @@ glp_input_file_st *mpl_new_scan_input(MPL *mpl)
       sin->c_ptr = 0;
       sin->in_fp = NULL;
       sin->in_file = NULL;
-      return sin;
+      sin->prev = mpl->scan_input;
+      mpl->scan_input = sin;
 }
 
-void mpl_free_scan_input(MPL *mpl, glp_input_file_st *sin)
-{
+void mpl_free_scan_input(MPL *mpl)
+{     glp_input_file_st *sin = mpl->scan_input;
       /* delete the translator database */
       xfree(mpl->scan_input->image);
       xfree(mpl->scan_input->b_image);
       xfree(mpl->scan_input->f_image);
       xfree(mpl->scan_input->context);
       if (mpl->scan_input->in_fp != NULL) glp_close(mpl->scan_input->in_fp);
+      mpl->scan_input = sin->prev;
       xfree(sin);
 }
 
@@ -835,7 +839,8 @@ MPL *mpl_initialize(void)
 {     MPL *mpl;
       mpl = xmalloc(sizeof(MPL));
       /* scanning segment */
-      mpl->scan_input = mpl_new_scan_input(mpl);
+      mpl->scan_input = NULL;
+      mpl_new_scan_input(mpl);
       mpl->nested_input = 0;
       mpl->flag_d = 0;
       mpl->nested_scope = 0;
@@ -1916,15 +1921,13 @@ double mpl_eval_string(MPL *mpl, const char *expr)
       double val;
       /* set up error handler */
       if (setjmp(mpl->jump)) return NAN;
-      glp_input_file_st *saved_scan_input = mpl->scan_input;
-      mpl->scan_input = mpl_new_scan_input(mpl);
+      mpl_new_scan_input(mpl);
       open_input_string(mpl, expr);
       code = expression_5(mpl);
       val = eval_numeric(mpl, code);
       clean_code(mpl, code);
       close_input(mpl);
-      mpl_free_scan_input(mpl, mpl->scan_input);
-      mpl->scan_input = saved_scan_input;
+      mpl_free_scan_input(mpl);
       return val;
 }
 
@@ -2008,7 +2011,7 @@ void mpl_terminate(MPL *mpl)
       if (mpl->prt_file != NULL) xfree(mpl->prt_file);
       if (mpl->mod_file != NULL) xfree(mpl->mod_file);
       xfree(mpl->mpl_buf);
-      mpl_free_scan_input(mpl, mpl->scan_input);
+      while (mpl->scan_input != NULL) mpl_free_scan_input(mpl);
       xfree(mpl);
       return;
 }

@@ -270,6 +270,8 @@ struct glp_input_file_st
       /* stream assigned to the input text file */
       char *in_file;
       /* name of the input text file */
+      struct glp_input_file_st *prev;
+      /* previous scan input structure when nesting */
 };
 
 #if 0 /* 22/I-2013 */
@@ -3066,12 +3068,12 @@ MPL *mpl_initialize(void);
 /* create and initialize translator database */
 
 #define mpl_new_scan_input _mpl_new_scan_input
-glp_input_file_st *mpl_new_scan_input(MPL *mpl);
-/* create a scan input structure */
+void mpl_new_scan_input(MPL *mpl);
+/* create new current scan input structure */
 
 #define mpl_free_scan_input _mpl_free_scan_input
-void mpl_free_scan_input(MPL *mpl, glp_input_file_st *sin);
-/* free a scan input structure */
+void mpl_free_scan_input(MPL *mpl);
+/* free current scan input structure and restore previous one */
 
 #define mpl_read_model _mpl_read_model
 int mpl_read_model(MPL *mpl, char *file, int skip_data);

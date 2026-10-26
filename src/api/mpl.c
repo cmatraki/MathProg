@@ -401,7 +401,7 @@ int mathprog_solver_run(mpl_tran *tran, const mpl_solver_options *opt)
             }
             *value++ = 0;
             if (!strcmp("pre:solve", key))
-               presol = atoi(value);
+               presol = !!atoi(value);
             else if (!strcmp("mip:gap", key))
                mip_gap = atof(value);
             else if (!strcmp("lim:iter", key))

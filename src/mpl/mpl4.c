@@ -178,35 +178,44 @@ void generate_model(MPL *mpl)
 -- This routine builds lists of rows and columns for problem instance,
 -- which corresponds to the generated model. */
 
-static void mark_linform_vars(LINFORM *t, int flags)
+static void mark_linform_vars(MPL *mpl, LINFORM *t, int flags)
 {     for (; t != NULL; t = t->next)
       {  if (t->var != NULL)
-         {  t->var->memb->value.var->j = -1;
+         {  if (t->var->j == 0)
+            {  /* enumerate all variables and fix them */
+               t->var->j = ++mpl->n;
+               t->var->lbnd = t->var->prim;
+               t->var->ubnd = t->var->prim;
+            }
             t->var->nl_flags |= flags;
          }
       }
 }
 
-static void mark_nl_expr_vars(NL_EXPR *nl, int flags)
+static void mark_nl_expr_vars(MPL *mpl, NL_EXPR *nl, int flags)
 {     if (nl == NULL)
          return;
       if (nl->op == O_LINFORM)
-         mark_linform_vars(nl->u.lin, flags);
+         mark_linform_vars(mpl, nl->u.lin, flags);
       else if (is_nary_nl_expr_op(nl->op))
       {  int i;
          for (i = 0; i < nl->u.vec.n; i++)
-            mark_nl_expr_vars(nl->u.vec.data[i], flags);
+            mark_nl_expr_vars(mpl, nl->u.vec.data[i], flags);
       }
       else if (nl->op == O_DEFVAR)
-      {  nl->u.defvar->memb->value.var->j = -2;
+      {  if (nl->u.defvar->j == 0)
+         {  /* enumerate defined variable */
+            nl->u.defvar->j = -(++mpl->n_def);
+         }
          if (nl->u.defvar->def != NULL)
-         {  mark_linform_vars(nl->u.defvar->def->lin, flags);
-            mark_nl_expr_vars(nl->u.defvar->def->nl, flags);
+         {  mark_linform_vars(mpl, nl->u.defvar->def->lin, flags);
+            mark_nl_expr_vars(mpl, nl->u.defvar->def->nl, flags);
          }
       }
       else
-      {  mark_nl_expr_vars(nl->u.arg.x, flags);
-         mark_nl_expr_vars(nl->u.arg.y, flags);
+      {  mark_nl_expr_vars(mpl, nl->u.arg.x, flags);
+         mark_nl_expr_vars(mpl, nl->u.arg.y, flags);
+         mark_nl_expr_vars(mpl, nl->u.arg.z, flags);
       }
 }
 
@@ -247,10 +256,6 @@ void build_problem(MPL *mpl)
                   glp_show_mem_usage();
                }
             }
-            else if (stmt->type ==  A_FIX)
-               execute_fix(mpl, stmt->u.let);
-            else if (stmt->type ==  A_UNFIX)
-               execute_unfix(mpl, stmt->u.let);
          }
          mpl->stmt = saved_stmt;
       }
@@ -268,24 +273,39 @@ void build_problem(MPL *mpl)
                if (memb->value.con->eqn == NULL) continue;
                /* walk through linear form and mark elemental variables,
                   which are referenced at least once */
-               mark_linform_vars(memb->value.con->eqn->lin, MPL_LIN);
-               mark_nl_expr_vars(memb->value.con->eqn->nl,
+               mark_linform_vars(mpl, memb->value.con->eqn->lin, MPL_LIN);
+               mark_nl_expr_vars(mpl, memb->value.con->eqn->nl,
                   c->type == A_CONSTRAINT || c->type == A_LOGCON
                      ? MPL_NLC : MPL_NLO);
             }
          }
       }
-      /* assign column numbers to marked elemental variables */
+      /* unfix marked elemental variables and handle fix/unfix commands */
       for (stmt = stmt_list; stmt != NULL; stmt = stmt->next)
       {  if (stmt->type == A_VARIABLE)
          {  v = stmt->u.var;
             for (memb = v->array->head; memb != NULL; memb = memb->next)
-            {  if (memb->value.var->j == -1)
-                  memb->value.var->j = ++mpl->n;
-               if (memb->value.var->j == -2)
-                  memb->value.var->j = -(++mpl->n_def + 2);
+            {  ELEMVAR *el;
+               el = eval_member_var(mpl, v, memb->tuple);
+               xassert(el == memb->value.var);
+               /* restore lower bound */
+               if (v->lbnd == NULL)
+                  el->lbnd = -INFINITY;
+               else
+                  el->lbnd = eval_numeric(mpl, v->lbnd);
+               /* restore upper bound */
+               if (v->ubnd == NULL)
+                  el->ubnd = INFINITY;
+               else if (v->ubnd == v->lbnd)
+                  el->ubnd = el->lbnd;
+               else
+                  el->ubnd = eval_numeric(mpl, v->ubnd);
             }
          }
+         else if (stmt->type ==  A_FIX)
+            execute_fix(mpl, stmt->u.let);
+         else if (stmt->type ==  A_UNFIX)
+            execute_unfix(mpl, stmt->u.let);
       }
       /* build list of rows */
       mpl->row = xcalloc(1+mpl->m+mpl->m_log, sizeof(ELEMCON *));
@@ -313,7 +333,7 @@ void build_problem(MPL *mpl)
       /* build list of columns */
       mpl->col = xcalloc(1+mpl->n+mpl->n_def, sizeof(ELEMVAR *));
       for (j = 1; j <= mpl->n + mpl->n_def; j++) mpl->col[j] = NULL;
-      for (stmt = stmt_list; stmt != NULL; stmt = stmt->next)
+      for (stmt = mpl->model; stmt != NULL; stmt = stmt->next)
       {  if (stmt->type == A_VARIABLE)
          {  v = stmt->u.var;
             for (memb = v->array->head; memb != NULL; memb = memb->next)
@@ -345,30 +365,16 @@ void clean_build_problem(MPL *mpl, int skipResetColsRows)
 {
     if(!skipResetColsRows)
     {
-      STATEMENT *stmt, *stmt_list;
+      STATEMENT *stmt;
       MEMBER *memb;
       VARIABLE *v;
       CONSTRAINT *c;
-      stmt_list = mpl->current_problem ? mpl->current_problem->list : mpl->model;
       /* check that all elemental variables has zero column numbers */
-      for (stmt = stmt_list; stmt != NULL; stmt = stmt->next)
+      for (stmt = mpl->model; stmt != NULL; stmt = stmt->next)
       {  if (stmt->type == A_VARIABLE)
          {  v = stmt->u.var;
             for (memb = v->array->head; memb != NULL; memb = memb->next)
-            {  /* also refresh bounds because let may have changed them */
-               ELEMVAR *el;
-               el = eval_member_var(mpl, v, memb->tuple);
-               xassert(el == memb->value.var);
-               if (v->lbnd != NULL)
-                 el->lbnd = eval_numeric(mpl, v->lbnd);
-               if (v->ubnd != NULL)
-               {  if (v->ubnd == v->lbnd)
-                     el->ubnd = el->lbnd;
-                  else
-                     el->ubnd = eval_numeric(mpl, v->ubnd);
-               }
-               el->j = 0;
-            }
+               memb->value.var->j = 0;
          }
          else if (stmt->type == A_CONSTRAINT)
          {  c = stmt->u.con;

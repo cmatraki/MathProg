@@ -3294,8 +3294,7 @@ err:           error(mpl, "can't mix <== and ==> without parentheses");
                x = make_ternary(mpl, O_IMPLICATION, y, x, NULL,
                   A_FORMULA, 0);
             else
-               x = make_ternary(mpl, O_IMPLICATION, y, x, NULL,
-                  A_LOGICAL, 0);
+err2:          error(mpl, "implication with no variables");
          }
          else
             break;
@@ -3340,7 +3339,7 @@ err:           error(mpl, "can't mix <== and ==> without parentheses");
             && z->type == A_FORMULA))
             x = make_ternary(mpl, O_IMPLICATION, x, y, z, A_FORMULA, 0);
          else
-            x = make_ternary(mpl, O_IMPLICATION, x, y, z, A_LOGICAL, 0);
+            goto err2;
       }
       return x;
 }
@@ -3385,7 +3384,7 @@ CODE *expression_15(MPL *mpl)
             if (x->type == A_FORMULA || y->type == A_FORMULA)
                x = make_binary(mpl, O_IFF, x, y, A_FORMULA, 0);
             else
-               x = make_binary(mpl, O_IFF, x, y, A_LOGICAL, 0);
+               error(mpl, "implication with no variables");
          }
          else
             break;

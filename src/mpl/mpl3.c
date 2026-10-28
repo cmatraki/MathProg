@@ -6876,11 +6876,13 @@ void execute_solve(MPL *mpl, SOLVE *solve)
             build_problem(mpl);
             mpl->flag_p = 0;
             mpl->solve_callback_called = 1;
+            mpl->in_callback = 1;
             ret = mpl->solve_callback(mpl, solve->type, mpl->solve_callback_udata);
+            mpl->in_callback = 0;
             if (ret < 0)
             {  const char *opt = mpl_get_option(mpl, "solve_exitcode_max");
                if (opt == NULL || atoi(opt) < -ret)
-               {  if (setjmp(mpl->jump)) exit(EXIT_FAILURE);
+               {  if (setjmp(mpl->jump[mpl->in_callback])) exit(EXIT_FAILURE);
                   error(mpl, "solver error");
                }
             }

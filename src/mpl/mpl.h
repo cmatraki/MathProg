@@ -422,7 +422,9 @@ struct mpl_tran
       /* name of the output print file */
       /*--------------------------------------------------------------*/
       /* solver interface segment */
-      jmp_buf jump;
+      int in_callback;
+      /* flag set when in callback - used to nest error jump buffer */
+      jmp_buf jump[2];
       /* jump address for non-local go to in case of error */
       enum eGLP_TRAN_PHASE phase;
       /* phase of processing */

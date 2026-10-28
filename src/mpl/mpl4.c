@@ -733,7 +733,7 @@ void error(MPL *mpl, char *fmt, ...)
             xassert(mpl != mpl);
       }
       mpl->phase = GLP_TRAN_PHASE_ERROR;
-      longjmp(mpl->jump, 1);
+      longjmp(mpl->jump[mpl->in_callback], 1);
       /* no return */
 }
 
@@ -895,8 +895,10 @@ MPL *mpl_initialize(void)
       mpl->out_file = NULL;
       mpl->prt_fp = NULL;
       mpl->prt_file = NULL;
+      mpl->in_callback = 0;
       /* solver interface segment */
-      if (setjmp(mpl->jump)) xassert(mpl != mpl);
+      if (setjmp(mpl->jump[0])) xassert(mpl != mpl);
+      if (setjmp(mpl->jump[1])) xassert(mpl != mpl);
       mpl->phase = GLP_TRAN_PHASE_INITIAL;
       mpl->mod_file = NULL;
       mpl->mpl_buf = xcalloc(MAX_STR_BUF_LENGTH+1, sizeof(char));
@@ -973,7 +975,7 @@ int mpl_read_model(MPL *mpl, char *file, int skip_data)
       if (file == NULL)
          xfault("mpl_read_model: no input filename specified\n");
       /* set up error handler */
-      if (setjmp(mpl->jump)) goto done;
+      if (setjmp(mpl->jump[mpl->in_callback])) goto done;
       /* translate model section */
       mpl->phase = GLP_TRAN_PHASE_MODEL;
       if (mpl->msg_lev >= GLP_MSG_ON)
@@ -1053,7 +1055,7 @@ int mpl_read_data(MPL *mpl, char *file)
       if (file == NULL)
          xfault("mpl_read_data: no input filename specified\n");
       /* set up error handler */
-      if (setjmp(mpl->jump)) goto done;
+      if (setjmp(mpl->jump[mpl->in_callback])) goto done;
       /* process data section */
       mpl->phase = GLP_TRAN_PHASE_DATA;
       if (mpl->msg_lev >= GLP_MSG_ON)
@@ -1117,7 +1119,7 @@ int mpl_generate(MPL *mpl, char *file)
 {     if (!(mpl->phase == GLP_TRAN_PHASE_MODEL || mpl->phase == GLP_TRAN_PHASE_DATA))
          xfault("mpl_generate: invalid call sequence\n");
       /* set up error handler */
-      if (setjmp(mpl->jump)) goto done;
+      if (setjmp(mpl->jump[mpl->in_callback])) goto done;
       /* generate model */
       mpl->phase = GLP_TRAN_PHASE_GENERATE;
       open_output(mpl, file);
@@ -1892,7 +1894,7 @@ int mpl_postsolve(MPL *mpl)
 {     if (!(mpl->phase == GLP_TRAN_PHASE_GENERATE && !mpl->flag_p))
          xfault("mpl_postsolve: invalid call sequence\n");
       /* set up error handler */
-      if (setjmp(mpl->jump)) goto done;
+      if (setjmp(mpl->jump[mpl->in_callback])) goto done;
       /* perform postsolving */
       postsolve_model(mpl);
       flush_output(mpl);
@@ -1920,7 +1922,7 @@ double mpl_eval_string(MPL *mpl, const char *expr)
 {     CODE *code;
       double val;
       /* set up error handler */
-      if (setjmp(mpl->jump)) return NAN;
+      if (setjmp(mpl->jump[mpl->in_callback])) return NAN;
       mpl_new_scan_input(mpl);
       open_input_string(mpl, expr);
       code = expression_5(mpl);
@@ -1951,7 +1953,7 @@ extern void destroy_khash_map_member(MPL *mpl, ARRAY *array);
 #endif
 
 void mpl_terminate(MPL *mpl)
-{     if (setjmp(mpl->jump)) xassert(mpl != mpl);
+{     if (setjmp(mpl->jump[mpl->in_callback])) xassert(mpl != mpl);
       switch (mpl->phase)
       {  case GLP_TRAN_PHASE_INITIAL:
          case GLP_TRAN_PHASE_MODEL:

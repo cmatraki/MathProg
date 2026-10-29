@@ -5121,6 +5121,11 @@ skip:
             value = eval_numeric(mpl, code->arg.arg.x);
             break;
          default:
+            if (code->type == A_FORMULA)
+            {  /* a formula may also contain logical operators */
+               value = eval_logical(mpl, code);
+               break;
+            }
             xassert(code != code);
       }
       if(code->type != A_FORMULA)

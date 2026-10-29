@@ -844,6 +844,7 @@ MPL *mpl_initialize(void)
       mpl->nested_input = 0;
       mpl->flag_d = 0;
       mpl->nested_scope = 0;
+      mpl->recursion_ct = 0;
       /* translating segment */
       mpl->pool = dmp_create_poolx(0);
       mpl->tree = avl_create_tree(avl_strcmp, NULL);

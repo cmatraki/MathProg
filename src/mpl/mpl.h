@@ -290,6 +290,8 @@ struct mpl_tran
       /* if this flag is set, the data section is being processed */
       int nested_scope;
       /* this is a counter for scope nesting {} */
+      int recursion_ct;
+      /* parser recursion count */
       /*--------------------------------------------------------------*/
       /* translating segment */
       DMP *pool;

@@ -2444,6 +2444,11 @@ skip: /* generate pseudo-code to perform branching */
 
 CODE *primary_expression(MPL *mpl)
 {     CODE *code;
+      mpl->recursion_ct++;
+      if (mpl->recursion_ct > 500)
+      {  /* arbitrary limit, can be made configurable */
+         error(mpl, "parser recursion limit reached");
+      }
       if (mpl->scan_input->token == T_NUMBER)
       {  /* parse numeric literal */
          code = numeric_literal(mpl);
@@ -2516,6 +2521,7 @@ CODE *primary_expression(MPL *mpl)
       }
       else
          error(mpl, "syntax error in expression");
+      mpl->recursion_ct--;
       return code;
 }
 

@@ -5517,6 +5517,12 @@ int eval_logical(MPL *mpl, CODE *code)
                value = info->value;
             }
             break;
+         case O_DB:
+            {  double y = eval_numeric(mpl, code->arg.arg.y);
+               value = eval_numeric(mpl, code->arg.arg.x) <= y &&
+                  y <= eval_numeric(mpl, code->arg.arg.z);
+            }
+            break;
          default:
             xassert(code != code);
       }

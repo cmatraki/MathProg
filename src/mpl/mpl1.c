@@ -123,7 +123,8 @@ void append_char(MPL *mpl)
                enter_context(mpl);
                error(mpl, "string literal too long");
             default:
-               xassert(mpl != mpl);
+               enter_context(mpl);
+               error(mpl, "token too long");
          }
       }
       mpl->scan_input->image[mpl->scan_input->imlen++] = (char)mpl->scan_input->c;
@@ -1052,7 +1053,7 @@ CODE *object_reference(MPL *mpl)
             dim = con->dim;
             break;
          default:
-            xassert(node != node);
+            error(mpl, "invalid reference to %s", mpl->scan_input->image);
       }
       get_token(mpl /* <symbolic name> */);
       /* parse optional subscript list */

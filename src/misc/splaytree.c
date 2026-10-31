@@ -1,3 +1,8 @@
+/***********************************************************************
+*  This code was modified for GNU Mathprog.
+*  Copyright (C) 2020 The GNU Mathprog authors
+***********************************************************************/
+
 //
 // A splay tree is a self-balancing binary search tree with the
 // additional property that recently accessed elements are quick

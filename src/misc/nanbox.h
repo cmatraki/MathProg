@@ -1,3 +1,8 @@
+/***********************************************************************
+*  This code was modified for GNU Mathprog.
+*  Copyright (C) 2020 The GNU Mathprog authors
+***********************************************************************/
+
 /*
  * The MIT License (MIT)
  * 

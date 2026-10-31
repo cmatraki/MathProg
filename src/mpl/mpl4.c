@@ -1,6 +1,9 @@
 /* mpl4.c */
 
 /***********************************************************************
+*  This code is part of GNU Mathprog.
+*  Copyright (C) 2020, 2026 The GNU Mathprog authors
+*
 *  This code is part of GLPK (GNU Linear Programming Kit).
 *
 *  Copyright (C) 2003-2016 Andrew Makhorin, Department for Applied

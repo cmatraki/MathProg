@@ -1,6 +1,9 @@
 /* mplsql.h */
 
 /***********************************************************************
+*  This code is part of GNU Mathprog.
+*  Copyright (C) 2020 The GNU Mathprog authors
+*
 *  This code is part of GLPK (GNU Linear Programming Kit).
 *
 *  Author: Heinrich Schuchardt <heinrich.schuchardt@gmx.de>.

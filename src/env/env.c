@@ -1,6 +1,9 @@
 /* env.c (GLPK environment initialization/termination) */
 
 /***********************************************************************
+*  This code is part of GNU Mathprog.
+*  Copyright (C) 2020-2021 The GNU Mathprog authors
+*
 *  This code is part of GLPK (GNU Linear Programming Kit).
 *
 *  Copyright (C) 2000-2017 Andrew Makhorin, Department for Applied

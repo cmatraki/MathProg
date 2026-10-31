@@ -24,8 +24,6 @@
 #ifndef MISC_H
 #define MISC_H
 
-//#include "glpk_real.h"
-
 #define str2int _glp_str2int
 int str2int(const char *str, int *val);
 /* convert character string to value of int type */

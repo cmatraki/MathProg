@@ -1,6 +1,9 @@
-/* glpsol.c (stand-alone GLPK LP/MIP solver) */
+/* mathprog.c (stand-alone GLPK LP/MIP solver) */
 
 /***********************************************************************
+*  This code is part of GNU Mathprog.
+*  Copyright (C) 2020-2022, 2026 The GNU Mathprog authors
+*
 *  This code is part of GLPK (GNU Linear Programming Kit).
 *
 *  Copyright (C) 2000-2017 Andrew Makhorin, Department for Applied

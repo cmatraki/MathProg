@@ -3467,7 +3467,13 @@ PROBLEM *problem_statement(MPL *mpl)
           while(mpl->scan_input->token == T_NAME) {
               AVLNODE *node = avl_find_node(mpl->tree, mpl->scan_input->image);
               if (!node) error(mpl, "unknown name '%s'", mpl->scan_input->image);
-              STATEMENT *stmt = alloc(STATEMENT);
+              STATEMENT *stmt;
+              for (stmt = mpl->current_problem->list; stmt != NULL;
+                 stmt = stmt->next)
+              {  if (!strcmp(mpl->scan_input->image, stmt->u.var->name))
+                    error(mpl, "duplicate name '%s'", mpl->scan_input->image);
+              }
+              stmt = alloc(STATEMENT);
               stmt->next = NULL;
               stmt->line = 0;
               stmt->type = avl_get_node_type(node);

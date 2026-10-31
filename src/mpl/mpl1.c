@@ -5218,7 +5218,10 @@ CHECK *check_statement(MPL *mpl)
       if (mpl->scan_input->token == T_COLON) get_token(mpl /* : */);
       /* parse logical expression */
       chk->code = expression_15(mpl);
-      if (chk->code->type != A_LOGICAL && chk->code->type != A_FORMULA)
+      if (chk->code->type == A_FORMULA && chk->code->op == O_MEMVAR)
+         chk->code = var_to_logic(mpl, chk->code);
+      if (chk->code->type != A_LOGICAL &&
+         !(chk->code->type == A_FORMULA && is_constraint(chk->code)))
          error(mpl, "expression has invalid type");
       xassert(chk->code->dim == 0);
       /* close the domain scope */

@@ -31,7 +31,6 @@ misp.mod       Maximum independent set problem
 money.mod      A crypto-arithmetic puzzle
 mvcp.mod       Minimum vertex cover problem
 numbrix.mod    Number placement puzzle
-pbn/*.*        Paint-by-numbers puzzle
 pentomino.mod  A geometric placement puzzle
 plan.mod       A simple LP problem (MathProg format)
 planarity.mod  Graph planarity testing

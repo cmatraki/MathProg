@@ -1133,7 +1133,7 @@ int mpl_generate(MPL *mpl, char *file)
       if(!mpl->solve_callback_called || !mpl->flag_s) build_problem(mpl);
       /* generation phase has been finished */
       if (mpl->msg_lev >= GLP_MSG_ON)
-        xprintf("Model has been successfully generated\n");
+        xprintf("Model has been successfully processed\n");
 done: /* return to the calling program */
       return mpl->phase;
 }
@@ -1904,7 +1904,7 @@ int mpl_postsolve(MPL *mpl)
       flush_output(mpl);
       /* postsolving phase has been finished */
       if (mpl->msg_lev >= GLP_MSG_ON)
-        xprintf("Model has been successfully processed\n");
+        xprintf("Problem has been successfully solved\n");
 done: /* return to the calling program */
       return mpl->phase;
 }

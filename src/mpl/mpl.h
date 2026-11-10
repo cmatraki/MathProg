@@ -2636,7 +2636,7 @@ struct CODE
 #define O_IFF           392   /* if and only if */
 #define O_COUNT         393   /* count */
 
-#define GMPL_VERSION_STR "GLPK/GMPL 4.65"
+#define GMPL_VERSION_STR "Mathprog 0.1"
       
       OPERANDS arg;
       /* operands that participate in the operation */

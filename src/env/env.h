@@ -29,10 +29,14 @@
 
 #include "stdc.h"
 
+#undef GLP_MAJOR_VERSION
+#define GLP_MAJOR_VERSION 0
+
+#undef GLP_MINOR_VERSION
+#define GLP_MINOR_VERSION 1
+
 typedef struct ENV ENV;
 typedef struct MBD MBD;
-
-//#include "glpk_real.h"
 
 typedef int (*glp_cmpfun)(const void *, const void *);
 extern void glp_qsort(void *base, size_t nel, size_t width, glp_cmpfun cmp);

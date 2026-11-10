@@ -474,8 +474,10 @@ static void print_help(const char *my_name)
 
 static void print_version(int briefly)
 {     /* print version information */
-      xprintf("GLPSOL--GLPK LP/MIP Solver %s\n", glp_version());
+      xprintf("Mathprog standalone interpreter %s\n", glp_version());
       if (briefly) goto done;
+      xprintf("Copyright (C) 2020-2022, 2026 The GNU Mathprog authors.\n"
+         );
       xprintf("Copyright (C) 2000-2020 Free Software Foundation, Inc.\n"
          );
       xprintf("\n");
